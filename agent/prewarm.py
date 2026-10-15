@@ -8,10 +8,10 @@ demo runs of the same flows cost zero requests.
 import json
 import os
 
-from falkordb import FalkorDB
 
 from agent import flows
 from agent.llm import get_llm
+from graph.connection import connect
 
 DEMO_CHANGES = ["CHG-HEADLINE", "CHG0031513"]
 DEMO_SYMPTOM = "ED critical results delayed at H03, H17 and H22"  # ui/index.html defaults
@@ -31,9 +31,10 @@ def main():
     llm = get_llm()
     if llm is None:
         raise SystemExit("no LLM provider configured (see .env.example)")
-    g = FalkorDB(host=os.environ.get("FALKORDB_HOST", "localhost"),
-                 port=int(os.environ.get("FALKORDB_PORT", 6379))).select_graph(os.environ.get("NORTHWIND_GRAPH",
-                                                                                               "northwind"))
+    g = connect().select_graph(os.environ.get("NORTHWIND_GRAPH", "northwind"))  # FALKORDB_* incl. cloud auth
+    if getattr(llm, "cache", None) is not None:  # the model list the cache keys are hashed with (deploy bundle)
+        with open(os.path.join(llm.cache.path, "models.json"), "w") as f:
+            json.dump(llm.models, f)
     before = llm.status().get("remaining")
     out = {"triage": flows.triage(g, llm)["notice"]}
     for c in DEMO_CHANGES:

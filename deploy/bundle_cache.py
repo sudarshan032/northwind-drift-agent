@@ -29,7 +29,8 @@ def main():
         if f.endswith(".json"):
             shutil.copy(os.path.join(a.src, f), os.path.join(OUT, f))
             n += 1
-    models = [m.strip() for m in a.models.split(",") if m.strip()][:MAX_MODELS]
+    used = os.path.join(a.src, "models.json")  # written by agent.prewarm: the list the keys were hashed with
+    models = json.load(open(used)) if os.path.exists(used) else [m.strip() for m in a.models.split(",") if m.strip()][:MAX_MODELS]
     with open(os.path.join(OUT, "models.json"), "w") as f:
         json.dump(models, f)
     print(json.dumps({"cached_answers": n, "models": models, "dir": OUT}))
