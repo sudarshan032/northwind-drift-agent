@@ -84,6 +84,26 @@ def test_job_caps(env):
     assert len(llm.calls) == JOB_CAPS["incident"] == 6
 
 
+def test_incident_wrong_cause_is_discarded(env, caplog):
+    """The model blames CHG0031513 (emr-app, shared by every route) for the headline symptom; the reasoning
+    check keeps only changes on the most specific shared dependency (dc1-host-07: CHG-HEADLINE)."""
+    g, _, _ = env
+    routes = ["ORU-CRIT-H03", "ORU-CRIT-H17", "ORU-CRIT-H22"]
+    shared = [x["component"] for x in Q.shared_dependencies(g, routes)]
+    assert "emr-app" in shared and "dc1-host-07" in shared
+    llm = FakeLLM([{"tool": "shared_dependencies", "input": {"routes": routes}},
+                   {"tool": "changes_on", "input": {"components": shared}},
+                   {"text": "Likely cause: CHG0031513, the planned upgrade of emr-app, which all three routes share."}])
+    out = flows.incident(g, "ED critical results delayed at H03, H17 and H22", llm)
+    assert out["notice"] == flows.WRONG_CAUSE and out["likely_cause"] == ["CHG-HEADLINE"]
+    assert out["answer"].startswith("Most specific shared dependency with a change: dc1-host-07 (CHG-HEADLINE")
+    assert "LLM prose discarded, it names CHG0031513" in caplog.text
+    good = FakeLLM([{"tool": "shared_dependencies", "input": {"routes": routes}},
+                    {"text": "Likely cause: CHG-HEADLINE patches dc1-host-07, which hosts lrc-db-01."}])
+    ok = flows.incident(g, "ED critical results delayed at H03, H17 and H22", good)
+    assert ok["notice"] is None and ok["answer"].startswith("Likely cause: CHG-HEADLINE")
+
+
 def test_incident_final_call_fails_rule_based_summary(env):
     g, _, _ = env
     routes = ["ORU-CRIT-H03", "ORU-CRIT-H17", "ORU-CRIT-H22"]

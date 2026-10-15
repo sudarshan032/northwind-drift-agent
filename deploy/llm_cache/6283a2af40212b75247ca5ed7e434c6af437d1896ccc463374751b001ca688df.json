@@ -1,1 +1,0 @@
-{"text": "", "tool_calls": [{"id": "call-4b28a82c-45ca-4b17-a5af-81ca420f5113", "name": "changes_on", "input": {"components": ["emr-app"]}}], "content": [{"type": "tool_use", "id": "call-4b28a82c-45ca-4b17-a5af-81ca420f5113", "name": "changes_on", "input": {"components": ["emr-app"]}}], "stop_reason": "tool_use", "model": "nvidia/nemotron-3-super-120b-a12b:free"}

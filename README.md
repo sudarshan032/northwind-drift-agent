@@ -35,6 +35,10 @@ AWS ap-south-1, the same region).
   cron (`/cron/reset`, 21:00 UTC, Hobby allows once a day) does the same, which also keeps the free instance from
   being stopped for inactivity.
 - `GET /api/health` reports database connectivity and latency.
+- **No TLS.** FalkorDB Cloud's free tier does not offer TLS, so the live demo connects to the database
+  unencrypted (username and password over plain TCP, Vercel `bom1` to AWS ap-south-1). That is acceptable only
+  because every record is synthetic; for real CMDB data use a tier with TLS (Startup and above) and set
+  `FALKORDB_TLS=true`.
 
 ## Run
 

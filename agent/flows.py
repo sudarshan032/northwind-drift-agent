@@ -326,8 +326,55 @@ INCIDENT_TOOLS = ["search_components", "shared_dependencies", "changes_on", "rad
 def incident(g, symptom, llm=None):
     if llm is None:
         return {"answer": NO_KEY, "steps": [], "paths": []}
-    return run_loop(capped(llm, "incident"), Toolbox(g), INCIDENT, symptom, INCIDENT_TOOLS,
-                    JOB_CAPS["incident"], "incident")
+    box = Toolbox(g)
+    out = run_loop(capped(llm, "incident"), box, INCIDENT, symptom, INCIDENT_TOOLS, JOB_CAPS["incident"], "incident")
+    return check_cause(g, box, out)
+
+
+CHANGE_ID = re.compile(r"\bCHG[-A-Z0-9]*[A-Z0-9]")
+WRONG_CAUSE = ("AI explanation discarded (the change it names does not target the most specific shared "
+               "dependency), showing rule-based explanation")
+
+
+def likely_causes(g, trace):
+    """Changes on the shared dependencies the tools returned, keeping only those whose target is the most
+    specific one (fewest impacted interfaces in the real graph). None when no shared dependency was retrieved."""
+    shared = sorted({x["component"] for t in trace if t["tool"] == "shared_dependencies" and isinstance(t["result"], list)
+                     for x in t["result"] if isinstance(x, dict) and x.get("component")})
+    if not shared:
+        return None
+    changes = Q.changes_on(g, shared, limit=500)
+    if not isinstance(changes, list) or not changes:
+        return []
+    routes = {}
+    for c in changes:
+        if c["target"] not in routes:
+            r = Q.radius(g, c["target"], "real")
+            routes[c["target"]] = r["counts"]["routes"] if r.get("found") else 10**9
+    best = min(routes.values())
+    return [c for c in changes if routes[c["target"]] == best]
+
+
+def check_cause(g, box, out):
+    """Incident reasoning check: the first change the answer names must be one of the likely causes
+    (a change on the most specific shared dependency). Otherwise the prose is discarded and logged."""
+    causes = likely_causes(g, box.trace)
+    if causes is None:
+        return out
+    ids = {c["number"] for c in causes}
+    cause_line = ("Most specific shared dependency with a change: " + "; ".join(
+        f"{c['target']} ({c['number']}, {c['description']}, {c['state']}, {c['start_date']})" for c in causes) + "."
+                  if causes else "No change targets the shared dependencies.")
+    named = CHANGE_ID.findall(out["answer"]) if out["notice"] is None else []
+    if named and named[0] not in ids:
+        G.log.warning("incident: LLM prose discarded, it names %s but the likely cause is %s", named[0],
+                      ", ".join(sorted(ids)) or "none")
+        out = {**out, "notice": WRONG_CAUSE, "answer": G.summarise_trace(box.trace),
+               "mismatches": out["mismatches"] + [f"named cause {named[0]} not in {sorted(ids)}"]}
+    if out["notice"] is not None:  # rule-based answers lead with the most specific cause
+        out = {**out, "answer": f"{cause_line} {out['answer']}"}
+    out["likely_cause"] = sorted(ids)
+    return out
 
 
 # --------------------------------------------------------------------------

@@ -868,6 +868,7 @@ function linkPath(p) {
 }
 function stateLine(r) {
   if (!r.notice) return "";
+  if (r.notice.startsWith("AI explanation discarded (the change")) return `<p class="notice">The AI answer named a change that does not target the most specific shared dependency, so it was discarded. Showing a rule-based summary of what the tools found.</p>`;
   if (r.notice.startsWith("AI explanation discarded")) return `<p class="notice">The AI answer used numbers or names that are not in the evidence, so it was discarded. Showing a rule-based summary of what the tools found.</p>`;
   return `<p class="notice">AI explanation unavailable (free-tier limit or step limit). Showing the rule-based summary of what the tools found.</p>`;
 }

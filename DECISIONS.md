@@ -358,3 +358,7 @@ Clarified, not changed:
 
 ## 86. Cached AI answers for the public demo
 - `deploy/bundle_cache.py` copies `runtime/llm_cache/` (39 answers, 188 KB, synthetic data only) to `deploy/llm_cache/` with `models.json` (the model list the keys were hashed with). On the cloud graph the cached answers hit for both demo change reviews and the demo incident; triage and the demo chat question miss (their prompts changed after the cache was filled, and the OpenRouter daily quota was used up), so those show rule-based text. Refreshing the bundle needs one prewarm with a free key.
+
+## 87. Incident reasoning check
+- After the incident job, the first change the answer names must be a change on the **most specific** shared dependency: the shared dependencies come from the `shared_dependencies` tool results, `changes_on` lists the changes on them, and among the changed targets only those impacting the fewest interfaces in the real graph count as likely causes. A plain "targets a shared dependency" test is not enough: for the headline symptom the shared set has 216 components, including `emr-app`, which every route depends on, so CHG0031513 (an `emr-app` upgrade) would pass; `dc1-host-07` (51 interfaces) is narrower than `emr-app` (115), so only CHG-HEADLINE qualifies.
+- On a mismatch the prose is discarded, the rule-based summary is shown, led by the most specific changed dependency, and the mismatch is logged (`northwind.grounding`). The cached free-model incident answer, which blamed CHG0031513, was removed from the cache and the bundle so it is regenerated.
