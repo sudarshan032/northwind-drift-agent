@@ -27,12 +27,16 @@ tests/test_agent.py::test_chat_cites_and_says_nothing_found PASSED
 tests/test_agent.py::test_no_key_degrades PASSED
 tests/test_agent.py::test_tools_cannot_write_cmdb PASSED
 tests/test_agent.py::test_approve_and_reject PASSED
+tests/test_agent.py::test_write_back_rule PASSED
+tests/test_agent.py::test_layers_tagged PASSED
 tests/test_api.py::test_health_without_key PASSED
 tests/test_api.py::test_change_review_endpoint PASSED
 tests/test_api.py::test_scan_findings_approve_reject PASSED
 tests/test_api.py::test_radius_subgraph_critical_hospitals PASSED
 tests/test_api.py::test_agent_endpoints_with_fake_llm PASSED
 tests/test_api.py::test_ui_served PASSED
+tests/test_api.py::test_sources_endpoint PASSED
+tests/test_api.py::test_findings_show_sources_and_action PASSED
 tests/test_loader.py::test_load_is_idempotent PASSED
 tests/test_loader.py::test_graph_matches_files PASSED
 tests/test_loader.py::test_unidentified_discovered_equals_d6 PASSED
@@ -59,6 +63,17 @@ tests/test_queries.py::test_tool_queries_within_timeout[radius_real] PASSED
 tests/test_queries.py::test_tool_queries_within_timeout[radius_real_emr_db] PASSED
 tests/test_queries.py::test_tool_queries_within_timeout[who_to_page] PASSED
 tests/test_queries.py::test_timeout_returns_clear_result PASSED
+tests/test_sources.py::test_cmdb_export_references_are_sys_ids_and_round_trip PASSED
+tests/test_sources.py::test_ire_payload_and_identification PASSED
+tests/test_sources.py::test_prometheus_text_parses_with_standard_parser PASSED
+tests/test_sources.py::test_apm_counts_errors_p95_days PASSED
+tests/test_sources.py::test_otlp_json_mapping_and_agreement_with_metrics PASSED
+tests/test_sources.py::test_netflow_server_side_by_port_and_aliases PASSED
+tests/test_sources.py::test_oru_crit_database_writer_resolves_to_lrc_db PASSED
+tests/test_sources.py::test_backups_snapshots_and_copies PASSED
+tests/test_sources.py::test_identity_sources PASSED
+tests/test_sources.py::test_itsm_owner_window PASSED
+tests/test_sources.py::test_every_evidence_row_has_source PASSED
 tests/test_views.py::test_determinism PASSED
 tests/test_views.py::test_determinism_across_processes PASSED
 tests/test_views.py::test_every_discoverable_ci_discovered_without_drift PASSED
@@ -82,18 +97,18 @@ tests/test_world.py::test_no_phi_in_central_india PASSED
 tests/test_world.py::test_ids_unique_and_wellformed PASSED
 tests/test_world.py::test_no_personal_data PASSED
 tests/test_world.py::test_headline_chain_in_truth PASSED
-64 passed in 66.33s (0:01:06)
+79 passed in 136.97s (0:02:16)
 ```
 
 ## Graph size
 
-Total nodes **49,063**, total edges **150,400**.
+Total nodes **49,063**, total edges **142,154**.
 
 | Node label | Count |
 |---|---|
 | Application | 270 |
 | BackupTarget | 3 |
-| BusinessService | 62 |
+| BusinessService | 11 |
 | Change | 22 |
 | Component | 21,618 |
 | Database | 79 |
@@ -108,6 +123,7 @@ Total nodes **49,063**, total edges **150,400**.
 | MedicalDevice | 2,275 |
 | NetworkDevice | 9,758 |
 | Role | 20 |
+| ServiceOffering | 51 |
 | Site | 1,857 |
 | StorageArray | 39 |
 | SupportGroup | 64 |
@@ -132,11 +148,11 @@ Total nodes **49,063**, total edges **150,400**.
 | LOCATED_AT | 21,618 |
 | MANAGED_BY | 21,618 |
 | MEMBER_OF | 4,261 |
-| OBSERVED_ACCESS | 18,208 |
-| OBSERVED_BACKUP_TO | 136 |
-| OBSERVED_CALLS | 1,035 |
-| OBSERVED_NETFLOW | 2,626 |
-| OBSERVED_OWNER | 14,457 |
+| OBSERVED_ACCESS | 9,780 |
+| OBSERVED_BACKUP_TO | 400 |
+| OBSERVED_CALLS | 993 |
+| OBSERVED_NETFLOW | 2,628 |
+| OBSERVED_OWNER | 14,415 |
 | OBSERVED_REPLICATES_TO | 12 |
 | REPLICATES_TO | 12 |
 | RUNS_ON | 644 |
@@ -151,7 +167,8 @@ Total nodes **49,063**, total edges **150,400**.
 | applications | 1 | 1 |
 | departments | 0 | 51 |
 | hospitals | 0 | 51 |
-| business services | 1 | 53 |
+| business services | 1 | 2 |
+| service offerings | 0 | 51 |
 | components | 4 | 107 |
 
 - Declared business services: svc-lab-results; applications: lis-reporting.
@@ -172,10 +189,13 @@ Total nodes **49,063**, total edges **150,400**.
   "app": "cardiorisk.example.com",
   "ip": "203.0.113.250",
   "api": "emr-fhir-api",
-  "api_calls": 1686,
+  "api_calls": 18928,
   "days_seen": 8,
   "data": [
    "emr-db-01"
+  ],
+  "sources": [
+   "netflow"
   ]
  }
 ]
