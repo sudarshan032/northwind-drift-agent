@@ -597,13 +597,13 @@ function openGroup(v, el) {
   $$(".node.expanded").forEach((x) => { x.classList.remove("expanded"); x.setAttribute("aria-expanded", "false"); });
   el.classList.add("expanded");
   el.setAttribute("aria-expanded", "true");
-  const rel = (m) => {
-    const es = review.graph.edges.filter((e) => e.source === m || e.target === m);
-    return es.some((e) => e.status === "observed_only") ? `<span class="flag">observed only</span>` : "";
-  };
+  const observed = (m) => review.graph.edges.some((e) => (e.source === m || e.target === m) && e.status === "observed_only");
+  const nObs = v.members.filter(observed).length;
+  const rel = (m) => nObs && nObs < v.members.length && observed(m) ? ` <span class="flag">observed only</span>` : "";
   panel.innerHTML = `<div class="gp-head"><h3>${esc(groupTitle(v))}${v.pattern ? ` (<span class="id">${esc(v.pattern)}</span>)` : ""}</h3>
     <button type="button" class="ghost" id="group-close">Close list</button></div>
-    <ul tabindex="0" aria-label="${esc(groupTitle(v))}">${v.members.map((m) => `<li><span class="id">${esc(m)}</span> ${rel(m)}</li>`).join("")}</ul>`;
+    ${nObs === v.members.length ? `<p class="sub">Every one of them has a dependency that is <span class="flag">observed only, not in the CMDB</span>.</p>` : ""}
+    <ul tabindex="0" aria-label="${esc(groupTitle(v))}">${v.members.map((m) => `<li><span class="id">${esc(m)}</span>${rel(m)}</li>`).join("")}</ul>`;
   panel.hidden = false;
   $("#group-close").onclick = () => { panel.hidden = true; el.classList.remove("expanded"); el.setAttribute("aria-expanded", "false"); el.focus(); };
   panel.scrollIntoView({ block: "nearest", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
@@ -722,12 +722,12 @@ function renderFindings() {
   $("#f-count").textContent = rows.length === findings.length ? plural(findings.length, "finding")
     : `${rows.length} of ${plural(findings.length, "finding")}`;
   $("#findings").innerHTML = rows.length ? rows.map((f) => `<tr tabindex="0" data-id="${esc(f.id)}">
-      <td><span class="risk sev ${esc(f.severity)}">${esc(cap(f.severity))}</span></td>
-      <td><span class="title">${esc(cap(f.kind))}</span><p class="line2">${esc(firstSentence(f.explanation))}</p></td>
-      <td class="id">${esc(affected(f))}</td>
-      <td><span class="chips">${(f.sources || []).filter((s) => s !== "cmdb_export").map((s) => `<span class="chip">${esc(srcName(s))}</span>`).join("")}</span></td>
-      <td><span class="act ${f.action === "ticket" ? "ticket" : "cmdb"}">${esc(ACTION[f.action] || f.action)}</span></td>
-      <td>${esc(cap(f.status))}${f.resolved ? ", resolved" : ""}</td></tr>`).join("")
+      <td data-label="Severity"><span class="risk sev ${esc(f.severity)}">${esc(cap(f.severity))}</span></td>
+      <td data-label="Finding"><span class="title">${esc(cap(f.kind))}</span><p class="line2">${esc(firstSentence(f.explanation))}</p></td>
+      <td class="id" data-label="Affected CI">${esc(affected(f))}</td>
+      <td data-label="Sources"><span class="chips">${(f.sources || []).filter((s) => s !== "cmdb_export").map((s) => `<span class="chip">${esc(srcName(s))}</span>`).join("")}</span></td>
+      <td data-label="Proposed action"><span class="act ${f.action === "ticket" ? "ticket" : "cmdb"}">${esc(ACTION[f.action] || f.action)}</span></td>
+      <td data-label="Status">${esc(cap(f.status))}${f.resolved ? ", resolved" : ""}</td></tr>`).join("")
     : `<tr><td colspan="6" class="empty">${findings.length ? "No findings match these filters." : "No findings yet. Run a drift scan."}</td></tr>`;
   $$("#findings tr[data-id]").forEach((tr) => {
     tr.onclick = () => openFinding(tr.dataset.id);
@@ -749,10 +749,10 @@ function evidenceTable(ev) {
   if (!rows.length) return `<p class="empty">No evidence rows.</p>`;
   const cols = [...new Set(rows.flatMap((r) => Object.keys(r)))].filter((k) => k !== "key");
   const cell = (v) => Array.isArray(v) ? v.map((x) => srcName(x)).join(", ") : typeof v === "object" && v ? JSON.stringify(v) : v;
-  const LIMIT = 12;
+  const LIMIT = 6;
   return `<table class="data plain"><thead><tr><th scope="col">Item</th>${cols.map((c) => `<th scope="col">${esc(cap(c.replace(/_/g, " ")))}</th>`).join("")}</tr></thead>
-    <tbody>${rows.slice(0, LIMIT).map((r) => `<tr><td class="id">${esc((r.key || []).slice(1).join(" to "))}</td>${
-      cols.map((c) => `<td>${esc(cell(r[c]) ?? "")}</td>`).join("")}</tr>`).join("")}</tbody></table>${
+    <tbody>${rows.slice(0, LIMIT).map((r) => `<tr><td class="id" data-label="Item">${esc((r.key || []).slice(1).join(" to "))}</td>${
+      cols.map((c) => `<td data-label="${esc(cap(c.replace(/_/g, " ")))}">${esc(cell(r[c]) ?? "")}</td>`).join("")}</tr>`).join("")}</tbody></table>${
     rows.length > LIMIT ? `<p class="label-muted">And ${rows.length - LIMIT} more rows.</p>` : ""}`;
 }
 function miniPath(f) {
@@ -770,8 +770,8 @@ function ticketPreview(t) {
 function diffTable(diff) {
   const LIMIT = 10;
   return `<table class="data plain diff"><thead><tr><th scope="col">What</th><th scope="col">Before</th><th scope="col">After</th></tr></thead>
-    <tbody>${diff.slice(0, LIMIT).map((d) => `<tr><td>${esc(d.what)}</td><td class="before">${esc(d.before ?? "Not in the CMDB")}</td>
-      <td class="after">${esc(d.after ?? "Removed")}</td></tr>`).join("")}</tbody></table>${
+    <tbody>${diff.slice(0, LIMIT).map((d) => `<tr><td data-label="What">${esc(d.what)}</td><td class="before" data-label="Before">${esc(d.before ?? "Not in the CMDB")}</td>
+      <td class="after" data-label="After">${esc(d.after ?? "Removed")}</td></tr>`).join("")}</tbody></table>${
     diff.length > LIMIT ? `<p class="label-muted">And ${diff.length - LIMIT} more changes of the same kind.</p>` : ""}`;
 }
 async function openFinding(id) {
@@ -824,10 +824,11 @@ async function loadSources() {
   try { sources = await api("/sources"); }
   catch (e) { banner(e.message); tb.innerHTML = ""; return; }
   tb.innerHTML = sources.map((s, i) => `<tr>
-      <th scope="row">${esc(srcName(s.name))}<br><span class="id label-muted">${esc(s.name)}</span></th>
-      <td>${esc(s.reveals)}</td><td>${esc(s.tool)}</td><td class="line2">${esc(s.raw)}</td>
-      <td class="num">${(s.raw_records ?? 0).toLocaleString()}</td><td>${esc(cap(s.window))}</td>
-      <td>${s.sample ? `<button type="button" class="ghost" data-i="${i}">View sample</button>` : ""}</td></tr>`).join("");
+      <th scope="row" data-label="Source"><span>${esc(srcName(s.name))}<br><span class="id label-muted">${esc(s.name)}</span></span></th>
+      <td data-label="What it reveals">${esc(s.reveals)}</td><td data-label="Stands in for">${esc(s.tool)}</td>
+      <td class="line2" data-label="Raw format">${esc(s.raw)}</td>
+      <td class="num" data-label="Records">${(s.raw_records ?? 0).toLocaleString()}</td><td data-label="Time window">${esc(cap(s.window))}</td>
+      <td data-label="">${s.sample ? `<button type="button" class="ghost" data-i="${i}">View sample</button>` : ""}</td></tr>`).join("");
   $$("#sources button[data-i]").forEach((b) => { b.onclick = () => showSample(Number(b.dataset.i)); });
   const want = location.hash.startsWith("#sources=") ? decodeURIComponent(location.hash.slice(9)) : null;
   if (want && $("#drawer").hidden) showSample(sources.findIndex((s) => s.name === want));

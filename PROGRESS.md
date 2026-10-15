@@ -44,3 +44,4 @@ Re-read this file, RUN_PROMPT.md and DATA_SPEC.md after any context compaction.
 - Realism steps A-D done (config, write-back+tickets, offerings, layers; 11 source-native formats + connectors; connector tests; dependency view + Sources tab). Next: README, screenshots, clean-room, REPORT Realism section.
 - 2026-10-16 Realism complete: docs, screenshots, clean-room run 5 (79 passed, VERIFY all passing), REPORT Realism section.
 - 2026-10-16 Grounding + final no-tools loop step; prewarm used 11 requests; master fast-forwarded to realism (0c851fe); fresh clone + docker compose up --build: CHG-HEADLINE high without keys.
+- 2026-10-16 UI redesign (UI_SPEC): tokens, SVG dependency view with grouping, all screens, axe 0 violations, demo recorded; 93 tests.

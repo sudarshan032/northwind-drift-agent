@@ -34,7 +34,13 @@ services:
   api:
     build: .
     environment:
+      # the local stack always uses the bundled FalkorDB, whatever .env holds for a cloud deployment
       FALKORDB_HOST: falkordb
+      FALKORDB_PORT: "6379"
+      FALKORDB_USERNAME: ""
+      FALKORDB_PASSWORD: ""
+      FALKORDB_TLS: "false"
+      DEPLOY_MODE: local
       NORTHWIND_DATA: /app/data
       NORTHWIND_RUNTIME: /app/runtime
     env_file:

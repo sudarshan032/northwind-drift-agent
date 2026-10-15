@@ -144,4 +144,56 @@ skeleton rows, inline notice, error banner, path diagram, before/after diff, mar
 
 ## 7. Self-critique notes
 
-(filled in during the build; see below)
+Each round: screenshots at 1440 and 390 px, light and dark (Playwright, Chromium), checked against UI_SPEC
+(spacing scale, type scale, contrast, label overlap, hierarchy), fixed, repeated.
+
+**Change review, round 1 (1440, light).** The 51 crossing lines are gone: grouping turns the headline into eight
+boxes. Found: the observed-only edge from the interface group to `lrc-db-01` ran straight through `lis-reporting`
+(it skips the Application tier). Fix: every tier-skipping edge gets a placeholder slot in each tier it crosses
+(the standard layered-layout dummy node), so it routes around boxes. Its label was then hidden behind a box; fix:
+the slot that carries the label is as wide as the label. The AI explanation was 3,000 px of raw markdown; fix: a
+small escaped markdown renderer (bold, lists, headings, tables) and a 320-px clamp with "Show the full
+explanation". First version of the clamp used a fade-out gradient; removed (avoid-list: decorative gradients).
+
+**Change review, round 2 (390).** The page was 432 px wide (grid track sized by the comparison table). Fix:
+`minmax(0, 1fr)` tracks and `min-width: 0` on grid items; long identifiers wrap. Tables became unreadable four-column
+grids; fix: below 960 px every data table stacks into label/value rows (`data-label`). The tab bar wrapped "Change
+review" onto two lines; fix: no-wrap tabs in a scrollable bar. The graph becomes the impact path as a list (cause
+first, each hop with its relationship, observed-only hops in red). Hidden dependencies show 3 rows on phones, 8 on
+desktop, with "Show all 51". A screen-reader-only header escaped the table's scroll container and widened the page;
+fix: the table is the positioning context.
+
+**Findings, sources, drawer (1440 and 390).** Row headers rendered as small muted labels; fix: row headers in ink at
+body size. "View sample" wrapped; fix: controls never wrap. Moving from a finding to a source by link left the
+finding drawer open; fix: changing tab closes the drawer. The raw-record pane centred its text vertically; fix:
+sections align to the top. The drawer showed 12 evidence rows before the proposed action; cut to 6 so the diff and
+the approve button are close. The group list repeated "observed only" 51 times; now one sentence when all members
+share it, per row only when mixed. Findings on phones show severity, finding, CI, action and status in a compact
+two-column row (sources and the explanation line are in the drawer).
+
+**Dark.** Same layout; all text pairs re-measured (section 2). Count badges use `--on-accent` on `--signal`
+(5.5:1). Impacted fill `#3A2524` keeps ink at 12:1.
+
+**Checks.** Type: only the six scale sizes (13 to 40) appear; weights 400/600; sentence case throughout. Spacing:
+`grep` finds no px, hex or rgb literal in `app.css` or `app.js`; the one exception is the 960-px media query,
+because CSS cannot read a custom property inside a media condition. Labels: node labels are truncated from the
+measured mono character width (13 px minimum) with the full name in the tooltip; tiers never hold more than 8
+boxes (the rest fold into "N more"), so labels cannot overlap.
+
+**Accessibility (axe-core 4.10.2).** 9 views (both changes, findings, finding drawer, incident result, sources,
+source sample, chat answer, CI view) x light/dark x 1440/390 = 36 runs, plus the expanded group list: 0 violations
+of any impact. Issues found and fixed on the way: `aria-label` on SVG `<g>` without a role (serious) -> boxes and
+lines are `role="img"`, groups `role="button"` with `aria-expanded`; scrollable drawer body and group list not
+focusable (serious) -> `tabindex="0"` with a label; `<header>` inside the drawer and group panel counted as extra
+banner landmarks, `<aside role="dialog">` not allowed, tooltip outside landmarks (moderate/minor) -> plain
+elements inside `main`. Keyboard (Playwright): Tab reaches the skip link, the badge (tooltip on focus), the tabs
+(arrow keys, Home, End move between them), the theme toggle, every change, the Reality / CMDB says toggle, every
+graph box (top tier first) and every line, "Show all", and the explanation toggle; Enter on a group opens its
+list; Enter on a finding row opens the drawer with focus on Close, Tab is trapped in the drawer, Esc closes it and
+returns focus to the row. Focus ring: 2 px `--declared`, offset 2 px (SVG boxes draw the same ring as a stroke).
+
+**Demo check (1440).** Recorded with Playwright: `docs/ui-after/demo.webm` and stills `demo-1` to `demo-6`.
+CHG0031513 (low, "The CMDB matches the evidence for this change. Impact is known: 231 components.") ->
+CHG-HEADLINE (high, verdict, table, eight-box chain) -> the 51-interface group opened -> top finding drawer ->
+"Approve CMDB update" -> toast "CMDB updated" -> CHG-HEADLINE re-reviews as Low risk, "The CMDB matches the evidence
+for this change. Impact is known: 107 components." Every step is readable at 1440 x 900 without zooming.

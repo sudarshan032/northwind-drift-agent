@@ -10,7 +10,7 @@ logins prove. It finds the drift, computes the real blast radius of a change, an
 > are represented. Users are pseudonymous IDs; there are no names, emails or patients. City names are real
 > places used only as locations.
 
-![Change review: CMDB says 0 hospitals, reality says 51](docs/change-review-light.png)
+![Change review of CHG-HEADLINE: "This change reaches 51 hospitals. The CMDB knows about none of them."](docs/ui-after/demo-2-high.png)
 
 **The demo moment.** `CHG-HEADLINE` patches and reboots host `dc1-host-07`. The CMDB says that touches 4
 components and one business service, LIS reporting, so the change is low risk. The graph shows otherwise.
@@ -39,7 +39,7 @@ docker compose up -d falkordb
 uv run python -m ingest.generate --seed 42 --out data/      # raw exports + connectors, ~15 s, ~390 MB
 uv run python -m ingest.connect --data data/                 # re-run the connectors alone
 uv run python -m ingest.load --data data/ --graph northwind --fresh
-uv run python -m pytest -q                                   # 91 tests; agent tests use a scripted fake LLM
+uv run python -m pytest -q                                   # 93 tests; agent tests use a scripted fake LLM
 uv run uvicorn api.main:app --port 8000
 ```
 
@@ -62,7 +62,7 @@ flowchart LR
   A -.-> C[Claude or FakeLLM]
   P[api/main.py] --> A
   P --> Q
-  U[ui/index.html] --> P
+  U[ui/ tokens, app.css, app.js] --> P
   P -->|approve: CMDB patch| CM[CMDB export + declared edges]
   P -->|approve: ticket| T[tickets.jsonl]
 ```
@@ -90,7 +90,7 @@ connector in `ingest/sources/<source>.py` that turns its raw files into normalis
 | `hr_feed` | Workday-style worker export | RaaS CSV (Employee_ID, Worker_Status, Active / Terminated / On_Leave flags, dates; no names) | current state |
 | `itsm_history` | ServiceNow `incident` / `change_request` history | CSV exports with sys_id references and raw state codes | 90 days |
 
-![Sources tab: a Mirth Database Writer connector and the evidence row it produced](docs/sources.png)
+![Sources: a Mirth Database Writer connector and the evidence row it produced](docs/ui-after/sources-sample-1440-light.png)
 
 **HL7 interfaces.** Interfaces are CMDB CIs registered by the integration team in the custom class
 `u_cmdb_ci_hl7_interface` (what real ServiceNow customers do; there is no out-of-the-box HL7 class). What the CMDB
@@ -122,11 +122,11 @@ success in 7 days (cutoff 2026-10-07T23:59:59Z); transient failure window 48 h; 
 
 Comparison change `CHG0031513` (planned upgrade of `emr-app`) touches far more, but the CMDB already records it all, so it is LOW risk: the risk is the gap, not the size.
 
-![Change review of CHG0031513](docs/change-review-low.png)
+![Change review of CHG0031513](docs/ui-after/demo-1-low.png)
 
 A finding shows its evidence sources and whether approval patches the CMDB or raises a ticket:
 
-![D1 finding with sources and proposed CMDB patch](docs/findings.png)
+![D1 finding with its evidence and the proposed CMDB update](docs/ui-after/finding-drawer-1440-light.png)
 
 ## What may be written back to the CMDB
 
@@ -173,12 +173,20 @@ impacted": runs on, stored on, depends on and observed calls propagate; a route 
 source; a business service or offering is impacted when anything it contains is. Health checks, failover links and
 calls into telemetry sinks never carry impact.
 
-**The change review screen** draws a conventional CMDB dependency view: business services at the top, then service
-offerings, interfaces, departments, applications, databases, virtual machines, servers and storage; arrows in CMDB
-direction labelled with the relationship name; impact shown by red fill (toggle Reality / CMDB says), the changed
-component outlined; solid grey = in the CMDB and confirmed, dashed red = observed only, grey dotted = in the CMDB
-with no evidence, blue dashed = failover. Hovering an edge shows its layers, source, counts, days seen and first/last
-seen. The Sources tab shows one raw record per source next to the evidence row it produced.
+**The UI** (`ui/`, designed to `UI_SPEC.md`; plan and self-critique notes in `docs/ui-plan.md`) answers "is this
+change safe, and if not, what is the CMDB missing and who do I warn?". Every screen uses the same two colours for
+the two records of the hospital: blue for what the CMDB declares, red for evidence that contradicts it. The change
+review opens with a verdict sentence computed from the counts ("This change reaches 51 hospitals. The CMDB knows
+about none of them."), then a CMDB-says / Reality / Missing table, the dependency view, hidden dependencies with
+their source, who to warn and the AI (or rule-based) explanation. The dependency view draws tiers from business
+service down to storage array with the tier names in a left gutter and arrows in CMDB direction; more than five
+siblings of one class sharing the same neighbours collapse into one group box ("51 interfaces (ORU-CRIT-H*)"), so the
+headline is an eight-box chain. Solid = in the CMDB and confirmed, dashed red = observed only (always labelled),
+dotted = in the CMDB with no evidence, dash-dot blue = failover; impact is a red fill driven by the Reality / CMDB
+says toggle. Every box and line is keyboard-focusable with a tooltip (source, counts, days seen, first and last
+seen). Findings are a filterable table with a drawer (evidence, path, before/after diff or ticket preview,
+"Approve CMDB update" / "Create ticket"). On phones the graph becomes the impact path as a list. Screenshots of
+every tab, light and dark, 1440 and 390 px: `docs/ui-after/`; the old UI: `docs/ui-before/`.
 
 ## Drift catalogue
 
@@ -288,7 +296,7 @@ completion prices are zero and whose `supported_parameters` include `tools`, and
 none of the listed models qualify it picks the free tool-capable model with the largest context. The kept list
 is sent as OpenRouter's `models` fallback array, so a rate-limited or failing model falls through to the next.
 
-![Header with the selected free model and the remaining requests](docs/free-models.png)
+![Header with the selected free model and the remaining requests](docs/ui-after/demo-1-low.png)
 
 **Limits.** Free models allow 20 requests per minute and 50 per day without purchased credits (1,000 per day with
 at least 10 credits bought). Failed requests count. The agent therefore keeps a persistent daily counter
@@ -323,10 +331,11 @@ only the synthetic Northwind Health data. Do not send real CMDB or patient data 
 | GET | `/health` | Service and graph status |
 | GET | `/llm` | LLM provider, models and remaining free requests today |
 | POST | `/scan` | Run triage |
-| GET | `/findings`, `/findings/{id}` | List findings, or one finding |
+| GET | `/findings`, `/findings/{id}` | List findings, or one finding with its before/after diff |
 | POST | `/findings/{id}/approve`, `/findings/{id}/reject` | Approve or reject a proposed patch |
-| GET | `/changes` | List changes |
-| POST | `/changes/{id}/review` | Change review |
+| GET | `/changes` | List changes with their rule-based risk |
+| POST | `/changes/{id}/review` | Change review (facts, hidden dependencies, dependency view, explanation) |
+| GET | `/components/{name}/review` | What breaks if one CI fails (same shape, no LLM) |
 | POST | `/incident` | Incident investigation |
 | GET | `/radius?component=&layer=declared\|real` | Blast radius |
 | GET | `/subgraph?component=&depth<=2` | Bounded neighbourhood for the UI |
@@ -382,7 +391,7 @@ This project differs in three ways:
 ## Repository
 
 `ingest/` holds the truth model, raw exporters (`export.py`), source modules and connectors (`sources/`), the connector runner (`connect.py`) and the loader. `graph/` holds the impact rules and queries. `agent/` holds the LLM
-interface, tools, findings, approval and flows. `api/` is the FastAPI service. `ui/` is a single page.
+interface, tools, findings, approval and flows. `api/` is the FastAPI service. `ui/` is the UI: `tokens.css` (every colour, size and spacing), `app.css`, `app.js` and `index.html`, no build step.
 `tests/` has 79 tests, the oracle, sanity queries and the VERIFY generator.
 
 `data_demo/` is a committed gzip subset: all 51 hospitals, both data centres, both cloud regions and GCC-HYD.

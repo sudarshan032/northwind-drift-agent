@@ -316,3 +316,31 @@ Clarified, not changed:
 - On any mismatch the prose is discarded, the rule-based text is shown with "AI explanation discarded (numbers or names not in the facts), showing rule-based explanation", the mismatches are logged (`northwind.grounding`) and returned (`mismatches`). Triage checks each finding's explanation separately.
 - Limit: the check is value-level, not context-level; a number that exists in the facts under another label passes (e.g. quoting a declared 0 as a real count). Ambiguity judgements are not checked: they are a fixed decision label plus reasons, and are not shown as an explanation.
 - Live pre-warm: the batched triage reply was cut off at `max_tokens` (the free reasoning model spent part of its budget thinking), so no explanation parsed. `parse_explanations` now keeps every complete `{"id", "text"}` item of a truncated reply, and `max_tokens` is raised from 4,000 to 8,000 (not part of the cache key).
+
+## 78. UI rebuilt without a graph library
+- Cytoscape is dropped. A canvas graph cannot be reached by keyboard; with sibling grouping the dependency view is small (8 boxes for the headline, at most 8 per tier), so hand-placed SVG is enough and every box and line is a focusable element with a tooltip. Layout: tiers top-down (business service to storage array), three barycentre sweeps, and a placeholder slot in every tier a long edge crosses so lines never run through boxes.
+- Files: `ui/tokens.css` (every colour, size, spacing, radius, line, shadow and motion value), `ui/app.css` (token references only), `ui/app.js`, `ui/index.html`. The single literal outside tokens is the 960-px breakpoint (CSS cannot use a custom property in a media condition).
+
+## 79. Grouping rule
+- A box's signature is its class, its impact flags, and the neighbours it shares with other boxes of its class. Six or more boxes with the same signature (UI_SPEC: "more than 5") become one group with a count badge and the members' common name prefix ("51 interfaces (ORU-CRIT-H*)"). Matching on shared neighbours, not on exact parent and child, is what lets 51 parallel chains (offering -> interface -> department) collapse even though each interface has its own offering. A tier with more than 8 boxes after grouping folds the least important into "N more ...".
+- Departments are not drawn: UI_SPEC's tier list has no department tier; they are counted in the comparison table. Medical devices, endpoints and external services sit in the Application tier, network devices in the Server tier, backup targets in the Storage tier.
+
+## 80. API additions for the UI
+- `GET /changes` returns the rule-based risk per change (cached until an approval or rejection) for the change list.
+- The review graph is now the whole declared and real radius (impact-layer pairs mapped to their CMDB / evidence edges with one set query, 0.2 s for the headline, 0.4 s for a 785-CI radius) instead of a few sampled paths, so the UI can group siblings; `paths` keeps one real and one declared path for the phone list. `hidden_dependencies` carries each undocumented edge's source, connector, days seen and first/last seen.
+- `GET /components/{name}/review`: what breaks if one CI fails, in the change-review shape and without the LLM (chat links open it).
+- `GET /findings/{id}` adds `diff` rows (what, before, after); attribute "before" values come from the CMDB record.
+- Incident and chat steps add `found` (one line per tool result) and the answer's `cis` (graph names it mentions).
+- Bug fix: `radius` returned not-found for an existing CI with no impact edges, which crashed the review of three changes on network devices (`CHG0031526`, `CHG0031444`, `CHG0031411`). It now returns an empty radius.
+
+## 81. Removed from the UI
+- The hospital map, the critical-nodes list and the notifications feed are not in UI_SPEC's change-review layout and were removed from the screen. Their endpoints (`/hospitals`, `/critical`, `/notifications`) stay.
+
+## 82. Copy and states
+- Group label "51 interfaces (ORU-CRIT-H*)" instead of UI_SPEC's example "51 interfaces · ORU-CRIT-*": the avoid-list bans middle-dot strings, and the pattern is the members' real common prefix.
+- Dates use the browser locale with the time zone shown (`Intl.DateTimeFormat`, `timeZoneName: short`).
+- Errors: an unreachable API and a failing FalkorDB get different sentences, both saying to start the stack with `docker compose up`. Loading uses static skeleton blocks, never a page spinner or animation.
+- Long AI explanations are clamped to 320 px with "Show the full explanation"; the fallback is labelled "Rule-based explanation" with the free-tier notice inline.
+
+## 83. Test changes
+- `test_ui_served` asserted Cytoscape and `#cy`, which no longer exist; it now checks the shell, the token file (light, dark, `data-theme`, reduced motion), the component CSS and the script. New `test_ui_review_additions` covers every API addition above, and the incident test checks `found` and `cis`.

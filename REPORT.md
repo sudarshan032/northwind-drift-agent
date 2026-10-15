@@ -493,3 +493,80 @@ All URLs and quoted field definitions are in `RESEARCH_NOTES.md` R9–R18.
 - Approvals change the generated CMDB export and reset on reseed; there is no real ticketing integration.
 - The live-LLM check is still pending: no Anthropic API key is available on this host or in the credential vault, so
   all agent tests use the scripted fake LLM.
+
+## UI redesign (UI_SPEC run, branch `ui-redesign`)
+
+### What changed
+
+- **Design system.** `ui/tokens.css` holds every colour, size, spacing, radius, line, shadow and motion value
+  (light, dark via `prefers-color-scheme`, manual `data-theme` toggle, reduced motion). Colour carries one idea:
+  blue for what the CMDB declares, red for evidence that contradicts it; everything else is neutral. Type is
+  Atkinson Hyperlegible Next for the UI and Atkinson Hyperlegible Mono for CI names, change numbers and IPs only,
+  on a 13/15/17/21/28/40 scale. Borders instead of shadows; radius 6 for controls, 10 for panels, 0 for the graph and
+  tables. No literal outside the token file except the 960-px breakpoint.
+- **Change review.** A list of upcoming and past changes with risk labels replaces the dropdown and the Review
+  button. The verdict sentence is computed from the counts ("This change reaches 51 hospitals. The CMDB knows about
+  none of them."; low-risk: "The CMDB matches the evidence for this change. Impact is known: 231 components."). A
+  CMDB says / Reality / Missing table replaces the number tiles. Then the dependency view, hidden dependencies with
+  their source, who to warn, and the AI explanation or a clearly labelled rule-based one.
+- **Dependency view.** Hand-placed SVG instead of Cytoscape: tiers with names in a left gutter, CMDB-direction
+  arrows, siblings grouped ("51 interfaces (ORU-CRIT-H*)", click or Enter lists them), dashed red observed-only
+  edges always labelled, dotted declared-only, dash-dot failover, red fill driven by the Reality / CMDB says toggle,
+  tooltips on hover and focus. The headline went from 51 crossing lines to an eight-box chain. On phones it becomes
+  the impact path as a list. Chat and incident answers link to `#ci=name` (what breaks if that CI fails), with the
+  cited path highlighted.
+- **Findings** are a table filtered by severity, drift type, source, action and status; a drawer shows the
+  explanation, evidence, path, the before/after diff of a CMDB update or the ticket preview, and "Approve CMDB
+  update" / "Create ticket" / "Reject", confirmed by a toast with the same verb. **Incident** shows a numbered list
+  of what the agent checked, which query and what it found, then the conclusion. **Sources** opens a raw record
+  beside its evidence row. **Chat** is a single conversation column.
+- **API additions** (DECISIONS #80): risk per change, hidden dependencies with sources, the whole radius for
+  grouping, a CI-failure review, finding diffs, per-step results. A backend bug surfaced: reviews of changes on
+  network devices crashed (`radius` said not-found for a CI with no impact edges); fixed.
+- Removed from the screen: hospital map, critical nodes, notifications feed (not in UI_SPEC; endpoints remain).
+
+### Process
+
+Before-screenshots of every tab at 1440 and 390 px: `docs/ui-before/`. Plan with tokens, wireframes, components
+and the avoid-list review: `docs/ui-plan.md` (section 6 lists what was revised: no KPI tiles, no all-caps headers,
+no middle-dot strings, cards only where they mean something, static skeletons). Four self-critique rounds are
+written up in `docs/ui-plan.md` section 7. After-screenshots of every tab, light and dark, 1440 and 390 px, plus the
+expanded group, the finding drawer, the source sample and the CI view: `docs/ui-after/` (38 screenshots plus 6 demo stills). The README
+screenshots now point at `docs/ui-after/`; the old `docs/*.png` files referenced in earlier sections of this report
+were replaced.
+
+### Accessibility results
+
+- axe-core 4.10.2 on 9 views x light/dark x 1440/390 (36 runs) plus the expanded group list: **0 violations at any
+  impact level** (serious and critical issues found during the build, and how they were fixed, are in
+  `docs/ui-plan.md`).
+- Contrast: every text/background token pair measured with the WCAG formula; body text at least 4.5:1 in both
+  themes (lowest: caution on surface 5.0:1 light; signal on the impacted tint 4.9:1), graph lines at least 4.3:1.
+  Risk and severity always have a text label; edge types differ by dash pattern as well as colour.
+- Keyboard: every action is reachable (tabs with arrow keys, change list, toggle, every graph box and line, group
+  lists, findings rows, drawer with focus trap, Esc, focus returned). Visible focus ring 2 px `--declared`, offset
+  2 px.
+
+### Demo check
+
+Recorded at 1440 x 900 (`docs/ui-after/demo.webm`, stills `demo-1` to `demo-6`): CHG0031513 low -> CHG-HEADLINE
+high -> 51-interface group expanded -> top finding -> "Approve CMDB update" -> toast "CMDB updated" ->
+CHG-HEADLINE re-reviews as low ("Impact is known: 107 components."). Readable without zooming. The data and graph
+were regenerated afterwards so the repository's demo state is unchanged.
+
+### Tests
+
+93 passed (`pytest -q`). `test_ui_served` checked for Cytoscape and was rewritten for the new files; a new test
+covers every API addition; the incident test checks the new step results.
+
+### Not done or different from the spec
+
+- Departments are not a graph tier (UI_SPEC's tier list has none); they are counted in the comparison table.
+- Group label uses parentheses, not a middle dot, and the real common prefix (`ORU-CRIT-H*`).
+- Medical devices, endpoints and external services share the Application tier; network devices the Server tier.
+- Dates follow the browser locale ("Sat, Oct 17, 03:30 PM GMT+5:30"), not the exact "Fri 17 Oct, 03:00 Pacific"
+  wording.
+- AI text quality is the free model's: the cached incident answer names the wrong change (`CHG0031513`) while every
+  name and number in it is real, so the grounding check passes it. Change review risk, verdict and table never use
+  the LLM.
+- Screenshots were taken with Chromium only; no Safari or Firefox pass.
