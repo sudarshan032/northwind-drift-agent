@@ -21,3 +21,7 @@ Re-read this file, RUN_PROMPT.md and DATA_SPEC.md after any context compaction.
 ## M6 Research — in progress
 - RESEARCH_NOTES.md written; fixes applied (imaging ranges, fleets, HL7 volumes/mix).
 - Next: independent spec-conformance review (subagent) x2, fix findings.
+- Review #1 (20 findings) and review #2 (no high findings) done; fixes in DECISIONS #33, #34. 28 tests pass.
+
+## M7 Clean-room verification — in progress
+- Script: scratchpad cleanroom.sh (down -v, delete data/.venv/caches, uv sync --frozen, generate, pytest, load twice, sanity queries, hashes).
