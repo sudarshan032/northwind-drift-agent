@@ -88,7 +88,7 @@ Each entry: question, options, choice, why.
 - WA + OR sites, DC-PRI, DC-DR, both cloud regions, GCC-HYD, external SaaS (DATA_SPEC 10). Site-specific interfaces follow their hospital. The drift plan is re-drawn on the subset with the same catalogue; H44 (Montana) is outside it, so the subset has 4 D13 cases instead of 5 and 24 ORU-CRIT routes in the headline. Full-world tests are the authority.
 
 ## 25. Identity sizing
-- Demo-site users ≈ 3–4 per workstation per department (shared clinical workstations), giving ~2,500 at H03, ~800 at H17, ~200 at H44, 300 at GCC-HYD. 3% of accounts are `disabled` (HR status from `ext-erp-hr-saas`) and never log in, except D12(b). Non-demo groups carry `member_count` only.
+- Demo-site users ≈ 3–4 per workstation per department (shared clinical workstations), giving 2,655 at H03, 1,088 at H17, 157 at H44 and 300 at GCC-HYD. 3% of accounts are `disabled` (HR status from `ext-erp-hr-saas`) and never log in, except D12(b). Non-demo groups carry `member_count` only.
 
 ## 26. Loader identification
 - Discovery identification (serial, else hostname + IP) and flow endpoint resolution (name/sys_id, else unique IP) are computed in Python in the loader, then written as `IDENTIFIES {matched_by}` edges and `Component.aliases`. Discovered attributes stay on `:Discovered`. Unresolvable flow endpoints are counted and reported (zero in the generated data).
@@ -110,3 +110,21 @@ Each entry: question, options, choice, why.
 
 ## 32. External addresses
 - SaaS / clearinghouse endpoints use the RFC 5737 documentation range 203.0.113.0/24; everything internal is RFC 1918.
+
+## 33. Review #1 fixes and clarifications
+Independent fresh-context review (DATA_SPEC + RUN_PROMPT + code only) found 20 items. Fixed:
+- Endpoint totals now split across departments by largest remainder, so site totals stay inside the DATA_SPEC ranges (rounding had pushed some clinics to 6 printers / 9 workstations).
+- `test_inventory_ranges` now holds the section 2 table as literals for every row and site type (imaging rows = research ranges) and checks the 30% clinic X-ray share.
+- 9.2 additionally asserts every PHI data holder reaches DC-DR **and** `bkp-vault-usw-01`, and declared `Backed up by` pairs equal observed backup-job pairs.
+- Size report adds CI counts per site type and declared edge totals; the loader test prints full graph counts.
+- ADT event split now draws errors per split (was copying the hour's errors into each split).
+- DICOM interfaces: `source` = site medical-device segment (many modalities), `via` = receiving PACS node (DICOM does not go through the HL7 engine).
+- Critical access hospitals get a `VITALS-Hxx` route from their monitor gateway device via the interface engine. They have no `DICOM-FWD` (no PACS cache: modalities store straight to central PACS) and their `LAB-RES` source is `labmw-central` (small sites commonly use centrally hosted middleware).
+- SSO dependencies added for `gcc-automation-app`, `gcc-devtest-app`, `pacs-vna-01`. DR standbys (`ie-app-dr`, `pacs-vna-dr`) keep none: adding failover links would change the D3 count of exactly 4.
+- GCC-HYD has 8 individual printers; non-acute endpoints are laptops/tablets; cloud storage records `raid_level=RAID6` (provider-managed, RAID6-equivalent).
+- 20 clinic user subnets (every 50th clinic) are `scanned=false`, so the ghost rule's coverage condition is exercised.
+- D6 `ci_ids` hold the shadow hostname; D13 `sources` reflect the actual channel.
+- Loader test hides `truth/` while loading (enforces "never reads world.json").
+- Oracle documents why the 48-hour transient rule is subsumed by "no success in 7 days".
+- Group ids follow the spec example (`grp-H03-LAB-tech`, `grp-H17-RAD-tech`).
+Kept, with reasons (also DECISIONS #9, #10, #21, #29, #31): Located at / Managed by as reference columns; app chains at array-less sites end at a physical host (DAS); research-backed imaging ranges and bedside fleets; no separate datastore CI class (DATA_SPEC section 8 has no Datastore label: hosts `STORES_ON` arrays directly, DBs `STORES_ON` the array holding their volume); availability zones labelled Host; Site `CONTAINS` Department; OML^O21 for lab orders and the extra SIU scheduling feed (research R3); portal and RTLS FHIR APIs call the EMR directly (API calls, not engine-hosted HL7 routes); demo subset has 4 D13 cases (H44 is outside WA/OR).

@@ -74,7 +74,8 @@ def read_jsonl(path):
 class Loader:
     def __init__(self, data, graph, host="localhost", port=6379, batch=BATCH):
         self.data = data
-        self.g = FalkorDB(host=host, port=port).select_graph(graph)
+        self.db = FalkorDB(host=host, port=port)
+        self.g = self.db.select_graph(graph)
         self.batch = batch
         self.unresolved = Counter()
 
@@ -330,8 +331,13 @@ def main():
     ap.add_argument("--host", default=os.environ.get("FALKORDB_HOST", "localhost"))
     ap.add_argument("--port", type=int, default=int(os.environ.get("FALKORDB_PORT", 6379)))
     ap.add_argument("--batch", type=int, default=BATCH)
+    ap.add_argument("--fresh", action="store_true",
+                    help="delete the graph first (MERGE never removes nodes from an older data set)")
     a = ap.parse_args()
     ld = Loader(a.data, a.graph, a.host, a.port, a.batch)
+    if a.fresh and a.graph in ld.db.list_graphs():
+        ld.g.delete()
+        ld.g = ld.db.select_graph(a.graph)
     secs = ld.load()
     res = ld.counts()
     res["load_seconds"] = secs

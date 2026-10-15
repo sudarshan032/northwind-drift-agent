@@ -173,7 +173,7 @@ def plan_drift(world):
         p["discovery_add"].append({"serial_number": serial, "hostname": host, "ip_address": ip, "os": os_,
                                    "os_version": ver, "model": model, "manufacturer": vendor, "site": site,
                                    "last_scanned": end.replace("23:59:59", "18:00:00"), "method": method})
-        entry(f"D6-{i:02d}", "D6", f"Scanner found {host} ({model}) at {site} {ip}; no CMDB record.", [],
+        entry(f"D6-{i:02d}", "D6", f"Scanner found {host} ({model}) at {site} {ip}; no CMDB record.", [host],
               ["scan_results", "cmdb_ci"], "shadow_it", [["shadow", host, ip]])
 
     # ---- D7: CMDB CIs never discovered (ghosts) in scanned subnets
@@ -213,7 +213,8 @@ def plan_drift(world):
             a = alias[1] if where == "both" else alias
             p["flow_alias"][name] = a
             pairs.append([a, name])
-        d13_entries.append((name, where, pairs))
+        d13_entries.append((name, {"discovery": ["scan_results", "cmdb_ci"], "netflow": ["netflow_hourly", "cmdb_ci"],
+                                   "both": ["scan_results", "netflow_hourly", "cmdb_ci"]}[where], pairs))
 
     # ---- D8: attribute drift CMDB vs discovery
     cands = sorted(c["name"] for c in world["cis"] if c["discoverable"] and c["label"] in
@@ -276,7 +277,7 @@ def plan_drift(world):
     act = lambda g: sorted(x for x in grp.get(g, []) if ubyid[x]["status"] == "active")  # noqa: E731
     clin = act("grp-hyd-clinical-apps-support")[-1]
     disabled = sorted(u["id"] for u in users if u["site"] == "H03" and u["status"] == "disabled")[0]
-    radtech = act("grp-H17-RAD-rad-tech")[0]
+    radtech = act("grp-H17-RAD-tech")[0]
     cloudops = act("grp-hyd-cloud-ops")[-1]
     d12 = [(clin, "emr-db-01", "admin", ["2026-10-11T21:10:00Z", "2026-10-11T21:40:00Z",
                                          "2026-10-12T20:55:00Z", "2026-10-12T21:30:00Z"],
@@ -294,9 +295,9 @@ def plan_drift(world):
         entry(f"D12-{i:02d}", "D12", desc, [target], ["access_log", "identity", "change_request"],
               "access_drift", [["access", uid, target]])
 
-    for i, (name, where, pairs) in enumerate(d13_entries, 1):
-        entry(f"D13-{i:02d}", "D13", f"{name} appears as {', '.join(a for a, _ in pairs)} in {where}; same "
-              "serial / IP, same CI.", [name], ["scan_results", "netflow", "cmdb_ci"], "resolve_as_same_ci", pairs)
+    for i, (name, sources, pairs) in enumerate(d13_entries, 1):
+        entry(f"D13-{i:02d}", "D13", f"{name} appears as {', '.join(a for a, _ in pairs)} in "
+              f"{' and '.join(sources[:-1])}; same serial / IP, same CI.", [name], sources, "resolve_as_same_ci", pairs)
     return p
 
 

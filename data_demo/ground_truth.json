@@ -700,7 +700,9 @@
   "type": "D5"
  },
  {
-  "ci_ids": [],
+  "ci_ids": [
+   "WIN-FILESRV01"
+  ],
   "description": "Scanner found WIN-FILESRV01 (OptiPlex 9020 (repurposed)) at C0108 172.16.107.40; no CMDB record.",
   "expected_finding": "shadow_it",
   "finding_keys": [
@@ -718,7 +720,9 @@
   "type": "D6"
  },
  {
-  "ci_ids": [],
+  "ci_ids": [
+   "NAS-BACKUP"
+  ],
   "description": "Scanner found NAS-BACKUP (DiskStation DS920+) at C0266 172.17.9.41; no CMDB record.",
   "expected_finding": "shadow_it",
   "finding_keys": [
@@ -736,7 +740,9 @@
   "type": "D6"
  },
  {
-  "ci_ids": [],
+  "ci_ids": [
+   "RADWS-3D-07"
+  ],
   "description": "Scanner found RADWS-3D-07 (Precision 7920 (3D imaging workstation)) at H03 10.103.8.240; no CMDB record.",
   "expected_finding": "shadow_it",
   "finding_keys": [
@@ -754,7 +760,9 @@
   "type": "D6"
  },
  {
-  "ci_ids": [],
+  "ci_ids": [
+   "AP-ROGUE-4F"
+  ],
   "description": "Scanner found AP-ROGUE-4F (Archer AX55) at H03 10.103.0.240; no CMDB record.",
   "expected_finding": "shadow_it",
   "finding_keys": [
@@ -772,7 +780,9 @@
   "type": "D6"
  },
  {
-  "ci_ids": [],
+  "ci_ids": [
+   "SW-UNMANAGED"
+  ],
   "description": "Scanner found SW-UNMANAGED (TL-SG108) at C0078 172.16.77.42; no CMDB record.",
   "expected_finding": "shadow_it",
   "finding_keys": [
@@ -790,7 +800,9 @@
   "type": "D6"
  },
  {
-  "ci_ids": [],
+  "ci_ids": [
+   "US-PORTABLE-02"
+  ],
   "description": "Scanner found US-PORTABLE-02 (Vscan Air) at C0068 172.16.67.70; no CMDB record.",
   "expected_finding": "shadow_it",
   "finding_keys": [
@@ -808,7 +820,9 @@
   "type": "D6"
  },
  {
-  "ci_ids": [],
+  "ci_ids": [
+   "h17-nas-radiology"
+  ],
   "description": "Scanner found h17-nas-radiology (DiskStation DS1522+) at H17 10.117.1.240; no CMDB record.",
   "expected_finding": "shadow_it",
   "finding_keys": [
@@ -826,7 +840,9 @@
   "type": "D6"
  },
  {
-  "ci_ids": [],
+  "ci_ids": [
+   "raspberrypi"
+  ],
   "description": "Scanner found raspberrypi (Raspberry Pi 4 Model B) at DC-PRI 10.10.4.250; no CMDB record.",
   "expected_finding": "shadow_it",
   "finding_keys": [
@@ -844,7 +860,9 @@
   "type": "D6"
  },
  {
-  "ci_ids": [],
+  "ci_ids": [
+   "dc1-vm-poc-ai01"
+  ],
   "description": "Scanner found dc1-vm-poc-ai01 (VMware Virtual Platform) at DC-PRI 10.10.7.240; no CMDB record.",
   "expected_finding": "shadow_it",
   "finding_keys": [
@@ -862,7 +880,9 @@
   "type": "D6"
  },
  {
-  "ci_ids": [],
+  "ci_ids": [
+   "VENDOR-RAS-GW"
+  ],
   "description": "Scanner found VENDOR-RAS-GW (Remote service gateway) at H03 10.103.8.241; no CMDB record.",
   "expected_finding": "shadow_it",
   "finding_keys": [
@@ -1103,7 +1123,7 @@
   "ci_ids": [
    "c0085-acc-01"
   ],
-  "description": "CMDB serial_number of c0085-acc-01 is FOCLUT8S253; discovery reports FOCLUT8S2KM.",
+  "description": "CMDB serial_number of c0085-acc-01 is FOCMSG23253; discovery reports FOCMSG235JG.",
   "expected_finding": "attribute_drift",
   "finding_keys": [
    [
@@ -1123,7 +1143,7 @@
   "ci_ids": [
    "c0079-acc-01"
   ],
-  "description": "CMDB serial_number of c0079-acc-01 is FOCHT04S426; discovery reports FOCHT04SL22.",
+  "description": "CMDB serial_number of c0079-acc-01 is FOC2KWB8426; discovery reports FOC2KWB8254.",
   "expected_finding": "attribute_drift",
   "finding_keys": [
    [
@@ -1352,7 +1372,7 @@
   "finding_keys": [
    [
     "access",
-    "u-h17-00343",
+    "u-h17-00333",
     "pharm-app"
    ]
   ],
@@ -1389,7 +1409,7 @@
   "ci_ids": [
    "dc1-vm-lis02"
   ],
-  "description": "dc1-vm-lis02 appears as LIS-PROD-02.nw.local in discovery; same serial / IP, same CI.",
+  "description": "dc1-vm-lis02 appears as LIS-PROD-02.nw.local in scan_results; same serial / IP, same CI.",
   "expected_finding": "resolve_as_same_ci",
   "finding_keys": [
    [
@@ -1400,7 +1420,6 @@
   "id": "D13-01",
   "sources": [
    "scan_results",
-   "netflow",
    "cmdb_ci"
   ],
   "type": "D13"
@@ -1409,7 +1428,7 @@
   "ci_ids": [
    "h03-ct-02"
   ],
-  "description": "h03-ct-02 appears as H03CT2 in netflow; same serial / IP, same CI.",
+  "description": "h03-ct-02 appears as H03CT2 in netflow_hourly; same serial / IP, same CI.",
   "expected_finding": "resolve_as_same_ci",
   "finding_keys": [
    [
@@ -1419,8 +1438,7 @@
   ],
   "id": "D13-02",
   "sources": [
-   "scan_results",
-   "netflow",
+   "netflow_hourly",
    "cmdb_ci"
   ],
   "type": "D13"
@@ -1429,7 +1447,7 @@
   "ci_ids": [
    "h17-core-01"
   ],
-  "description": "h17-core-01 appears as H17-CORE-SW01 in discovery; same serial / IP, same CI.",
+  "description": "h17-core-01 appears as H17-CORE-SW01 in scan_results; same serial / IP, same CI.",
   "expected_finding": "resolve_as_same_ci",
   "finding_keys": [
    [
@@ -1440,7 +1458,6 @@
   "id": "D13-03",
   "sources": [
    "scan_results",
-   "netflow",
    "cmdb_ci"
   ],
   "type": "D13"
@@ -1449,7 +1466,7 @@
   "ci_ids": [
    "dc1-host-12"
   ],
-  "description": "dc1-host-12 appears as DC1ESX12.nw.local in discovery; same serial / IP, same CI.",
+  "description": "dc1-host-12 appears as DC1ESX12.nw.local in scan_results; same serial / IP, same CI.",
   "expected_finding": "resolve_as_same_ci",
   "finding_keys": [
    [
@@ -1460,7 +1477,6 @@
   "id": "D13-04",
   "sources": [
    "scan_results",
-   "netflow",
    "cmdb_ci"
   ],
   "type": "D13"

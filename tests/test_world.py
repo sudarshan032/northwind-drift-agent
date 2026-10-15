@@ -4,7 +4,7 @@ footprint and hygiene checks."""
 import re
 from collections import Counter
 
-from ingest.world import CLASS_LABEL, INVENTORY
+from ingest.world import CLASS_LABEL
 
 
 def _idx(world):
@@ -69,21 +69,43 @@ def test_medical_devices_on_medical_segment(world):
     assert 0.35 <= share <= 0.45, share
 
 
+# DATA_SPEC section 2 table as literals. Imaging rows (ct, mri, xray, us) use the
+# research-backed ranges that replaced the table values (RESEARCH_NOTES R2, DECISIONS #31).
+SPEC_INVENTORY = {
+    #                    wan     fw      core    access    medseg  servers   array   ct      mri     xray     us       mon      pump    lab       ws          prn
+    "large_hospital":   [(2, 2), (2, 2), (4, 6), (30, 50), (1, 1), (10, 14), (1, 1), (3, 5), (2, 4), (8, 15), (10, 20), (6, 10), (1, 1), (12, 20), (600, 1000), (100, 200)],
+    "community_hospital": [(2, 2), (1, 1), (2, 2), (10, 20), (1, 1), (4, 7), (0, 1), (1, 2), (1, 1), (3, 6), (4, 8), (2, 4), (1, 1), (4, 8), (150, 350), (30, 60)],
+    "critical_access_hospital": [(1, 1), (1, 1), (1, 1), (3, 6), (1, 1), (1, 2), (0, 0), (0, 1), (0, 0), (1, 2), (1, 1), (1, 1), (0, 1), (1, 3), (40, 80), (8, 15)],
+    "clinic":           [(1, 1), (1, 1), (1, 1), (1, 2), (0, 1), (0, 0), (0, 0), (0, 0), (0, 0), (0, 1), (0, 1), (0, 0), (0, 0), (0, 2), (10, 30), (2, 5)],
+    "non_acute":        [(1, 1), (0, 1), (0, 0), (0, 1), (0, 0), (0, 0), (0, 0), (0, 0), (0, 0), (0, 0), (0, 0), (0, 0), (0, 0), (0, 0), (3, 15), (1, 3)],
+}
+ROWS = ["wan", "fw", "core", "access", "medseg", "servers", "array", "ct", "mri", "xray", "us", "mon", "pump",
+        "lab", "ws", "prn"]
+PATTERNS = {"wan": r"-wan-\d+$", "fw": r"-fw-\d+$", "core": r"-core-\d+$", "access": r"-acc-\d+$",
+            "medseg": r"-medseg$", "servers": r"^[hcn]\d+-(vm|srv)-\d+$", "array": r"^arr-[hcn]\d+-",
+            "ct": r"-ct-\d+$", "mri": r"-mri-\d+$", "xray": r"-xray-\d+$", "us": r"-us-\d+$",
+            "mon": r"-mon-\d+$", "pump": r"-pump-\d+$", "lab": r"-lab-\d+$"}
+
+
 def test_inventory_ranges(world):
-    tier = {"large_hospital": "L", "community_hospital": "C", "critical_access_hospital": "A"}
-    pat = {"ct": r"-ct-\d+$", "mri": r"-mri-\d+$", "xray": r"-xray-\d+$", "us": r"-us-\d+$",
-           "lab": r"-lab-\d+$", "mon": r"-mon-\d+$", "access": r"-acc-\d+$", "core": r"-core-\d+$"}
+    """Every row of the DATA_SPEC section 2 table, for every site type."""
     per = Counter()
     for c in world["cis"]:
-        for k, p in pat.items():
+        for k, p in PATTERNS.items():
             if re.search(p, c["name"]):
                 per[(c["site"], k)] += 1
+        n = int(c["count"]) if c["count"] != "" else 1
+        if c["class"] == "cmdb_ci_computer" or c["name"].endswith("-ws"):
+            per[(c["site"], "ws")] += n
+        if c["class"] == "cmdb_ci_printer" or c["name"].endswith("-prn"):
+            per[(c["site"], "prn")] += n
     for s in world["sites"]:
-        if s["type"] in tier:
-            inv = INVENTORY[tier[s["type"]]]
-            for k in pat:
-                lo, hi = inv[k]
+        if s["type"] in SPEC_INVENTORY:
+            for k, (lo, hi) in zip(ROWS, SPEC_INVENTORY[s["type"]]):
                 assert lo <= per[(s["id"], k)] <= hi, (s["id"], k, per[(s["id"], k)])
+    clinics = [s["id"] for s in world["sites"] if s["type"] == "clinic"]
+    share = sum(per[(c, "xray")] for c in clinics) / len(clinics)
+    assert 0.25 <= share <= 0.35, share  # "30% of clinics" have X-ray
 
 
 def test_vms_run_on_hosts_at_same_site(world):

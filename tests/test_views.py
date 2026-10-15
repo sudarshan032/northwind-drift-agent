@@ -41,6 +41,24 @@ def test_views_agree_without_drift(clean_data):
         assert json.load(f) == []
 
 
+def test_protection_and_backups_without_drift(clean_data):
+    """9.2 (protection part): every PHI data holder reaches DC-DR and the
+    immutable cloud vault, and every declared `Backed up by` has jobs to that
+    target (and nothing is backed up elsewhere)."""
+    cis = {r["name"]: r for r in _csv(os.path.join(clean_data, "cmdb", "cmdb_ci.csv"))}
+    reach = oracle.protection_paths(clean_data)
+    holders = [n for n, r in cis.items() if r["handles_phi"] == "true" and r["backup_offsite"] == "true"]
+    assert len(holders) > 50
+    for n in holders:
+        sites = {cis[x]["site"] for x in reach.get(n, ()) if x in cis}
+        assert "DC-DR" in sites and "bkp-vault-usw-01" in reach[n], n
+    declared = {(r["parent"], r["child"]) for r in _csv(os.path.join(clean_data, "cmdb", "cmdb_rel_ci.csv"))
+                if r["type"] == "Backed up by::Backs up"}
+    with open(os.path.join(clean_data, "observed", "backup_jobs.jsonl")) as f:
+        observed = {(j["object"], j["target"]) for j in map(json.loads, f)}
+    assert declared == observed and declared
+
+
 def test_drift_catalogue_exact(drift_data):
     """9.3: findings equal the ground truth exactly, by type and count."""
     gt, must, must_not, aliases = oracle.expected(drift_data)
@@ -111,8 +129,14 @@ def size_report(data):
 def test_size_report(drift_data):
     """9.6: print counts; fail only outside 30k-300k nodes (RUN_PROMPT 4.5)."""
     rep = size_report(drift_data)
-    sites = Counter(r["type"] for r in _csv(os.path.join(drift_data, "cmdb", "cmn_location.csv")))
-    print("\nSIZE REPORT", json.dumps({**rep, "sites_by_type": dict(sites)}, indent=1, sort_keys=True))
+    locs = {r["sys_id"]: r["type"] for r in _csv(os.path.join(drift_data, "cmdb", "cmn_location.csv"))}
+    cis = _csv(os.path.join(drift_data, "cmdb", "cmdb_ci.csv"))
+    extra = {"sites_by_type": dict(Counter(locs.values())),
+             "cis_by_site_type": dict(Counter(locs[c["site"]] for c in cis)),
+             "declared_edges": rep["cmdb_relationships"] + sum(1 for c in cis for k in ("site", "support_group",
+                                                                                     "department") if c[k])}
+    print("\nSIZE REPORT", json.dumps({**rep, **extra}, indent=1, sort_keys=True))
+    print("(observed and total edge counts are printed by the loader / test_loader)")
     assert 30_000 <= rep["total_nodes"] <= 300_000, rep["total_nodes"]
     size = sum(os.path.getsize(os.path.join(d, f)) for d, _, fs in os.walk(drift_data) for f in fs)
     assert size < 500 * 1024 * 1024, size

@@ -59,6 +59,31 @@ def _t(s):
     return datetime.strptime(s, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
 
 
+def protection_paths(data):
+    """For every CI: the set of CIs reachable over Stores on (CMDB), successful
+    backups (backup_jobs) and replication (replication_status)."""
+    j = lambda *p: os.path.join(data, *p)  # noqa: E731
+    edges = {}
+    for r in _csv(j("cmdb", "cmdb_rel_ci.csv")):
+        if r["type"] == STORES:
+            edges.setdefault(r["parent"], set()).add(r["child"])
+    for job in _jsonl(j("observed", "backup_jobs.jsonl")):
+        if job["status"] == "success":
+            edges.setdefault(job["object"], set()).add(job["target"])
+    for rec in _jsonl(j("observed", "replication_status.jsonl")):
+        edges.setdefault(rec["source_array"], set()).add(rec["target_array"])
+    out = {}
+    for start in list(edges):
+        reach, todo = set(), [start]
+        while todo:
+            for y in edges.get(todo.pop(), ()):
+                if y not in reach:
+                    reach.add(y)
+                    todo.append(y)
+        out[start] = reach
+    return out
+
+
 def check(data):
     """Return {"findings": set of tuples, "aliases": set of (alias, ci)}."""
     j = lambda *p: os.path.join(data, *p)  # noqa: E731
@@ -176,6 +201,9 @@ def check(data):
     for n, r in cis.items():
         if r["status"] != "operational" or not r["backup_policy"]:
             continue
+        # "No success in the last 7 days" subsumes the 48-hour transient rule: a failure followed by a
+        # success within 48 h leaves a recent success unless the success itself is > 7 days old, in
+        # which case the CI really has had no good backup for a week.
         ok = [j_ for j_ in jobs.get(n, []) if j_["status"] == "success" and _t(j_["end"]) > END - timedelta(days=7)]
         if not ok:
             findings.add(("backup_failing", n))

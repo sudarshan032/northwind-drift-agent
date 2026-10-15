@@ -146,9 +146,11 @@ def discovery_view(world, plan):
         n = endpoint_counts.get(sn["site"], 0) if sn["method"] == "aggregate" else found.get(sn["cidr"], 0)
         if sn["kind"] == "medical":  # passive sensors also count bedside fleets
             n += fleet_counts.get(sn["site"], 0)
-        coverage.append({"subnet": sn["cidr"], "site": sn["site"], "kind": sn["kind"], "scanned": "true",
-                         "method": sn["method"], "last_scan": ts(END - timedelta(hours=6)),
-                         "devices_found": n})
+        scanned = sn.get("scanned", True)
+        coverage.append({"subnet": sn["cidr"], "site": sn["site"], "kind": sn["kind"],
+                         "scanned": "true" if scanned else "false", "method": sn["method"],
+                         "last_scan": ts(END - timedelta(hours=6)) if scanned else "",
+                         "devices_found": n if scanned else 0})
     return {"scan_results": records, "scan_coverage": coverage}
 
 
@@ -252,7 +254,7 @@ def leg_records(world, leg, hourly, alias):
                     k = _count(r, n * share)
                     if k:
                         yield dict(base, hour=ts(t), **dict(rec, msg_type=mt, count=k,
-                                                            errors=min(k, rec["errors"])))
+                                                            errors=_count(r, k * err_rate)))
             elif n:
                 yield dict(base, hour=ts(t), **rec)
             continue

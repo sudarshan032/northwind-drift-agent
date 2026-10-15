@@ -21,8 +21,14 @@ def loaded(drift_data):
     if GRAPH in db.list_graphs():
         db.select_graph(GRAPH).delete()
     ld = Loader(drift_data, GRAPH, host=host, port=int(os.environ.get("FALKORDB_PORT", 6379)))
-    ld.load()
+    truth, hidden = os.path.join(drift_data, "truth"), os.path.join(drift_data, ".truth-hidden")
+    os.rename(truth, hidden)  # DATA_SPEC 8: the loader never reads truth/world.json
+    try:
+        ld.load()
+    finally:
+        os.rename(hidden, truth)
     first = ld.counts()
+    print("\nGRAPH COUNTS", json.dumps(first, indent=1))
     yield ld, first
     db.select_graph(GRAPH).delete()
 

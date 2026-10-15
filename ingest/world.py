@@ -267,6 +267,7 @@ MODELS = {
             ("Beckman Coulter", "DxH 900", "Windows 10 IoT Enterprise", "LTSC 2019")],
     "ws": ("Dell", "OptiPlex 7010", "Windows 11 Enterprise", "23H2"),
     "laptop": ("Lenovo", "ThinkPad T14 Gen 4", "Windows 11 Enterprise", "23H2"),
+    "tablet": ("Microsoft", "Surface Pro 9 / ThinkPad T14 (laptops, tablets)", "Windows 11 Enterprise", "23H2"),
     "prn": ("HP", "LaserJet Enterprise M611", "HP FutureSmart", "5.7"),
 }
 
@@ -538,7 +539,8 @@ def _central(w):
         w.ci(n, "cmdb_ci_cloud_storage_account", site, cloud, crit=2,
              vendor_model=("Cloud", "Managed block storage (zone-redundant)", "", ""),
              residency="IN" if site == "cloud-central-india" else "US",
-             raid_level="", capacity_tb=200, encrypted=True)
+             raid_level="RAID6", capacity_tb=200, encrypted=True,  # provider-managed; RAID6-equivalent
+             description="Cloud block storage, provider-managed redundancy (recorded as RAID6-equivalent)")
     # Array replication: sync room A -> room B, async room A -> DR.
     for i in range(1, 5):
         w.rel(f"arr-pri-a-0{i}", f"arr-pri-b-0{i}", "Replicates to::Replica of", mode="sync")
@@ -726,6 +728,7 @@ def _central(w):
     w.rel("pacs-vna-01", "arr-pri-a-04", "Stores on::Stores")
     w.dep("pacs-app", "pacs-db-01", protocol="tds", port=1433, rate=8000, profile="24x7")
     w.dep("pacs-app", "pacs-vna-01", protocol="dicom", port=104, rate=3000, profile="24x7")
+    w.dep("pacs-vna-01", "sso-app", protocol="saml", rate=5, profile="24x7")
     w.dep("pacs-app", "sso-app", protocol="saml", rate=200, profile="24x7")
     vna_dr = w.ci("pacs-vna-dr", "cmdb_ci_appl", "DC-DR", img, crit=1, phi=True, tier=1,
                   safety="medium", description="VNA DR instance (standby)")
@@ -822,6 +825,8 @@ def _central(w):
        residency="IN", model="PostgreSQL 15", gb=200)
     w.dep("gcc-automation-app", "ext-itsm-saas", protocol="https", msg_type="REST", rate=60, profile="24x7")
     w.dep("gcc-automation-app", "mon-app", protocol="https", msg_type="REST", rate=30, profile="24x7")
+    w.dep("gcc-automation-app", "sso-app", protocol="oidc", rate=20, profile="24x7")
+    w.dep("gcc-devtest-app", "sso-app", protocol="oidc", rate=10, profile="business", tz=5.5)
     w.dep("gcc-devtest-app", "gcc-tools-db-01", protocol="postgres", port=5432, rate=200,
           profile="business", tz=5.5)
 
@@ -1011,14 +1016,19 @@ def _hospital(w, s):
     labmw = apps.get("labmw", "labmw-central")
     _interface(w, f"LAB-RES-{sid}", "ORU^R01", "MLLP", labmw, "lis-app", 1500 * scale, "24x7", tz=tz)
     pacs_target = apps.get("pacs-cache", "pacs-app")
-    _interface(w, f"DICOM-MOD-{sid}", "DICOM C-STORE", "DICOM", "", pacs_target, 120 * scale, "24x7", tz=tz,
-               src_leg=False, owner=w.owners["img"], via="")
+    # DICOM does not traverse the HL7 engine: `via` is the receiving PACS node, and the
+    # source of modality traffic is the site's medical-device segment (many modalities).
+    _interface(w, f"DICOM-MOD-{sid}", "DICOM C-STORE", "DICOM", medseg, pacs_target, 120 * scale, "24x7", tz=tz,
+               src_leg=False, owner=w.owners["img"], via=pacs_target)
     if "pacs-cache" in apps:
         _interface(w, f"DICOM-FWD-{sid}", "DICOM C-STORE", "DICOM", apps["pacs-cache"], "pacs-app",
-                   110 * scale, "24x7", tz=tz, owner=w.owners["img"], via="")
+                   110 * scale, "24x7", tz=tz, owner=w.owners["img"], via="pacs-app")
+    vitals_routes = []
     monitor_src = apps.get("monitor-gw")
     if monitor_src:
         _interface(w, f"VITALS-{sid}", "ORU^R01", "MLLP", monitor_src, "emr-app", 6000 * scale, "24x7", tz=tz)
+    else:  # no gateway server: the monitor gateway device sends HL7 to the engine itself
+        vitals_routes.append(f"VITALS-{sid}")
     # Headline route: critical lab results to the ED worklist, staged in lrc-db-01.
     _interface(w, f"ORU-CRIT-{sid}", "ORU^R01", "MLLP", "lis-app", "emr-app",
                {"L": 18, "C": 6, "A": 0.8}[tier], "24x7", tz=tz, staging="lrc-db-01",
@@ -1068,11 +1078,13 @@ def _hospital(w, s):
                        target=pacs_target, bytes_per=bpm)
             if mwl:
                 w.dep(d, mwl, channel="netflow", port=104, rate=rate * 2, profile="24x7", tz=tz, bytes_per=20e3)
-    monitor_target = apps.get("monitor-gw", "emr-app")
+    monitor_target = apps.get("monitor-gw", "ie-app")
     for i in range(1, w.rand(inv["mon"], r) + 1):
         dept = dept_for(*r.sample([p for p in ("ICU", "ED", "CARD", "MEDSURG", "NICU") if p in depts], 1))
-        device("mon", "cmdb_ci_med_patient_monitoring", i, dept, "high", port=2575, rate=600,
-               target=monitor_target, bytes_per=2e3)
+        d = device("mon", "cmdb_ci_med_patient_monitoring", i, dept, "high", port=2575, rate=600,
+                   target=monitor_target, bytes_per=2e3)
+        if vitals_routes and i == 1:
+            _interface(w, vitals_routes[0], "ORU^R01", "MLLP", d, "emr-app", 6000 * scale, "24x7", tz=tz)
     for i in range(1, w.rand(inv["pump"], r) + 1):
         device("pump", "cmdb_ci_med_therapeutic_device", i, depts["PHARM"], "high", port=443, rate=200,
                target="emr-app", bytes_per=4e3)
@@ -1100,7 +1112,21 @@ def _hospital(w, s):
         w.site_arrays[sid] = array
 
 
-def _endpoints(w, s, depts, access_switches, usr_pool, owner, r, ws_range, prn_range):
+def split(total, weights, minimum=0):
+    """Split `total` by `weights` (largest remainder), at least `minimum`
+    each where the total allows; parts always sum to `total` exactly."""
+    n = len(weights)
+    base = [minimum] * n if total >= minimum * n else [0] * n
+    rest = total - sum(base)
+    shares = [rest * wt / sum(weights) for wt in weights]
+    parts = [b + int(x) for b, x in zip(base, shares)]
+    order = sorted(range(n), key=lambda i: -(shares[i] - int(shares[i])))
+    for i in order[:total - sum(parts)]:
+        parts[i] += 1
+    return parts
+
+
+def _endpoints(w, s, depts, access_switches, usr_pool, owner, r, ws_range, prn_range, ws_model="ws"):
     """Workstations and printers: individual CIs at demo sites, else one
     group CI per department with `count`."""
     sid, lo = s["id"], s["id"].lower()
@@ -1108,9 +1134,8 @@ def _endpoints(w, s, depts, access_switches, usr_pool, owner, r, ws_range, prn_r
     n_prn = r.randint(*prn_range)
     codes = sorted(depts)
     weights = [3 if c in ("ED", "ICU", "MEDSURG", "LAB", "RAD", "PC", "UC") else 1 for c in codes]
-    tot = sum(weights)
-    alloc = {c: max(1, round(n_ws * wt / tot)) for c, wt in zip(codes, weights)}
-    palloc = {c: max(1, round(n_prn * wt / tot)) for c, wt in zip(codes, weights)}
+    alloc = dict(zip(codes, split(n_ws, weights, minimum=1)))   # every department gets a workstation
+    palloc = dict(zip(codes, split(n_prn, weights, minimum=0)))  # sums stay inside the spec ranges
     w.ws_by_dept = getattr(w, "ws_by_dept", {})
     n_w = n_p = 0
     for j, c in enumerate(codes):
@@ -1121,7 +1146,7 @@ def _endpoints(w, s, depts, access_switches, usr_pool, owner, r, ws_range, prn_r
                 n_w += 1
                 name = f"{lo}-ws-{n_w:05d}"
                 w.ci(name, "cmdb_ci_computer", sid, owner, dept=depts[c], crit=3,
-                     vendor_model=MODELS["ws"], ip=usr_pool.take())
+                     vendor_model=MODELS[ws_model], ip=usr_pool.take())
                 if sw:
                     w.rel(name, sw, "Connects through::Connects")
                 names.append(name)
@@ -1135,12 +1160,14 @@ def _endpoints(w, s, depts, access_switches, usr_pool, owner, r, ws_range, prn_r
                     w.rel(name, sw, "Connects through::Connects")
         else:
             g = w.ci(f"{lo}-{c}-ws", "u_cmdb_ci_endpoint_group", sid, owner, dept=depts[c], crit=3,
-                     count=alloc[c], vendor_model=MODELS["ws"], description="Workstation group")
-            p = w.ci(f"{lo}-{c}-prn", "u_cmdb_ci_endpoint_group", sid, owner, dept=depts[c], crit=4,
-                     count=palloc[c], vendor_model=MODELS["prn"], description="Printer group")
+                     count=alloc[c], vendor_model=MODELS[ws_model], description="Workstation group")
             if sw:
                 w.rel(g["name"], sw, "Connects through::Connects")
-                w.rel(p["name"], sw, "Connects through::Connects")
+            if palloc[c]:
+                p = w.ci(f"{lo}-{c}-prn", "u_cmdb_ci_endpoint_group", sid, owner, dept=depts[c], crit=4,
+                         count=palloc[c], vendor_model=MODELS["prn"], description="Printer group")
+                if sw:
+                    w.rel(p["name"], sw, "Connects through::Connects")
     w.endpoint_counts = getattr(w, "endpoint_counts", {})
     w.endpoint_counts[sid] = sum(alloc.values()) + sum(palloc.values())
 
@@ -1162,6 +1189,8 @@ def _clinic(w, s):
     base = f"172.{16 + j // 256}.{j % 256}"
     mgmt = w.add_subnet(f"{base}.0/26", sid, "mgmt")
     usr = w.add_subnet(f"{base}.128/25", sid, "users", method="aggregate")
+    if (j + 1) % 50 == 0:  # a few clinic user subnets are excluded from scanning (coverage gap)
+        w.subnets[-1]["scanned"] = False
     t, must, opt, _ = r.choices(CLINIC_TYPES, [x[3] for x in CLINIC_TYPES])[0]
     s["subtype"] = t
     codes = list(must)
@@ -1256,7 +1285,7 @@ def _nonacute(w, s):
     ap = w.ci(f"{lo}-ap-grp", "cmdb_ci_wap_network", sid, net, crit=4, count=r.randint(1, 4),
               vendor_model=("Cisco", "Catalyst 9105AXI", "IOS-XE", "17.9.4a"))["name"]
     w.rel(ap, acc[0] if acc else up, "Connects through::Connects")
-    _endpoints(w, s, depts, acc or [ap], usr, field, r, (3, 15), (1, 3))
+    _endpoints(w, s, depts, acc or [ap], usr, field, r, (3, 15), (1, 3), ws_model="tablet")
 
 
 def _gcc_site(w):
@@ -1300,6 +1329,11 @@ def _gcc_site(w):
             w.rel(name, acc[j % len(acc)], "Connects through::Connects")
             names.append(name)
         w.ws_by_dept.setdefault(sid, {})[c] = names
+    for i in range(1, 9):  # shared floor printers (individual CIs at a demo site)
+        name = f"hyd-prn-{i:04d}"
+        w.ci(name, "cmdb_ci_printer", sid, field, dept=depts[sorted(sizes)[(i - 1) % len(sizes)]], crit=4,
+             vendor_model=MODELS["prn"], ip=usr.take(), residency="IN")
+        w.rel(name, acc[i % len(acc)], "Connects through::Connects")
     w.gcc_sizes = sizes
 
 
@@ -1352,7 +1386,8 @@ def _identity(w):
             continue
         jobs = DEPT_JOBS.get(d["code"], DEFAULT_JOBS)
         for j in jobs:
-            gid = f"grp-{d['site']}-{d['code']}-{j}"
+            short = j.split("-", 1)[1] if j.startswith(("lab-", "rad-")) else j  # grp-H03-LAB-tech
+            gid = f"grp-{d['site']}-{d['code']}-{short}"
             if site["demo"]:
                 n_ws = len(ws[d["site"]][d["code"]])
                 n = max(1, round(n_ws * r.uniform(3.0, 4.0) / len(jobs)))
