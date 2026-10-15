@@ -533,9 +533,14 @@ RETURN p[0] AS src, p[1] AS dst, declared, observed, fo = 1 AS failover
 @guarded
 def edge_layers(g, pairs, timeout=TIMEOUT_MS):
     """For each [src, dst]: declared edge types, observed edge types, failover.
-    UI colouring: observed-only red, declared-only grey dashed, failover blue dashed."""
+    UI colouring: observed-only red, declared-only grey dashed, failover blue dashed; `structural`
+    (runs on, stores on, contains, department) is declared and not traffic-observable."""
     rows = run(g, EDGE_LAYERS, {"pairs": [list(p) for p in pairs]}, timeout)
+    traffic = {"DEPENDS_ON", "REPLICATES_TO", "BACKED_UP_BY"}  # declared edges that traffic should confirm
     for r in rows:
-        r["layer"] = ("failover" if r["failover"] else "both" if r["declared"] and r["observed"]
-                      else "observed_only" if r["observed"] else "declared_only" if r["declared"] else "derived")
+        dec = set(r["declared"])
+        r["layer"] = ("failover" if r["failover"] else "both" if dec and r["observed"]
+                      else "observed_only" if r["observed"]
+                      else "declared_only" if dec & traffic
+                      else "structural" if dec else "derived")
     return rows

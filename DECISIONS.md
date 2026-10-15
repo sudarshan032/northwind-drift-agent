@@ -213,3 +213,8 @@ Clarified, not changed:
 ## 51. API
 - FastAPI app `api/main.py` with the AGENT_SPEC endpoints plus `GET /changes` (change picker), `GET /hospitals` (map: 51 hospitals with approximate public city coordinates in `api/geo.py`, flagged when inside a component's radius). `/subgraph` is capped at depth 2 and 300 edges. A FalkorDB timeout becomes HTTP 504 with `{"error": "query timed out"}`. Tests inject `FakeLLM` through `app.state.llm`; with no key, agent endpoints return the "add ANTHROPIC_API_KEY" message and everything else works.
 - `/changes/{id}/review` also returns a small highlighted graph: the declared path to each declared service plus the real paths to Emergency care and to the EDs of H03, H17, H22, H44, with each edge classified `both` / `observed_only` / `declared_only` / `failover` / `derived` (`graph/queries.py:edge_layers`).
+
+## 52. UI
+- One static page (`ui/index.html`, served by the API at `/`), no build step: Cytoscape.js 3.30.2 from cdnjs for the path graph, a hand-drawn SVG map (equirectangular, Alaska inset, state labels) instead of a tile map (no extra dependency or API key). Tabs: Change review (default, opens on CHG-HEADLINE), Findings (approve/reject), Incident, Chat; `#findings` etc. deep-link a tab. Light/dark via `prefers-color-scheme` plus a toggle.
+- Edge colours: observed only = red, declared only (a traffic-confirmable `Depends on`/`Replicates to`/`Backed up by` with no observation) = grey dashed, failover = blue dashed, declared and observed or structural (runs on, stores on, contains, department) = neutral solid.
+- Screenshots: `docs/change-review-light.png`, `docs/change-review-dark.png`, `docs/findings.png` (headless Chrome against the full data).

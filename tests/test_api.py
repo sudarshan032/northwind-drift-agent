@@ -34,7 +34,8 @@ def test_change_review_endpoint(client):
     g = r["graph"]
     assert {"dc1-host-07", "lrc-db-01"} <= {n["id"] for n in g["nodes"]}
     layers = {(e["source"], e["target"]): e["layer"] for e in g["edges"]}
-    assert layers[("dc1-host-07", "dc1-vm-lrc01")] in ("both", "declared_only")
+    assert layers[("dc1-host-07", "dc1-vm-lrc01")] == "structural"
+    assert layers[("lrc-db-01", "ORU-CRIT-H03")] == "observed_only"  # the hidden dependency, drawn red
     assert client.post("/changes/NOPE/review").status_code == 404
 
 
@@ -82,3 +83,9 @@ def test_agent_endpoints_with_fake_llm(client):
         M.app.state.llm = None
     assert client.post("/chat", json={"message": "hi"}).json()["answer"] == NO_KEY
     assert client.get("/notifications").json() == []
+
+
+def test_ui_served(client):
+    html = client.get("/").text
+    assert "cytoscape/3.30.2/cytoscape.min.js" in html and 'id="cy"' in html and "/changes/" in html
+    assert "prefers-color-scheme: dark" in html
