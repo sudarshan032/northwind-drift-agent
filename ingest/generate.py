@@ -1,0 +1,149 @@
+"""Generator entry point.
+
+    python -m ingest.generate --seed 42 --out data/            # full world, drift on
+    python -m ingest.generate --seed 42 --out x/ --no-drift    # all views agree
+    python -m ingest.generate --seed 42 --out data_demo/ --subset demo
+
+Same seed -> byte-identical output.
+"""
+
+import argparse
+import csv
+import json
+import os
+import shutil
+import time
+
+from ingest import drift, views
+from ingest.world import SEED, build_world
+
+DEMO_STATES = {"WA", "OR"}
+README = """# Northwind Health synthetic data (FICTIONAL)
+
+**Everything in this directory is synthetic.** "Northwind Health" is a fictional
+organisation. Its footprint (51 hospitals, ~1,000 clinics, ~800 non-acute sites,
+7 western US states, a capability centre in Hyderabad) is sized on the public
+footprint of a large US health system, but no real organisation's systems,
+people, network addresses or incidents are represented. City names are real US
+places used only as locations; vendor product names are used only as models.
+
+- No personal data: users are pseudonymous IDs (`u-h03-00412`) with role labels.
+  There are no human names, no emails and no patients.
+- IP addresses come from private RFC 1918 ranges (external SaaS uses the
+  RFC 5737 documentation range 203.0.113.0/24).
+
+## How it was generated
+
+```
+{command}
+```
+
+- `SEED={seed}`, `SNAPSHOT_END=2026-10-14T23:59:59Z`, observation window 14 days.
+- Drift injection: {drift}. Subset: {subset}.
+- Same seed gives byte-identical files.
+- `truth/world.json` is the internal truth model (tests only; never loaded).
+- `ground_truth.json` lists every deliberately injected drift.
+
+See `DATA_SPEC.md` in the repository root for the full model.
+"""
+
+
+def write_csv(path, rows, columns=None):
+    columns = columns or (list(rows[0].keys()) if rows else [])
+    with open(path, "w", encoding="utf-8", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=columns, lineterminator="\n", extrasaction="ignore")
+        w.writeheader()
+        for row in rows:
+            w.writerow({k: views.fmt_value(row.get(k, "")) for k in columns})
+
+
+def subset_world(world, states=DEMO_STATES):
+    """Demo region: WA + OR sites, both data centres, both cloud regions,
+    GCC-HYD and external SaaS. Site-specific interfaces and groups follow
+    their site."""
+    keep_sites = {s["id"] for s in world["sites"]
+                  if s["state"] in states and s["type"] not in ("data_centre",)} | \
+        {"DC-PRI", "DC-DR", "cloud-us-west", "cloud-central-india", "GCC-HYD", "EXTERNAL"}
+    dropped = {s["id"] for s in world["sites"]} - keep_sites
+
+    def keep_ci(c):
+        if c["site"] not in keep_sites:
+            return False
+        tail = c["name"].rsplit("-", 1)[-1]
+        return not (c["class"] == "u_cmdb_ci_hl7_interface" and tail in dropped)
+
+    cis = [c for c in world["cis"] if keep_ci(c)]
+    names = {c["name"] for c in cis}
+    out = dict(world)
+    out["sites"] = [s for s in world["sites"] if s["id"] in keep_sites]
+    out["subnets"] = [s for s in world["subnets"] if s["site"] in keep_sites]
+    out["departments"] = [d for d in world["departments"] if d["site"] in keep_sites]
+    out["cis"] = cis
+    out["rels"] = [r for r in world["rels"] if r["parent"] in names and r["child"] in names]
+    out["changes"] = [c for c in world["changes"] if c["cmdb_ci"] in names]
+    idn = world["identity"]
+    users = [u for u in idn["users"] if u["site"] in keep_sites]
+    uids = {u["id"] for u in users}
+    out["identity"] = {"users": users, "groups": [g for g in idn["groups"] if g["site"] in keep_sites],
+                       "roles": idn["roles"], "grants": [g for g in idn["grants"] if g["target"] in names],
+                       "memberships": [m for m in idn["memberships"] if m["user"] in uids]}
+    out["meta"] = dict(world["meta"], subset="demo", demo_sites=[s for s in world["meta"]["demo_sites"]
+                                                                 if s in keep_sites])
+    return out
+
+
+def generate(seed=SEED, out="data", inject=True, subset=None, command=None):
+    t0 = time.time()
+    world = build_world(seed)
+    if subset == "demo":
+        world = subset_world(world)
+    plan = drift.plan_drift(world) if inject else drift.empty_plan()
+    if os.path.isdir(out):
+        for sub in ("truth", "cmdb", "discovery", "observed", "identity", "evidence"):
+            shutil.rmtree(os.path.join(out, sub), ignore_errors=True)
+    for sub in ("truth", "cmdb", "discovery", "observed", "identity", "evidence"):
+        os.makedirs(os.path.join(out, sub), exist_ok=True)
+
+    with open(os.path.join(out, "truth", "world.json"), "w", encoding="utf-8", newline="\n") as f:
+        json.dump(world, f, sort_keys=True, separators=(",", ":"))
+    views.prepare(world)
+
+    cm = views.cmdb_view(world, plan)
+    write_csv(f"{out}/cmdb/cmdb_ci.csv", cm["cmdb_ci"], views.CMDB_COLUMNS)
+    write_csv(f"{out}/cmdb/cmdb_rel_ci.csv", cm["cmdb_rel_ci"], views.REL_COLUMNS)
+    for t in ("cmn_location", "cmn_department", "sys_user_group", "change_request"):
+        write_csv(f"{out}/cmdb/{t}.csv", cm[t])
+    disc = views.discovery_view(world, plan)
+    views.write_jsonl(f"{out}/discovery/scan_results.jsonl", disc["scan_results"])
+    write_csv(f"{out}/discovery/scan_coverage.csv", disc["scan_coverage"])
+    idn = views.identity_view(world, plan)
+    for t in ("users", "groups", "memberships", "roles", "grants"):
+        write_csv(f"{out}/identity/{t}.csv", idn[t])
+    write_csv(f"{out}/evidence/ownership_evidence.csv", views.evidence_view(world, plan)["ownership_evidence"])
+    counts = views.write_observed(world, plan, out)
+    with open(f"{out}/ground_truth.json", "w", encoding="utf-8", newline="\n") as f:
+        json.dump(plan["ground_truth"], f, indent=1, sort_keys=True)
+        f.write("\n")
+    cmd = command or f"python -m ingest.generate --seed {seed} --out {out}" + \
+        ("" if inject else " --no-drift") + (f" --subset {subset}" if subset else "")
+    with open(f"{out}/README.md", "w", encoding="utf-8", newline="\n") as f:
+        f.write(README.format(command=cmd, seed=seed, drift="on" if inject else "off",
+                              subset=subset or "none (full world)"))
+    return {"seconds": round(time.time() - t0, 1), "records": counts,
+            "cis": len(cm["cmdb_ci"]), "rels": len(cm["cmdb_rel_ci"])}
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--seed", type=int, default=SEED)
+    ap.add_argument("--out", default="data")
+    ap.add_argument("--no-drift", action="store_true", help="disable drift injection (views agree)")
+    ap.add_argument("--subset", choices=["demo"], help="demo region: WA + OR, both DCs, clouds, GCC-HYD")
+    a = ap.parse_args()
+    out = a.out.rstrip("/") or "."
+    res = generate(a.seed, out, inject=not a.no_drift, subset=a.subset)
+    print(json.dumps(res, indent=1))
+
+
+if __name__ == "__main__":
+    main()
