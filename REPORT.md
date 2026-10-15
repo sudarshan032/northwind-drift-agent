@@ -259,3 +259,150 @@ Checked with no change needed: DICOM flows (worklist, C-STORE, port 104, study s
 - The OTLP trace sample (45 traces, 2 hours, demo sites) is illustrative. The loader does not ingest it, because flows already carry the same edges.
 - FalkorDB keeps its default query timeout of 1 s. The loader's batches finish well within it, but heavy agent traversals later may need `TIMEOUT_DEFAULT` raised.
 - The checkpoint log `drift-agent_checkpoint_20261012.log` is committed in the repo along with the run inputs.
+
+---
+
+# Phase 2: AGENT_SPEC run (verification, detection, agent, API, UI, packaging)
+
+## Status
+
+| Phase | Status | Where |
+|---|---|---|
+| 0 Verify the data | **Done.** Follow-ups (a)–(f) all done; `VERIFY.md` passes every check after a clean regenerate and fresh load | `VERIFY.md`, DECISIONS #35–#41 |
+| 1 Detection in Cypher | **Done.** 12 detectors exactly match `ground_truth.json` on the full data and the demo subset; impact radius, change review, protection, access, paging and centrality are all in place | `graph/queries.py`, `graph/impact.py`, DECISIONS #42–#45 |
+| 2 Agent (LangGraph) | **Done, tested with the fake LLM only.** All 5 jobs and the approval flow work. No `ANTHROPIC_API_KEY` exists on this machine, so the live-LLM manual check is still open (see below) | `agent/`, DECISIONS #46–#50 |
+| 3 API | **Done.** All endpoints from the spec, plus `/changes` and `/hospitals` | `api/main.py`, DECISIONS #51 |
+| 4 UI | **Done.** Change review screen, hospital map (the stretch goal), findings with approve/reject, incident box, chat, notifications, critical nodes, light and dark modes | `ui/index.html`, `docs/*.png`, DECISIONS #52 |
+| 5 Packaging and README | **Done.** `docker compose up --build` runs FalkorDB, then a one-shot seed (generate + load), then the API and UI on :8000. It works without a key. The README has every judged section | `Dockerfile`, `docker-compose.yml`, `README.md` |
+
+Nothing was cut.
+
+## Clean-room verification (run 4)
+
+The script tears down Docker volumes, deletes `data/`, `.venv` and caches, then rebuilds from the committed files with `uv sync --frozen`. It then:
+- generates the data and runs the test suite;
+- loads the graph twice and confirms the loads are idempotent (49,063 nodes and 150,400 edges both times);
+- regenerates `VERIFY.md`, which passes every check;
+- confirms the data file hashes are identical to run 3;
+- builds and starts the full stack from scratch, where the review of `CHG-HEADLINE` returns `high` with 51 routes and 51 hospitals.
+
+## Test output (clean-room run 4)
+
+```
+tests/test_agent.py::test_triage_findings_and_ranking PASSED
+tests/test_agent.py::test_triage_without_llm_uses_templates PASSED
+tests/test_agent.py::test_change_review_flow PASSED
+tests/test_agent.py::test_incident_headline PASSED
+tests/test_agent.py::test_ambiguity_judgement PASSED
+tests/test_agent.py::test_chat_cites_and_says_nothing_found PASSED
+tests/test_agent.py::test_no_key_degrades PASSED
+tests/test_agent.py::test_tools_cannot_write_cmdb PASSED
+tests/test_agent.py::test_approve_and_reject PASSED
+tests/test_api.py::test_health_without_key PASSED
+tests/test_api.py::test_change_review_endpoint PASSED
+tests/test_api.py::test_scan_findings_approve_reject PASSED
+tests/test_api.py::test_radius_subgraph_critical_hospitals PASSED
+tests/test_api.py::test_agent_endpoints_with_fake_llm PASSED
+tests/test_api.py::test_ui_served PASSED
+tests/test_loader.py::test_load_is_idempotent PASSED
+tests/test_loader.py::test_graph_matches_files PASSED
+tests/test_loader.py::test_unidentified_discovered_equals_d6 PASSED
+tests/test_loader.py::test_d13_aliases_resolved PASSED
+tests/test_loader.py::test_headline_path_in_graph PASSED
+tests/test_loader.py::test_headline_radius PASSED
+tests/test_loader.py::test_d14_path PASSED
+tests/test_queries.py::test_detectors_match_ground_truth_full PASSED
+tests/test_queries.py::test_detectors_match_ground_truth_demo PASSED
+tests/test_queries.py::test_headline_radius_and_change_review PASSED
+tests/test_queries.py::test_change_review_low_and_unknown PASSED
+tests/test_queries.py::test_critical_nodes_stable PASSED
+tests/test_queries.py::test_protection_access_paging PASSED
+tests/test_queries.py::test_tool_queries_within_timeout
+tests/test_queries.py::test_tool_queries_within_timeout
+tests/test_queries.py::test_tool_queries_within_timeout
+tests/test_queries.py::test_tool_queries_within_timeout
+tests/test_queries.py::test_tool_queries_within_timeout
+tests/test_queries.py::test_tool_queries_within_timeout
+tests/test_queries.py::test_tool_queries_within_timeout
+tests/test_queries.py::test_tool_queries_within_timeout
+tests/test_queries.py::test_tool_queries_within_timeout
+tests/test_queries.py::test_tool_queries_within_timeout
+tests/test_queries.py::test_tool_queries_within_timeout
+tests/test_queries.py::test_tool_queries_within_timeout
+tests/test_queries.py::test_timeout_returns_clear_result PASSED
+tests/test_views.py::test_determinism PASSED
+tests/test_views.py::test_determinism_across_processes PASSED
+tests/test_views.py::test_every_discoverable_ci_discovered_without_drift PASSED
+tests/test_views.py::test_views_agree_without_drift PASSED
+tests/test_views.py::test_protection_and_backups_without_drift PASSED
+tests/test_views.py::test_drift_catalogue_exact PASSED
+tests/test_views.py::test_no_phi_in_central_india_except_d11 PASSED
+tests/test_views.py::test_headline_scenario PASSED
+tests/test_views.py::test_size_report PASSED
+tests/test_views.py::test_demo_subset_reproducible_and_exact PASSED
+tests/test_world.py::test_footprint PASSED
+tests/test_world.py::test_every_hospital_has_emergency PASSED
+tests/test_world.py::test_department_counts_by_tier PASSED
+tests/test_world.py::test_devices_only_in_existing_departments PASSED
+tests/test_world.py::test_no_mri_or_ct_outside_hospitals PASSED
+tests/test_world.py::test_medical_devices_on_medical_segment PASSED
+tests/test_world.py::test_inventory_ranges PASSED
+tests/test_world.py::test_vms_run_on_hosts_at_same_site PASSED
+tests/test_world.py::test_app_chains_reach_storage PASSED
+tests/test_world.py::test_no_phi_in_central_india PASSED
+tests/test_world.py::test_ids_unique_and_wellformed PASSED
+tests/test_world.py::test_no_personal_data PASSED
+tests/test_world.py::test_headline_chain_in_truth PASSED
+64 passed in 66.33s (0:01:06) 
+```
+
+## Heaviest queries (full graph, median of 3 runs)
+
+| Query | ms |
+|---|---|
+| detect D12 (access rule, every admin event against change windows) | 552 |
+| radius real arr-pri-a-01 (a shared storage array) | 381 |
+| radius real sso-app | 380 |
+| detect D2 | 139 |
+| detect D6 | 132 |
+| critical_nodes (betweenness, samplingSize 5000) | 120 |
+| detect D1 | 99 |
+| detect D7 | 86 |
+
+Every agent tool query has a 5 s budget, and a test asserts it on the full data. FalkorDB's default query timeout is 10 s.
+
+## Headline numbers
+
+- **`dc1-host-07`, declared radius:** 4 components and 1 business service (`svc-lab-results`); 0 routes, 0 departments, 0 hospitals.
+- **`dc1-host-07`, real radius:** 107 components: 51 `ORU-CRIT-*` routes, 51 Emergency departments, 51 hospitals and 53 business services, including `svc-emergency-care`.
+- **`CHG-HEADLINE` review:** `high`, with 51 hidden edges. Warn `HYD-Integration-Support` (the observed owner of `lrc-db-01`; the CMDB says `NW-Lab-Systems`), plus `NW-Datacenter-Infra` and `NW-EMR-Apps`.
+- **Triage:** 59 findings. The top finding, rated critical, is "51 components call lrc-db-01 but the CMDB records none of these dependencies"; its patch adds the 51 relationships.
+- **After approving that finding:** the declared radius of `dc1-host-07` reaches Emergency care, and the review of `CHG-HEADLINE` drops to `low`. There is no hidden risk left, so the change can go ahead with the right people warned.
+
+## Screenshots
+
+- `docs/change-review-light.png`: change review, light mode (also embedded in the README)
+- `docs/change-review-dark.png`: change review, dark mode
+- `docs/findings.png`: ranked findings panel
+
+## Decisions summary (AGENT_SPEC run, DECISIONS #35–#52)
+
+1. **ServiceNow relationship types.** Storage uses `Provides storage for::Stored on` (the array is the parent) and network uses `Connects to::Connected by`. The graph edge names are unchanged, as the spec allows.
+2. **Demo subset.** It now holds all 51 hospitals with the full catalogue and headline. Clinic-based D6/D7 cases move to community hospitals inside the subset.
+3. **Department and Emergency care links.** Routes carry the department they serve. A new service `svc-emergency-care` contains each hospital's ED critical-results service. These links are declared by the service owner, so they are not drift.
+4. **FHIR layer and D14.** `emr-fhir-api` serves the portal, Bulk Data export and RTLS. D14 is the third-party `cardiorisk.example.com` app, launched by H17 cardiology. Endpoints with no CMDB record are loaded as `:UnregisteredEndpoint`.
+5. **Impact semantics.** These are one rule table, materialised in Cypher as `IMPACTS_*` (propagating) and `AFFECTS_*` (terminal) edges. The either-direction rule from DECISIONS #7 lives in exactly one rule. Syslog shipping and health checks carry no impact.
+6. **Exact Cypher detectors.** These need loader enrichments: per-edge `days` lists, timestamps on admin access events, and each CI's `scanned_subnet`. FalkorDB quirks are worked around and documented.
+7. **Change risk and centrality.** Risk is `high` when a high-safety business service appears only in the real radius. Betweenness covers all Components with samplingSize 5000, which is exact and stable.
+8. **Agent.** It uses the official `anthropic` SDK (`claude-sonnet-5-5`, server-side refusal fallback) behind a fake-LLM interface; LangGraph is used for orchestration only. Triage groups related rows, scores severity, and has the LLM rewrite only the top 10 explanations, from the finding facts alone.
+9. **Approval.** Each finding gets a JSON-Patch-style CMDB change. Approval applies it to the CSVs and to the declared edges, rebuilds the impact layer, re-runs the detector, and appends to `audit.jsonl`. For D10, D11 and D12 the fix is operational, so they carry no CMDB patch.
+10. **Packaging.** One image serves both the seed job and the API. The UI is a single static page (Cytoscape.js 3.30.2 from cdnjs, plus a hand-drawn SVG map) with no build step.
+
+## For the owner to decide
+
+1. **Run the live-LLM check.** Put `ANTHROPIC_API_KEY` in `.env`, run `docker compose up`, then use the UI's Incident tab with "ED critical results delayed at H03, H17 and H22". Confirm that the real model follows the tool method and names `lrc-db-01` and `CHG-HEADLINE`. Also try the ambiguity judgements and chat. None of this has been run against the real model yet.
+2. **Model choice.** The default is `claude-sonnet-5-5`, because the spec asked for a current Sonnet. `claude-opus-5-5` is stronger and costs about twice as much; switch with `NORTHWIND_MODEL`.
+3. **Severity weights.** The weights in `agent/findings.py` (`IMPACT_TYPES`, `EXPOSURE`) are a judgement call. Today all four ownership (D5) findings rank critical, because their real radius is large.
+4. **Seeding resets state.** Each `docker compose up` regenerates the data and reloads it fresh, which discards approvals and findings. That suits a repeatable demo. Remove `--fresh` and the generate step from the seed if state should persist.
+5. **Grouping rule.** D1 rows are grouped when three or more callers share one callee. A different grouping, or none, would change how the findings list reads.
+6. **Map.** It is a schematic plot from city coordinates, not a tile map. Leaflet with an OpenStreetMap layer would look better but adds a dependency and an external tile service.

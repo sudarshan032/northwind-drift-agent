@@ -18,6 +18,21 @@ Data: `data` (fresh regenerate, SEED=42); graph `northwind` (fresh load).
 ## Test output
 
 ```
+tests/test_agent.py::test_triage_findings_and_ranking PASSED
+tests/test_agent.py::test_triage_without_llm_uses_templates PASSED
+tests/test_agent.py::test_change_review_flow PASSED
+tests/test_agent.py::test_incident_headline PASSED
+tests/test_agent.py::test_ambiguity_judgement PASSED
+tests/test_agent.py::test_chat_cites_and_says_nothing_found PASSED
+tests/test_agent.py::test_no_key_degrades PASSED
+tests/test_agent.py::test_tools_cannot_write_cmdb PASSED
+tests/test_agent.py::test_approve_and_reject PASSED
+tests/test_api.py::test_health_without_key PASSED
+tests/test_api.py::test_change_review_endpoint PASSED
+tests/test_api.py::test_scan_findings_approve_reject PASSED
+tests/test_api.py::test_radius_subgraph_critical_hospitals PASSED
+tests/test_api.py::test_agent_endpoints_with_fake_llm PASSED
+tests/test_api.py::test_ui_served PASSED
 tests/test_loader.py::test_load_is_idempotent PASSED
 tests/test_loader.py::test_graph_matches_files PASSED
 tests/test_loader.py::test_unidentified_discovered_equals_d6 PASSED
@@ -25,6 +40,25 @@ tests/test_loader.py::test_d13_aliases_resolved PASSED
 tests/test_loader.py::test_headline_path_in_graph PASSED
 tests/test_loader.py::test_headline_radius PASSED
 tests/test_loader.py::test_d14_path PASSED
+tests/test_queries.py::test_detectors_match_ground_truth_full PASSED
+tests/test_queries.py::test_detectors_match_ground_truth_demo PASSED
+tests/test_queries.py::test_headline_radius_and_change_review PASSED
+tests/test_queries.py::test_change_review_low_and_unknown PASSED
+tests/test_queries.py::test_critical_nodes_stable PASSED
+tests/test_queries.py::test_protection_access_paging PASSED
+tests/test_queries.py::test_tool_queries_within_timeout[access] PASSED
+tests/test_queries.py::test_tool_queries_within_timeout[change_review] PASSED
+tests/test_queries.py::test_tool_queries_within_timeout[component] PASSED
+tests/test_queries.py::test_tool_queries_within_timeout[critical] PASSED
+tests/test_queries.py::test_tool_queries_within_timeout[detect_all] PASSED
+tests/test_queries.py::test_tool_queries_within_timeout[impact_path] PASSED
+tests/test_queries.py::test_tool_queries_within_timeout[neighbourhood] PASSED
+tests/test_queries.py::test_tool_queries_within_timeout[protection] PASSED
+tests/test_queries.py::test_tool_queries_within_timeout[radius_declared_sso] PASSED
+tests/test_queries.py::test_tool_queries_within_timeout[radius_real] PASSED
+tests/test_queries.py::test_tool_queries_within_timeout[radius_real_emr_db] PASSED
+tests/test_queries.py::test_tool_queries_within_timeout[who_to_page] PASSED
+tests/test_queries.py::test_timeout_returns_clear_result PASSED
 tests/test_views.py::test_determinism PASSED
 tests/test_views.py::test_determinism_across_processes PASSED
 tests/test_views.py::test_every_discoverable_ci_discovered_without_drift PASSED
@@ -48,12 +82,12 @@ tests/test_world.py::test_no_phi_in_central_india PASSED
 tests/test_world.py::test_ids_unique_and_wellformed PASSED
 tests/test_world.py::test_no_personal_data PASSED
 tests/test_world.py::test_headline_chain_in_truth PASSED
-30 passed in 32.30s
+64 passed in 66.33s (0:01:06)
 ```
 
 ## Graph size
 
-Total nodes **49,063**, total edges **150,406**.
+Total nodes **49,063**, total edges **150,400**.
 
 | Node label | Count |
 |---|---|
@@ -93,7 +127,7 @@ Total nodes **49,063**, total edges **150,406**.
 | HAS_ROLE | 6,118 |
 | IDENTIFIES | 11,566 |
 | IMPACTS_DECLARED | 4,670 |
-| IMPACTS_REAL | 4,724 |
+| IMPACTS_REAL | 4,718 |
 | IN_DEPARTMENT | 11,007 |
 | LOCATED_AT | 21,618 |
 | MANAGED_BY | 21,618 |
