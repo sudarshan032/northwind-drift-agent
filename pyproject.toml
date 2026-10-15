@@ -1,0 +1,18 @@
+[project]
+name = "northwind-drift"
+version = "0.1.0"
+description = "Synthetic Northwind Health world (fictional) for a CMDB drift agent on FalkorDB"
+requires-python = "==3.11.*"
+dependencies = [
+    "falkordb==1.7.1",
+]
+
+[dependency-groups]
+dev = ["pytest==9.1.1"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["falkordb: needs a running FalkorDB (docker compose up -d)"]
+
+[tool.uv]
+package = false

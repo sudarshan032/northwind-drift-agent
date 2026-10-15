@@ -1,0 +1,16 @@
+services:
+  falkordb:
+    image: falkordb/falkordb:v4.22.0
+    ports:
+      - "6379:6379"   # Redis protocol / Cypher
+      - "3000:3000"   # FalkorDB browser UI
+    volumes:
+      - falkordb_data:/var/lib/falkordb/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  falkordb_data:
