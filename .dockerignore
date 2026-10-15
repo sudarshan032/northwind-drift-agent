@@ -1,0 +1,8 @@
+.venv
+data
+data_demo
+runtime
+.git
+**/__pycache__
+.pytest_cache
+docs

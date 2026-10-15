@@ -1,3 +1,5 @@
+# `docker compose up`: FalkorDB, a one-shot seed (generate seed-42 data + load), then API + UI on :8000.
+# Works without an API key; put ANTHROPIC_API_KEY in .env for the live agent.
 services:
   falkordb:
     image: falkordb/falkordb:v4.22.0
@@ -15,5 +17,39 @@ services:
       timeout: 3s
       retries: 20
 
+  seed:
+    build: .
+    command: >
+      sh -c "python -m ingest.generate --seed 42 --out /app/data &&
+             python -m ingest.load --data /app/data --graph northwind --fresh"
+    environment:
+      FALKORDB_HOST: falkordb
+    volumes:
+      - nw_data:/app/data
+    depends_on:
+      falkordb:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    build: .
+    environment:
+      FALKORDB_HOST: falkordb
+      NORTHWIND_DATA: /app/data
+      NORTHWIND_RUNTIME: /app/runtime
+    env_file:
+      - path: .env
+        required: false
+    ports:
+      - "8000:8000"
+    volumes:
+      - nw_data:/app/data
+      - nw_runtime:/app/runtime
+    depends_on:
+      seed:
+        condition: service_completed_successfully
+
 volumes:
   falkordb_data:
+  nw_data:
+  nw_runtime:
