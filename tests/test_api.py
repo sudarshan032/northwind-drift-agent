@@ -49,6 +49,36 @@ def test_change_review_endpoint(client):
     assert client.post("/changes/NOPE/review").status_code == 404
 
 
+def test_ui_review_additions(client):
+    """UI_SPEC: risk per change, hidden dependencies with their source, the whole radius for grouping,
+    the CI-failure review, a change on a CI with no impact edges, and before/after rows for CMDB updates."""
+    risks = {c["number"]: c["risk"] for c in client.get("/changes").json()}
+    assert risks["CHG-HEADLINE"] == "high" and risks["CHG0031513"] == "low" and None not in risks.values()
+    r = client.post("/changes/CHG-HEADLINE/review").json()
+    hidden = r["hidden_dependencies"]
+    assert len(hidden) == 51 and {h["source"] for h in hidden} == {"interface_engine"}
+    assert all(h["to"] == "lrc-db-01" and h["days_seen"] >= 3 for h in hidden)
+    ids = {n["id"] for n in r["graph"]["nodes"]}
+    assert sum(1 for n in ids if n.startswith("ORU-CRIT-")) == 51  # every sibling, so the UI can group them
+    assert r["graph"]["paths"] and r["graph"]["paths"][0]["nodes"][0] == "dc1-host-07"
+    net = client.post("/changes/CHG0031526/review")  # target is a network device with no impact edges
+    assert net.status_code == 200 and net.json()["facts"]["risk"] == "low"
+    ci = client.get("/components/lrc-db-01/review").json()
+    assert ci["facts"]["real"]["hospitals"] == 51 and ci["facts"]["declared"]["hospitals"] == 0
+    assert len(ci["hidden_dependencies"]) == 51 and ci["explanation"] is None
+    assert client.get("/components/no-such-ci/review").status_code == 404
+    client.post("/scan")
+    fs = client.get("/findings?limit=500").json()
+    d1 = client.get(f"/findings/{fs[0]['id']}").json()
+    assert len(d1["diff"]) == 51 and d1["diff"][0] == {"what": "Relationship", "before": None,
+                                                        "after": "ORU-CRIT-H01 Depends on lrc-db-01"}
+    d8 = next(f for f in fs if f["type"] == "D8" and f["patch"][0]["path"].endswith("/os_version"))
+    row = client.get(f"/findings/{d8['id']}").json()["diff"][0]
+    assert row["before"] == d8["evidence"]["rows"][0]["cmdb"] and row["after"] == d8["evidence"]["rows"][0]["discovered"]
+    d2 = next(f for f in fs if f["type"] == "D2")
+    assert client.get(f"/findings/{d2['id']}").json()["diff"][0]["after"] is None
+
+
 def test_scan_findings_approve_reject(client):
     r = client.post("/scan").json()
     assert r["total"] > 50 and r["top"][0]["key"] == ["undocumented_group", "lrc-db-01"]
@@ -96,9 +126,12 @@ def test_agent_endpoints_with_fake_llm(client):
 
 
 def test_ui_served(client):
-    html = client.get("/").text
-    assert "cytoscape/3.30.2/cytoscape.min.js" in html and 'id="cy"' in html and "/changes/" in html
-    assert "prefers-color-scheme: dark" in html
+    html = client.get("/").text  # UI_SPEC: shell + token file + components + script, no build step
+    assert 'id="canvas"' in html and 'role="tablist"' in html and "Atkinson+Hyperlegible+Next" in html
+    tokens, css, js = (client.get(f"/static/{f}") for f in ("tokens.css", "app.css", "app.js"))
+    assert all(r.status_code == 200 for r in (tokens, css, js))
+    assert "prefers-color-scheme: dark" in tokens.text and ':root[data-theme="dark"]' in tokens.text
+    assert "prefers-reduced-motion" in tokens.text and "/changes/" in js.text
 
 
 def test_sources_endpoint(client):

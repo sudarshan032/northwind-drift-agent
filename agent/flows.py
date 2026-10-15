@@ -112,8 +112,10 @@ def run_loop(llm, box, system, question, tool_names, max_steps, job):
         notice = DISCARDED if bad else None
     if answer is None or not out["answer"]:
         answer = G.summarise_trace(box.trace, question)
-    return {"answer": answer, "notice": notice, "mismatches": bad,
-            "steps": [{"tool": t["tool"], "input": t["input"]} for t in box.trace], "paths": cited_paths(box.trace)}
+    names = G.graph_names(box.g)
+    return {"answer": answer, "notice": notice, "mismatches": bad, "cis": G.mentioned(answer, names),
+            "steps": [{"tool": t["tool"], "input": t["input"], "found": G.step_found(t["tool"], t["result"])}
+                      for t in box.trace], "paths": cited_paths(box.trace)}
 
 
 def cited_paths(trace):

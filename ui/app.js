@@ -1,0 +1,931 @@
+// Northwind drift agent UI (UI_SPEC.md). Plain JS, no build step. All sizes and colours come from tokens.css.
+"use strict";
+
+const $ = (s, root = document) => root.querySelector(s);
+const $$ = (s, root = document) => [...root.querySelectorAll(s)];
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const tok = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+const px = (name) => parseFloat(tok(name)) || 0;
+const plural = (n, one, many = `${one}s`) => `${n.toLocaleString()} ${n === 1 ? one : many}`;
+const cap = (s) => s ? s[0].toUpperCase() + s.slice(1) : s;
+
+class ApiError extends Error {}
+async function api(path, opts = {}) {
+  let r;
+  try {
+    r = await fetch(path, { headers: { "Content-Type": "application/json" }, ...opts });
+  } catch (e) {
+    throw new ApiError("The API is not reachable. Start the stack with docker compose up, then reload this page.");
+  }
+  if (!r.ok) {
+    let detail = "";
+    try { detail = (await r.json()).detail; } catch (e) { /* not JSON */ }
+    if (r.status >= 500) throw new ApiError("FalkorDB is not reachable or a query failed. Start it with docker compose up, then reload.");
+    throw new ApiError(typeof detail === "string" ? detail : `Request failed (${r.status}).`);
+  }
+  return r.json();
+}
+function banner(msg) { const b = $("#banner"); b.textContent = msg; b.hidden = !msg; }
+
+const WHEN = new Intl.DateTimeFormat(undefined, { weekday: "short", day: "numeric", month: "short", hour: "2-digit",
+                                                  minute: "2-digit", timeZoneName: "short" });
+const DAY = new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short", year: "numeric" });
+const when = (iso) => iso ? WHEN.format(new Date(iso)) : "";
+const day = (iso) => iso ? DAY.format(new Date(iso)) : "";
+
+const SOURCE_NAMES = { cmdb_export: "CMDB export", discovery_scanner: "Discovery scan", apm_otel: "APM traces",
+  netflow: "Network flows", interface_engine: "Interface engine", backup_software: "Backup software",
+  storage_telemetry: "Storage telemetry", identity_sso: "SSO sign-ins", db_audit: "Database audit",
+  hr_feed: "HR feed", itsm_history: "ITSM history" };
+const srcName = (s) => SOURCE_NAMES[s] || s;
+
+// ---------------------------------------------------------------- markdown-lite (AI text; HTML is escaped first)
+function inline(s) {
+  return esc(s).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/`([^`]+)`/g, '<span class="id">$1</span>')
+    .replace(/(^|[\s(])\*([^*\s][^*]*)\*/g, "$1$2").replace(/\*\*/g, "");
+}
+function md(text) {
+  const lines = String(text || "").replace(/\r/g, "").split("\n");
+  const out = [];
+  let list = null, table = null, para = [];
+  const flush = () => {
+    if (para.length) { out.push(`<p>${inline(para.join(" "))}</p>`); para = []; }
+    if (list) { out.push(`<${list.tag}>${list.items.map((i) => `<li>${inline(i)}</li>`).join("")}</${list.tag}>`); list = null; }
+    if (table) {
+      const [head, ...rows] = table;
+      out.push(`<table><thead><tr>${head.map((c) => `<th scope="col">${inline(c)}</th>`).join("")}</tr></thead><tbody>${
+        rows.map((r) => `<tr>${r.map((c) => `<td>${inline(c)}</td>`).join("")}</tr>`).join("")}</tbody></table>`);
+      table = null;
+    }
+  };
+  for (const raw of lines) {
+    const l = raw.trim();
+    if (!l) { flush(); continue; }
+    if (/^\|.*\|$/.test(l)) {
+      if (/^\|[\s:|-]+\|$/.test(l)) continue;
+      if (!table) { flush(); table = []; }
+      table.push(l.slice(1, -1).split("|").map((c) => c.trim()));
+      continue;
+    }
+    let m;
+    if ((m = l.match(/^#{1,6}\s+(.*)$/))) { flush(); out.push(`<h4>${inline(m[1])}</h4>`); continue; }
+    if ((m = l.match(/^[-*•]\s+(.*)$/)) || (m = l.match(/^\d+[.)]\s+(.*)$/))) {
+      const tag = /^\d/.test(l) ? "ol" : "ul";
+      if (para.length || table || (list && list.tag !== tag)) flush();
+      list ??= { tag, items: [] };
+      list.items.push(m[1]);
+      continue;
+    }
+    if (list || table) flush();
+    para.push(l);
+  }
+  flush();
+  return out.join("");
+}
+
+// ---------------------------------------------------------------- header: theme, LLM status, tabs
+function isDark() {
+  const t = document.documentElement.dataset.theme;
+  return t ? t === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+}
+function syncThemeButton() {
+  const b = $("#theme"), dark = isDark();
+  b.textContent = dark ? "Light theme" : "Dark theme";
+  b.setAttribute("aria-pressed", String(dark));
+}
+try { const t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) { /* storage off */ }
+syncThemeButton();
+$("#theme").onclick = () => {
+  document.documentElement.dataset.theme = isDark() ? "light" : "dark";
+  try { localStorage.setItem("theme", document.documentElement.dataset.theme); } catch (e) { /* storage off */ }
+  syncThemeButton();
+};
+
+async function llmStatus() {
+  try {
+    const s = await api("/llm");
+    const el = $("#llm-status");
+    if (s.provider === "none" || !s.models?.length) { el.textContent = "AI explanations off"; return; }
+    const model = s.models[0].replace(/^[^/]+\//, "").replace(/:free$/, "");
+    el.innerHTML = `AI model <span class="id">${esc(model)}</span>` +
+      (s.remaining != null ? `, ${esc(s.remaining)} of ${esc(s.limit)} free requests left today` : "");
+  } catch (e) { $("#llm-status").textContent = "AI status unknown"; }
+}
+
+const TABS = ["change", "findings", "incident", "sources", "chat"];
+function showTab(tab, focus = false) {
+  $("#drawer").hidden = true;
+  $("#scrim").hidden = true;
+  hideTip();
+  for (const t of TABS) {
+    const b = $(`#tab-btn-${t}`), on = t === tab;
+    b.setAttribute("aria-selected", String(on));
+    b.tabIndex = on ? 0 : -1;
+    $(`#tab-${t}`).hidden = !on;
+  }
+  if (focus) $(`#tab-btn-${tab}`).focus();
+  if (tab === "findings") loadFindings();
+  if (tab === "sources") loadSources();
+}
+$$(".tabs [role=tab]").forEach((b) => {
+  b.onclick = () => { showTab(b.dataset.tab); history.replaceState(null, "", `#${b.dataset.tab}`); };
+  b.onkeydown = (e) => {
+    const i = TABS.indexOf(b.dataset.tab);
+    const j = e.key === "ArrowRight" ? (i + 1) % TABS.length : e.key === "ArrowLeft" ? (i + TABS.length - 1) % TABS.length
+      : e.key === "Home" ? 0 : e.key === "End" ? TABS.length - 1 : -1;
+    if (j < 0) return;
+    e.preventDefault();
+    showTab(TABS[j], true);
+    history.replaceState(null, "", `#${TABS[j]}`);
+  };
+});
+
+// ---------------------------------------------------------------- tooltip (hover and focus)
+const tipEl = $("#tooltip");
+function showTip(html, x, y) {
+  tipEl.innerHTML = html;
+  tipEl.hidden = false;
+  const w = tipEl.offsetWidth, h = tipEl.offsetHeight, gap = px("--s-12");
+  tipEl.style.left = `${Math.max(gap, Math.min(x + gap, innerWidth - w - gap))}px`;
+  tipEl.style.top = `${y + gap + h > innerHeight ? y - h - gap : y + gap}px`;
+}
+const hideTip = () => { tipEl.hidden = true; };
+function tipAt(el, html) {
+  const r = el.getBoundingClientRect();
+  showTip(html, r.left + r.width / 2, r.bottom);
+}
+const dl = (rows) => `<dl class="kv">${rows.filter(([, v]) => v !== undefined && v !== null && v !== "")
+  .map(([k, v]) => `<dt>${esc(k)}</dt><dd>${v}</dd>`).join("")}</dl>`;
+
+// ---------------------------------------------------------------- toast
+let toastTimer;
+function toast(msg) {
+  const t = $("#toast");
+  t.textContent = msg;
+  t.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.hidden = true; }, Number(tok("--toast-life")) || 4000);
+}
+
+// ---------------------------------------------------------------- drawer (dialog with focus trap)
+let drawerReturn = null;
+function openDrawer(title, body, foot = "", wide = false) {
+  drawerReturn = document.activeElement;
+  $("#drawer-title").innerHTML = title;
+  $("#drawer-body").innerHTML = body;
+  $("#drawer-foot").innerHTML = foot;
+  $("#drawer").classList.toggle("wide", wide);
+  $("#drawer").hidden = false;
+  $("#scrim").hidden = false;
+  $("#drawer-close").focus();
+}
+function closeDrawer() {
+  $("#drawer").hidden = true;
+  $("#scrim").hidden = true;
+  if (location.hash.includes("=") && /^#(findings|sources)=/.test(location.hash)) history.replaceState(null, "", location.hash.split("=")[0]);
+  drawerReturn?.focus?.();
+}
+$("#drawer-close").onclick = closeDrawer;
+$("#scrim").onclick = closeDrawer;
+document.addEventListener("keydown", (e) => {
+  if ($("#drawer").hidden) { if (e.key === "Escape") hideTip(); return; }
+  if (e.key === "Escape") { closeDrawer(); return; }
+  if (e.key !== "Tab") return;
+  const f = $$("#drawer button, #drawer a, #drawer [tabindex='0']").filter((x) => !x.disabled && x.offsetParent);
+  if (!f.length) return;
+  if (e.shiftKey && document.activeElement === f[0]) { e.preventDefault(); f.at(-1).focus(); }
+  else if (!e.shiftKey && document.activeElement === f.at(-1)) { e.preventDefault(); f[0].focus(); }
+});
+
+// ================================================================ change review
+const ROWS = [["hospitals", "Hospitals"], ["departments", "Departments"], ["routes", "Interfaces"],
+  ["service_offerings", "Service offerings"], ["business_services", "Business services"], ["components", "Components"]];
+const TIERS = [["BusinessService", "Business service"], ["ServiceOffering", "Service offering"], ["Interface", "Interface"],
+  ["Application", "Application"], ["Database", "Database"], ["VM", "Virtual machine"], ["Host", "Server"],
+  ["StorageArray", "Storage array"]];
+const TIER_OF = { BusinessService: 0, ServiceOffering: 1, Interface: 2, Application: 3, ExternalService: 3,
+  MedicalDevice: 3, Endpoint: 3, EndpointGroup: 3, Database: 4, VM: 5, Host: 6, NetworkDevice: 6, StorageArray: 7,
+  BackupTarget: 7 };
+const CLASS_PLURAL = { BusinessService: "business services", ServiceOffering: "service offerings", Interface: "interfaces",
+  Application: "applications", ExternalService: "external services", MedicalDevice: "medical devices",
+  Endpoint: "endpoints", EndpointGroup: "endpoint groups", Database: "databases", VM: "virtual machines",
+  Host: "servers", NetworkDevice: "network devices", StorageArray: "storage arrays", BackupTarget: "backup targets" };
+const CLASS_ONE = { BusinessService: "Business service", ServiceOffering: "Service offering", Interface: "Interface (HL7)",
+  Application: "Application", ExternalService: "External service", MedicalDevice: "Medical device", Endpoint: "Endpoint",
+  EndpointGroup: "Endpoint group", Database: "Database", VM: "Virtual machine", Host: "Server",
+  NetworkDevice: "Network device", StorageArray: "Storage array", BackupTarget: "Backup target" };
+const REL_TEXT = { confirmed: "In the CMDB, confirmed by evidence", structural: "In the CMDB (structure, not visible in traffic)",
+  observed_only: "Observed only, not in the CMDB", declared_only: "In the CMDB, no evidence seen", failover: "Failover relationship" };
+const GROUP_MIN = 6;      // "more than 5 nodes of the same class" (UI_SPEC 4.2)
+const TIER_MAX = 8;       // per tier; the rest fold into one "N more" group so labels never overlap
+
+let changes = [], current = null, review = null, view = "real", model = null, highlight = null;
+
+async function loadChanges() {
+  changes = await api("/changes");
+  const row = (c) => `<li><button type="button" data-change="${esc(c.number)}">
+      <span class="id">${esc(c.number)}</span>${riskLabel(c.risk, true)}
+      <span class="target id">${esc(c.target)}</span>
+      <span class="when">${esc(day(c.start_date))}</span></button></li>`;
+  const up = changes.filter((c) => c.state !== "closed"), past = changes.filter((c) => c.state === "closed");
+  $("#upcoming").innerHTML = up.map(row).join("") || `<li class="empty">No upcoming changes.</li>`;
+  $("#past").innerHTML = past.map(row).join("") || `<li class="empty">No past changes.</li>`;
+  $$(".changes button").forEach((b) => { b.onclick = () => selectChange(b.dataset.change); });
+}
+function riskLabel(risk, short = false) {
+  if (!risk) return "";
+  return `<span class="risk ${esc(risk)}">${esc(cap(risk))}${short ? "" : " risk"}</span>`;
+}
+
+function verdictFor(f, isChange) {
+  const d = f.declared || {}, r = f.real || {};
+  const subject = isChange ? "This change" : `If ${f.component} fails, it`;
+  if ((r.hospitals || 0) > (d.hospitals || 0)) {
+    const known = d.hospitals ? `only ${d.hospitals} of them` : "none of them";
+    return `<span class="calm">${esc(subject)} reaches ${esc(plural(r.hospitals, "hospital"))}.</span> ` +
+           `<span class="loud">The CMDB knows about ${known}.</span>`;
+  }
+  if ((r.components || 0) > (d.components || 0)) {
+    return `<span class="calm">${esc(subject)} reaches ${esc(plural(r.components, "component"))}.</span> ` +
+           `<span class="loud">The CMDB knows about ${d.components ? `only ${d.components}` : "none of them"}.</span>`;
+  }
+  return `<span class="calm">The CMDB matches the evidence for this ${isChange ? "change" : "component"}. ` +
+         `Impact is known: ${esc(plural(r.components || 0, "component"))}.</span>`;
+}
+
+function skeletonReview() {
+  $("#verdict").innerHTML = `<span class="skel"></span><span class="skel"></span>`;
+  $("#compare tbody").innerHTML = ROWS.map(() => `<tr><td colspan="4"><span class="skel"></span></td></tr>`).join("");
+  $("#canvas").innerHTML = `<span class="skel wide"></span>`;
+  $("#ai-text").innerHTML = `<span class="skel"></span><span class="skel"></span>`;
+}
+
+async function selectChange(id, push = true) {
+  current = { kind: "change", id };
+  $$(".changes button").forEach((b) => b.setAttribute("aria-current", String(b.dataset.change === id)));
+  if (push) history.replaceState(null, "", `#change=${encodeURIComponent(id)}`);
+  const c = changes.find((x) => x.number === id);
+  $("#rv-number").textContent = id;
+  $("#rv-title").textContent = c?.description || "";
+  $("#rv-when").textContent = c ? when(c.start_date) : "";
+  $("#rv-risk").innerHTML = riskLabel(c?.risk);
+  skeletonReview();
+  try {
+    review = await api(`/changes/${encodeURIComponent(id)}/review`, { method: "POST" });
+  } catch (e) { banner(e.message); return; }
+  if (current.id !== id) return;
+  banner("");
+  renderReview(true);
+  llmStatus();
+}
+
+async function selectComponent(name, path = null) {
+  current = { kind: "ci", id: name };
+  highlight = path;
+  $$(".changes button").forEach((b) => b.setAttribute("aria-current", "false"));
+  $("#rv-number").textContent = name;
+  $("#rv-title").textContent = "What breaks if this component fails";
+  $("#rv-when").textContent = "";
+  $("#rv-risk").innerHTML = "";
+  skeletonReview();
+  try { review = await api(`/components/${encodeURIComponent(name)}/review`); }
+  catch (e) { banner(e.message); return; }
+  banner("");
+  renderReview(false);
+}
+
+function renderReview(isChange) {
+  const f = review.facts;
+  $("#verdict").innerHTML = verdictFor(f, isChange);
+  $("#compare tbody").innerHTML = ROWS.map(([k, label]) => {
+    const d = f.declared?.[k] ?? 0, r = f.real?.[k] ?? 0, miss = Math.max(0, r - d);
+    return `<tr><th scope="row">${label}</th><td class="num">${d.toLocaleString()}</td><td class="num">${r.toLocaleString()}</td>
+      <td class="num ${miss ? "missing" : "none"}">${miss ? miss.toLocaleString() : "None"}</td></tr>`;
+  }).join("");
+  model = buildModel(review.graph);
+  drawGraph();
+  renderPathList();
+  renderHidden();
+  renderWarn(f.warn || []);
+  renderAI(isChange);
+}
+
+// ---- grouping: siblings of one class that share their neighbours (UI_SPEC 4.2)
+function buildModel(g) {
+  const nodes = new Map(g.nodes.map((n) => [n.id, { ...n, tier: TIER_OF[n.label] ?? 3 }]));
+  const adj = new Map([...nodes.keys()].map((k) => [k, new Set()]));
+  for (const e of g.edges) { adj.get(e.source)?.add(e.target); adj.get(e.target)?.add(e.source); }
+  // a neighbour counts for the signature when it is shared by several nodes of my class
+  const sig = (n) => {
+    const shared = [...adj.get(n.id)].filter((m) => [...adj.get(m)].filter((x) => nodes.get(x)?.label === n.label).length > 1);
+    return [n.label, n.changed, n.impacted_real, n.impacted_declared, shared.sort().join(",")].join("|");
+  };
+  const buckets = new Map();
+  for (const n of nodes.values()) { const k = sig(n); (buckets.get(k) || buckets.set(k, []).get(k)).push(n.id); }
+  const groupOf = new Map(), groups = new Map();
+  let gi = 0;
+  const makeGroup = (ids, label, extra = {}) => {
+    const id = `group-${gi++}`;
+    const members = ids.slice().sort();
+    const first = nodes.get(members[0]);
+    groups.set(id, { id, group: true, members, label, tier: first.tier, changed: false,
+      impacted_real: members.some((m) => nodes.get(m).impacted_real),
+      impacted_declared: members.some((m) => nodes.get(m).impacted_declared), pattern: pattern(members), ...extra });
+    members.forEach((m) => groupOf.set(m, id));
+    return id;
+  };
+  for (const ids of buckets.values()) if (ids.length >= GROUP_MIN && !nodes.get(ids[0]).changed) makeGroup(ids, nodes.get(ids[0]).label);
+  // fold overflow per tier into "N more" so a tier never has more than TIER_MAX boxes
+  const visible = () => {
+    const v = new Map();
+    for (const n of nodes.values()) if (!groupOf.has(n.id)) v.set(n.id, n);
+    for (const gr of groups.values()) v.set(gr.id, gr);
+    return v;
+  };
+  const byTier = {};
+  for (const v of visible().values()) (byTier[v.tier] ??= []).push(v);
+  for (const list of Object.values(byTier)) {
+    if (list.length <= TIER_MAX) continue;
+    const keep = list.sort((a, b) => score(b) - score(a)).slice(0, TIER_MAX - 1).map((x) => x.id);
+    const rest = list.filter((x) => !keep.includes(x.id));
+    const ids = rest.flatMap((x) => x.group ? x.members : [x.id]);
+    rest.filter((x) => x.group).forEach((x) => groups.delete(x.id));
+    makeGroup(ids, rest[0].group ? rest[0].label : rest[0].label, { more: true, classes: [...new Set(ids.map((m) => nodes.get(m).label))] });
+  }
+  const vis = visible();
+  const key = (id) => groupOf.get(id) || id;
+  const edges = new Map();
+  for (const e of g.edges) {
+    const s = key(e.source), t = key(e.target);
+    if (s === t) continue;
+    const k = `${s}>${t}>${e.status}`;
+    const agg = edges.get(k) || { id: `e${edges.size}`, source: s, target: t, status: e.status, label: e.label, items: [] };
+    agg.items.push(e);
+    edges.set(k, agg);
+  }
+  return { nodes, vis, groups, groupOf, edges: [...edges.values()] };
+}
+function score(v) { return (v.changed ? 8 : 0) + (v.impacted_real ? 4 : 0) + (v.group ? v.members.length / 1000 : 0); }
+function pattern(names) {
+  let p = names[0];
+  for (const n of names) while (!n.startsWith(p)) p = p.slice(0, -1);
+  p = p.replace(/[0-9]+$/, "");
+  return p.length >= 3 ? `${p}*` : "";
+}
+function groupTitle(gr) {
+  if (gr.more) return `${gr.members.length} more ${gr.classes.length === 1 ? CLASS_PLURAL[gr.classes[0]] : "components"}`;
+  return `${gr.members.length} ${CLASS_PLURAL[gr.label] || "components"}`;
+}
+
+// ---- layout and SVG
+const SVGNS = "http://www.w3.org/2000/svg";
+function drawGraph() {
+  const canvas = $("#canvas");
+  const { vis, edges } = model;
+  if (!vis.size) { canvas.innerHTML = `<p class="empty">No dependencies to draw.</p>`; return; }
+  const W = { node: px("--node-w"), h: px("--node-h"), gw: px("--group-w"), gh: px("--group-h"), gap: px("--node-gap"),
+              tier: px("--tier-gap"), gutter: px("--tier-gutter"), pad: px("--s-24"), badge: px("--badge-w"),
+              t13: px("--t-13"), s4: px("--s-4"), s8: px("--s-8"), s12: px("--s-12") };
+  const tiers = [...new Set([...vis.values()].map((v) => v.tier))].sort((a, b) => a - b);
+  const rows = Object.fromEntries(tiers.map((t) => [t, [...vis.values()].filter((v) => v.tier === t)]));
+  const nb = new Map([...vis.keys()].map((k) => [k, []]));
+  const link = (a, b) => { nb.get(a).push(b); nb.get(b).push(a); };
+  // an edge that skips tiers gets a placeholder slot in every tier it crosses, so it never runs through a box
+  const via = new Map(), info = new Map(vis);
+  for (const e of edges) {
+    const ia = tiers.indexOf(vis.get(e.source)?.tier), ib = tiers.indexOf(vis.get(e.target)?.tier);
+    if (ia < 0 || ib < 0) continue;
+    const step = ib > ia ? 1 : -1, chain = [e.source];
+    for (let i = ia + step; ia !== ib && i !== ib; i += step) {
+      const first = i === ia + step && e.status === "observed_only";  // this slot carries the edge label
+      const d = { id: `via:${e.id}:${i}`, dummy: true, tier: tiers[i], w: first ? labelW(edgeLabel(e)) : W.gap };
+      rows[tiers[i]].push(d); info.set(d.id, d); nb.set(d.id, []); chain.push(d.id);
+    }
+    chain.push(e.target);
+    chain.slice(1).forEach((c, i) => link(chain[i], c));
+    via.set(e.id, chain);
+  }
+  const width = (v) => v.dummy ? v.w : v.group ? W.gw : W.node;
+  const maxRow = Math.max(...tiers.map((t) => rows[t].reduce((s, v) => s + width(v) + W.gap, -W.gap)));
+  const innerW = Math.max(maxRow, (canvas.clientWidth || 900) - W.gutter - 2 * W.pad);
+  const pos = new Map();
+  const place = (t) => {
+    const total = rows[t].reduce((s, v) => s + width(v) + W.gap, -W.gap);
+    let x = W.gutter + W.pad + (innerW - total) / 2;
+    rows[t].forEach((v) => { pos.set(v.id, { x: x + width(v) / 2, y: W.pad + tiers.indexOf(t) * W.tier + W.gh / 2 }); x += width(v) + W.gap; });
+  };
+  tiers.forEach((t) => { rows[t].sort((a, b) => score(b) - score(a) || String(a.id).localeCompare(b.id)); place(t); });
+  const sweep = (order) => order.forEach((t) => {
+    const bary = (v) => { const xs = nb.get(v.id).filter((m) => pos.has(m) && info.get(m).tier !== t).map((m) => pos.get(m).x);
+                          return xs.length ? xs.reduce((a, b) => a + b) / xs.length : pos.get(v.id).x; };
+    rows[t].sort((a, b) => bary(a) - bary(b) || String(a.id).localeCompare(b.id));
+    place(t);
+  });
+  sweep(tiers); sweep([...tiers].reverse()); sweep(tiers);
+  const H = 2 * W.pad + (tiers.length - 1) * W.tier + W.gh;
+  const totalW = W.gutter + 2 * W.pad + innerW;
+  const svg = document.createElementNS(SVGNS, "svg");
+  svg.setAttribute("width", totalW);
+  svg.setAttribute("height", H);
+  svg.setAttribute("viewBox", `0 0 ${totalW} ${H}`);
+  svg.setAttribute("role", "group");
+  svg.setAttribute("aria-label", `Dependency view: ${vis.size} boxes in ${tiers.length} tiers. Tab through boxes and lines for details.`);
+  let html = `<defs>${["default", "signal", "declared"].map((m) => `<marker id="mk-${m}" class="mk-${m}" viewBox="0 0 10 10" refX="9" refY="5"
+     markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z"/></marker>`).join("")}</defs>`;
+  tiers.forEach((t, i) => {
+    const y = W.pad + i * W.tier + W.gh / 2;
+    html += `<text class="tier-name" x="${W.s12}" y="${y + W.t13 / 3}">${esc(TIERS[t][1])}</text>`;
+    if (i) html += `<line class="tier-line" x1="0" x2="${totalW}" y1="${y - W.tier / 2}" y2="${y - W.tier / 2}"/>`;
+  });
+  const hOf = (v) => v.group ? W.gh : W.h;
+  let edgeHtml = "";
+  for (const e of edges) {
+    const a = pos.get(e.source), b = pos.get(e.target);
+    if (!a || !b) continue;
+    const va = vis.get(e.source), vb = vis.get(e.target);
+    let d, lx, ly;
+    if (va.tier === vb.tier) {
+      const y = a.y - hOf(va) / 2, lift = W.tier / 2;
+      d = `M${a.x},${y} C${a.x},${y - lift} ${b.x},${y - lift} ${b.x},${b.y - hOf(vb) / 2}`;
+      lx = (a.x + b.x) / 2; ly = y - lift * 0.75;
+    } else {
+      const down = vb.tier > va.tier, sgn = down ? 1 : -1;
+      const pts = (via.get(e.id) || [e.source, e.target]).map((id, i, all) => {
+        const p = pos.get(id), v = info.get(id);
+        return { x: p.x, y: i === 0 ? p.y + sgn * hOf(v) / 2 : i === all.length - 1 ? p.y - sgn * hOf(v) / 2 : p.y };
+      });
+      d = `M${pts[0].x},${pts[0].y}` + pts.slice(1).map((q, i) => {
+        const p = pts[i], my = (p.y + q.y) / 2;
+        return ` C${p.x},${my} ${q.x},${my} ${q.x},${q.y}`;
+      }).join("");
+      const mid = pts.length > 2 ? pts[1] : { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 };
+      lx = mid.x; ly = mid.y;
+    }
+    const mk = e.status === "observed_only" ? "signal" : e.status === "failover" ? "declared" : "default";
+    const lbl = edgeLabel(e);
+    edgeHtml += `<g class="edge" tabindex="0" role="img" data-edge="${e.id}" aria-label="${esc(edgeAria(e))}">
+      <path class="hit-area" d="${d}"/><path class="ln e-${e.status}" d="${d}" marker-end="url(#mk-${mk})"/>
+      ${lbl ? `<rect class="edge-label-bg" x="${lx - labelW(lbl) / 2}" y="${ly - W.t13 * 0.8}" width="${labelW(lbl)}" height="${W.t13 * 1.3}"/>
+               <text class="edge-label" x="${lx}" y="${ly + W.t13 * 0.3}" text-anchor="middle">${esc(lbl)}</text>` : ""}</g>`;
+  }
+  const order = [...vis.values()].sort((a, b) => pos.get(a.id).y - pos.get(b.id).y || pos.get(a.id).x - pos.get(b.id).x);
+  for (const v of order) {
+    const p = pos.get(v.id), w = width(v), h = hOf(v), x = p.x - w / 2, y = p.y - h / 2;
+    const cls = ["node", v.group ? "group" : "", v.changed ? "changed" : ""].join(" ");
+    if (v.group) {
+      const title = groupTitle(v), pat = v.pattern;
+      const chars = Math.floor((w - W.badge - 2 * W.s8) / (W.t13 * 0.6));
+      html += `<g class="${cls}" tabindex="0" role="button" data-node="${v.id}" aria-expanded="false" aria-label="${esc(nodeAria(v))}">
+        <rect class="ring" x="${x - W.s4}" y="${y - W.s4}" width="${w + 2 * W.s4}" height="${h + 2 * W.s4}"/>
+        <rect class="box" x="${x}" y="${y}" width="${w}" height="${h}"/>
+        <rect class="count-box" x="${x}" y="${y}" width="${W.badge}" height="${h}"/>
+        <text class="count" x="${x + W.badge / 2}" y="${p.y + W.t13 / 3}" text-anchor="middle">${v.members.length}</text>
+        <text class="glbl" x="${x + W.badge + W.s8}" y="${p.y - (pat ? W.t13 * 0.25 : -W.t13 / 3)}">${esc(trunc(title.replace(/^\d+\s/, ""), chars + 4))}</text>
+        ${pat ? `<text class="lbl" x="${x + W.badge + W.s8}" y="${p.y + W.t13 * 1.05}">${esc(trunc(pat, chars))}</text>` : ""}</g>`;
+    } else {
+      const chars = Math.floor((w - 2 * W.s8) / (W.t13 * 0.6));
+      html += `<g class="${cls}" tabindex="0" role="img" data-node="${esc(v.id)}" aria-label="${esc(nodeAria(v))}">
+        <rect class="ring" x="${x - W.s4}" y="${y - W.s4}" width="${w + 2 * W.s4}" height="${h + 2 * W.s4}"/>
+        <rect class="box" x="${x}" y="${y}" width="${w}" height="${h}"/>
+        <text class="lbl" x="${p.x}" y="${p.y + W.t13 / 3}" text-anchor="middle">${esc(trunc(v.id, chars))}</text></g>`;
+    }
+  }
+  svg.innerHTML = html + edgeHtml;
+  canvas.innerHTML = "";
+  canvas.appendChild(svg);
+  paint();
+  wireGraph(svg);
+}
+const edgeLabel = (e) => e.status === "observed_only" ? `depends on, observed only${e.items.length > 1 ? ` (${e.items.length})` : ""}` : "";
+const labelW = (s) => s.length * px("--t-13") * 0.54;
+const trunc = (s, n) => s.length > n ? `${s.slice(0, Math.max(1, n - 1))}…` : s;
+function nodeAria(v) {
+  const imp = (view === "real" ? v.impacted_real : v.impacted_declared) ? "impacted" : "not impacted";
+  if (v.group) return `${groupTitle(v)}${v.pattern ? ` (${v.pattern})` : ""}, ${imp}. Press Enter to list them.`;
+  return `${v.id}, ${CLASS_ONE[v.label] || v.label}, ${imp}${v.changed ? ", changed by this change" : ""}`;
+}
+function edgeAria(e) {
+  const name = (id) => model.vis.get(id)?.group ? groupTitle(model.vis.get(id)) : id;
+  return `${name(e.source)} to ${name(e.target)}: ${e.items[0].label.replace(/ \(observed.*$/, "")}, ${REL_TEXT[e.status]}`;
+}
+function nodeTip(v) {
+  if (v.group) {
+    return `<strong>${esc(groupTitle(v))}${v.pattern ? ` (${esc(v.pattern)})` : ""}</strong>` + dl([
+      ["Class", esc(v.more ? v.classes.map((c) => CLASS_ONE[c]).join(", ") : CLASS_ONE[v.label])],
+      ["Reality", v.impacted_real ? "Impacted" : "Not impacted"], ["CMDB says", v.impacted_declared ? "Impacted" : "Not impacted"],
+      ["", "Click or press Enter to list them"]]);
+  }
+  return `<strong>${esc(v.id)}</strong>` + dl([["Class", esc(CLASS_ONE[v.label] || v.label)], ["Recorded in", "CMDB"],
+    ["Reality", v.impacted_real ? "Impacted" : "Not impacted"], ["CMDB says", v.impacted_declared ? "Impacted" : "Not impacted"],
+    ["Change", v.changed ? "Changed by this change" : ""]]);
+}
+function edgeTip(e) {
+  const name = (id) => model.vis.get(id)?.group ? groupTitle(model.vis.get(id)) : id;
+  const ev = e.items.map((x) => x.evidence).filter(Boolean);
+  const sum = (k) => ev.reduce((s, x) => s + (x[k] || 0), 0);
+  const days = ev.map((x) => x.days_seen).filter((x) => x != null);
+  const first = ev.map((x) => x.first_seen).filter(Boolean).sort()[0], last = ev.map((x) => x.last_seen).filter(Boolean).sort().at(-1);
+  const rel = e.items[0].label.replace(/ \(observed.*$/, "");
+  return `<strong>${esc(name(e.source))} to ${esc(name(e.target))}</strong>` + dl([
+    ["Relationship", esc(rel)], ["Status", esc(REL_TEXT[e.status])],
+    ["Recorded in", esc([...new Set(e.items.flatMap((x) => x.layers))].map((l) => l === "evidence" ? "Evidence" : "CMDB").join(" and "))],
+    ["Count", e.items.length > 1 ? `${e.items.length} relationships` : ""],
+    ["Source", ev.length ? esc([...new Set(ev.map((x) => srcName(x.source) + (x.connector ? ` (${x.connector})` : "")))].join(", ")) : ""],
+    ["Messages", ev.length ? sum("count").toLocaleString() : ""], ["Errors", ev.length ? sum("errors").toLocaleString() : ""],
+    ["Days seen", days.length ? (Math.min(...days) === Math.max(...days) ? String(days[0]) : `${Math.min(...days)} to ${Math.max(...days)}`) : ""],
+    ["First seen", first ? esc(day(first)) : ""], ["Last seen", last ? esc(day(last)) : ""]]);
+}
+function wireGraph(svg) {
+  const findNode = (el) => model.vis.get(el.dataset.node);
+  const findEdge = (el) => model.edges.find((x) => x.id === el.dataset.edge);
+  svg.querySelectorAll(".node").forEach((el) => {
+    const v = findNode(el);
+    const show = (ev) => ev?.clientX ? showTip(nodeTip(v), ev.clientX, ev.clientY) : tipAt(el, nodeTip(v));
+    el.addEventListener("mousemove", show);
+    el.addEventListener("focus", () => show());
+    el.addEventListener("mouseleave", hideTip);
+    el.addEventListener("blur", hideTip);
+    if (v.group) {
+      el.addEventListener("click", () => openGroup(v, el));
+      el.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openGroup(v, el); } });
+    }
+  });
+  svg.querySelectorAll(".edge").forEach((el) => {
+    const e = findEdge(el);
+    const show = (ev) => ev?.clientX ? showTip(edgeTip(e), ev.clientX, ev.clientY) : tipAt(el, edgeTip(e));
+    el.addEventListener("mousemove", show);
+    el.addEventListener("focus", () => show());
+    el.addEventListener("mouseleave", hideTip);
+    el.addEventListener("blur", hideTip);
+  });
+}
+function paint() {
+  const svg = $("#canvas svg");
+  if (!svg) return;
+  svg.querySelectorAll(".node").forEach((el) => {
+    const v = model.vis.get(el.dataset.node);
+    el.classList.toggle("hit", Boolean(view === "real" ? v.impacted_real : v.impacted_declared));
+    el.setAttribute("aria-label", nodeAria(v));
+  });
+  svg.querySelectorAll(".edge").forEach((el) => {
+    const e = model.edges.find((x) => x.id === el.dataset.edge);
+    el.classList.toggle("faded", view === "declared" && e.status === "observed_only");
+  });
+  if (highlight?.length) {
+    const ids = new Set(highlight.map((n) => model.groupOf.get(n) || n));
+    svg.classList.add("dim");
+    svg.querySelectorAll(".node").forEach((el) => el.classList.toggle("on-path", ids.has(el.dataset.node)));
+    svg.querySelectorAll(".edge").forEach((el) => {
+      const e = model.edges.find((x) => x.id === el.dataset.edge);
+      el.classList.toggle("on-path", ids.has(e.source) && ids.has(e.target));
+    });
+  } else svg.classList.remove("dim");
+  $("#view-note").textContent = view === "real"
+    ? "Red boxes are impacted according to the CMDB and the discovery evidence."
+    : "Red boxes are impacted according to the CMDB alone.";
+}
+$$("[data-view]").forEach((b) => {
+  b.onclick = () => {
+    view = b.dataset.view;
+    $$("[data-view]").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+    paint();
+    renderPathList();
+  };
+});
+function openGroup(v, el) {
+  const panel = $("#group-panel");
+  $$(".node.expanded").forEach((x) => { x.classList.remove("expanded"); x.setAttribute("aria-expanded", "false"); });
+  el.classList.add("expanded");
+  el.setAttribute("aria-expanded", "true");
+  const rel = (m) => {
+    const es = review.graph.edges.filter((e) => e.source === m || e.target === m);
+    return es.some((e) => e.status === "observed_only") ? `<span class="flag">observed only</span>` : "";
+  };
+  panel.innerHTML = `<div class="gp-head"><h3>${esc(groupTitle(v))}${v.pattern ? ` (<span class="id">${esc(v.pattern)}</span>)` : ""}</h3>
+    <button type="button" class="ghost" id="group-close">Close list</button></div>
+    <ul tabindex="0" aria-label="${esc(groupTitle(v))}">${v.members.map((m) => `<li><span class="id">${esc(m)}</span> ${rel(m)}</li>`).join("")}</ul>`;
+  panel.hidden = false;
+  $("#group-close").onclick = () => { panel.hidden = true; el.classList.remove("expanded"); el.setAttribute("aria-expanded", "false"); el.focus(); };
+  panel.scrollIntoView({ block: "nearest", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+}
+
+// ---- small screens: the impact path as a vertical list
+function renderPathList() {
+  const p = review.graph.paths.find((x) => x.layer === view) || review.graph.paths[0];
+  const el = $("#path-list");
+  if (!p) { el.innerHTML = `<li>${current.kind === "change" ? "No business service is reached." : "No path to a service."}</li>`; return; }
+  const edgeFor = (a, b) => review.graph.edges.find((e) => (e.source === a && e.target === b) || (e.source === b && e.target === a));
+  el.innerHTML = p.nodes.map((n, i) => {
+    const node = model.nodes.get(n), gid = model.groupOf.get(n), gr = gid && model.groups.get(gid);
+    const hit = node && (view === "real" ? node.impacted_real : node.impacted_declared);
+    const e = i ? edgeFor(p.nodes[i - 1], n) : null;
+    const relTxt = e ? `${e.label.replace(/ \(observed.*$/, "")}${e.status === "observed_only" ? ", observed only, not in the CMDB" : ""}` : "";
+    return `<li class="${hit ? "hit" : ""}">${relTxt ? `<span class="rel ${e.status === "observed_only" ? "observed" : ""}">${esc(relTxt)}</span>` : ""}
+      <span class="id">${esc(n)}</span> <span class="cls">${esc(CLASS_ONE[node?.label] || "")}${gr ? `, one of ${esc(groupTitle(gr))}` : ""}${hit ? ", impacted" : ""}</span></li>`;
+  }).join("");
+}
+
+function renderHidden() {
+  const hs = review.hidden_dependencies || [];
+  $("#hidden-sub").textContent = hs.length
+    ? `${plural(hs.length, "dependency", "dependencies")} seen in the evidence on at least 3 days with no CMDB relationship.`
+    : "None. Every dependency seen in the evidence is in the CMDB.";
+  const row = (h) => `<tr><td class="id" data-label="From">${esc(h.from)}</td><td class="id" data-label="To">${esc(h.to)}</td>
+    <td data-label="Seen by">${esc(srcName(h.source))}${h.connector ? ` (${esc(h.connector)})` : ""}</td>
+    <td class="num" data-label="Days seen">${esc(h.days_seen ?? "")}</td><td data-label="Last seen">${esc(day(h.last_seen))}</td></tr>`;
+  if (!hs.length) { $("#hidden").innerHTML = ""; return; }
+  const LIMIT = matchMedia("(max-width: 960px)").matches ? 3 : 8;
+  $("#hidden").innerHTML = `<table class="data plain"><thead><tr><th scope="col">From</th><th scope="col">To</th>
+    <th scope="col">Seen by</th><th scope="col" class="num">Days seen</th><th scope="col">Last seen</th></tr></thead>
+    <tbody>${hs.slice(0, LIMIT).map(row).join("")}</tbody></table>${hs.length > LIMIT
+    ? `<button type="button" class="ghost more" id="hidden-more">Show all ${hs.length}</button>` : ""}`;
+  $("#hidden-more")?.addEventListener("click", (e) => {
+    $("#hidden tbody").innerHTML = hs.map(row).join("");
+    e.target.remove();
+  });
+}
+function renderWarn(warn) {
+  if (!warn.length) { $("#warn").innerHTML = `<p class="empty">No owners recorded for the impacted components.</p>`; return; }
+  const ws = [...warn].sort((a, b) => (b.differs ? 1 : 0) - (a.differs ? 1 : 0) || a.component.localeCompare(b.component));
+  $("#warn").innerHTML = `<table class="data plain"><thead><tr><th scope="col">Component</th><th scope="col">CMDB owner</th>
+    <th scope="col">Observed owner</th><th scope="col"><span class="sr">Owner differs</span></th></tr></thead><tbody>${
+    ws.map((o) => `<tr><td class="id" data-label="Component">${esc(o.component)}</td><td data-label="CMDB owner">${esc(o.declared_owner || "None recorded")}</td>
+      <td data-label="Observed owner">${esc(o.observed_owner || "None seen")}</td>${o.differs ? `<td data-label=""><span class="flag">Warn the observed owner</span></td>` : "<td></td>"}</tr>`).join("")}
+    </tbody></table>`;
+}
+function renderAI(isChange) {
+  const head = $("#ai-head"), note = $("#ai-notice"), text = $("#ai-text");
+  if (!isChange) {
+    head.textContent = "Explanation";
+    note.hidden = true;
+    text.innerHTML = `<p>Computed from the graph. Open a change to get an AI explanation.</p>`;
+    return;
+  }
+  const fallback = !review.llm || review.notice;
+  head.textContent = fallback ? "Rule-based explanation" : "AI explanation";
+  note.hidden = !review.notice;
+  note.textContent = review.notice ? `${review.notice.replace(/, showing/, ". Showing")}.`.replace(/\.\.$/, ".") : "";
+  text.innerHTML = md(review.explanation);
+  $("#ai-more")?.remove();
+  text.classList.remove("clamped");
+  if ((review.explanation || "").length > 700) {
+    text.classList.add("clamped");
+    const btn = document.createElement("button");
+    Object.assign(btn, { type: "button", className: "ghost", id: "ai-more", textContent: "Show the full explanation" });
+    btn.setAttribute("aria-expanded", "false");
+    btn.setAttribute("aria-controls", "ai-text");
+    btn.onclick = () => {
+      const open = text.classList.toggle("clamped") === false;
+      btn.setAttribute("aria-expanded", String(open));
+      btn.textContent = open ? "Show less" : "Show the full explanation";
+    };
+    text.after(btn);
+  }
+}
+
+// ================================================================ findings
+const SEV_ORDER = { critical: 0, high: 1, medium: 2, low: 3 };
+const ACTION = { cmdb_patch: "CMDB update", ticket: "Ticket" };
+let findings = [];
+function fillSelect(sel, values, label) {
+  const keep = sel.value;
+  sel.innerHTML = `<option value="">All</option>` + values.map(([v, l]) => `<option value="${esc(v)}">${esc(l ?? v)}</option>`).join("");
+  sel.value = values.some(([v]) => v === keep) ? keep : "";
+  sel.setAttribute("aria-label", label);
+}
+async function loadFindings() {
+  const tb = $("#findings");
+  if (!findings.length) tb.innerHTML = Array.from({ length: 6 }, () => `<tr><td colspan="6"><span class="skel"></span></td></tr>`).join("");
+  try { findings = await api("/findings?limit=500"); }
+  catch (e) { banner(e.message); tb.innerHTML = ""; return; }
+  findings.sort((a, b) => SEV_ORDER[a.severity] - SEV_ORDER[b.severity] || b.score - a.score);
+  fillSelect($("#f-sev"), Object.keys(SEV_ORDER).filter((s) => findings.some((f) => f.severity === s)).map((s) => [s, cap(s)]), "Severity");
+  const types = [...new Map(findings.map((f) => [f.type, f.kind])).entries()].sort((a, b) => Number(a[0].slice(1)) - Number(b[0].slice(1)));
+  fillSelect($("#f-type"), types.map(([t, k]) => [t, `${t} ${cap(k)}`]), "Drift type");
+  fillSelect($("#f-src"), [...new Set(findings.flatMap((f) => f.sources || []))].sort().map((s) => [s, srcName(s)]), "Source");
+  fillSelect($("#f-act"), Object.entries(ACTION), "Action");
+  fillSelect($("#f-status"), [["open", "Open"], ["approved", "Approved"], ["rejected", "Rejected"]], "Status");
+  renderFindings();
+  const open = location.hash.startsWith("#findings=") ? decodeURIComponent(location.hash.slice(10)) : null;
+  if (open && $("#drawer").hidden) openFinding(open);
+}
+function affected(f) {
+  const names = f.subjects?.length ? f.subjects : [f.key?.[1]].filter(Boolean);
+  return names.length > 1 ? `${names[0]} and ${names.length - 1} more` : names[0] || "";
+}
+function firstSentence(s) { const m = String(s || "").replace(/\*\*/g, "").match(/^.*?[.!?](\s|$)/); return (m ? m[0] : s || "").trim(); }
+function renderFindings() {
+  const v = (id) => $(id).value;
+  const rows = findings.filter((f) => (!v("#f-sev") || f.severity === v("#f-sev")) && (!v("#f-type") || f.type === v("#f-type"))
+    && (!v("#f-src") || (f.sources || []).includes(v("#f-src"))) && (!v("#f-act") || f.action === v("#f-act"))
+    && (!v("#f-status") || f.status === v("#f-status")));
+  $("#f-count").textContent = rows.length === findings.length ? plural(findings.length, "finding")
+    : `${rows.length} of ${plural(findings.length, "finding")}`;
+  $("#findings").innerHTML = rows.length ? rows.map((f) => `<tr tabindex="0" data-id="${esc(f.id)}">
+      <td><span class="risk sev ${esc(f.severity)}">${esc(cap(f.severity))}</span></td>
+      <td><span class="title">${esc(cap(f.kind))}</span><p class="line2">${esc(firstSentence(f.explanation))}</p></td>
+      <td class="id">${esc(affected(f))}</td>
+      <td><span class="chips">${(f.sources || []).filter((s) => s !== "cmdb_export").map((s) => `<span class="chip">${esc(srcName(s))}</span>`).join("")}</span></td>
+      <td><span class="act ${f.action === "ticket" ? "ticket" : "cmdb"}">${esc(ACTION[f.action] || f.action)}</span></td>
+      <td>${esc(cap(f.status))}${f.resolved ? ", resolved" : ""}</td></tr>`).join("")
+    : `<tr><td colspan="6" class="empty">${findings.length ? "No findings match these filters." : "No findings yet. Run a drift scan."}</td></tr>`;
+  $$("#findings tr[data-id]").forEach((tr) => {
+    tr.onclick = () => openFinding(tr.dataset.id);
+    tr.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openFinding(tr.dataset.id); } };
+  });
+}
+["#f-sev", "#f-type", "#f-src", "#f-act", "#f-status"].forEach((id) => { $(id).onchange = renderFindings; });
+$("#scan").onclick = async (e) => {
+  e.target.disabled = true;
+  $("#f-count").textContent = "Scanning the graph";
+  try { const r = await api("/scan", { method: "POST" }); toast(`Scan complete: ${plural(r.total, "finding")}`); findings = []; await loadFindings(); }
+  catch (err) { banner(err.message); }
+  e.target.disabled = false;
+  llmStatus();
+};
+
+function evidenceTable(ev) {
+  const rows = ev?.rows || [];
+  if (!rows.length) return `<p class="empty">No evidence rows.</p>`;
+  const cols = [...new Set(rows.flatMap((r) => Object.keys(r)))].filter((k) => k !== "key");
+  const cell = (v) => Array.isArray(v) ? v.map((x) => srcName(x)).join(", ") : typeof v === "object" && v ? JSON.stringify(v) : v;
+  const LIMIT = 12;
+  return `<table class="data plain"><thead><tr><th scope="col">Item</th>${cols.map((c) => `<th scope="col">${esc(cap(c.replace(/_/g, " ")))}</th>`).join("")}</tr></thead>
+    <tbody>${rows.slice(0, LIMIT).map((r) => `<tr><td class="id">${esc((r.key || []).slice(1).join(" to "))}</td>${
+      cols.map((c) => `<td>${esc(cell(r[c]) ?? "")}</td>`).join("")}</tr>`).join("")}</tbody></table>${
+    rows.length > LIMIT ? `<p class="label-muted">And ${rows.length - LIMIT} more rows.</p>` : ""}`;
+}
+function miniPath(f) {
+  if (!f.path?.nodes?.length) return "";
+  const rel = (t) => t?.startsWith("OBSERVED") ? `<span class="rel observed">depends on, observed only</span>` : `<span class="rel">${esc((t || "").toLowerCase().replace(/_/g, " "))}</span>`;
+  return `<section><h3>Path</h3><div class="mini-path">${f.path.nodes.map((n, i) =>
+    `${i ? rel(f.path.edges?.[i - 1]) : ""}<span class="box id">${esc(n)}</span>`).join("")}</div></section>`;
+}
+function ticketPreview(t) {
+  return dl([["Table", `<span class="id">${esc(t.table)}</span>`], ["Short description", esc(t.short_description)],
+    ["Configuration item", `<span class="id">${esc(t.cmdb_ci)}</span>`], ["Assignment group", esc(t.assignment_group)],
+    ["Priority", esc(t.priority)], ["Category", esc(t.category)], ["Notify", esc((t.notify || []).join(", "))],
+    ["Description", esc(t.description)]]);
+}
+function diffTable(diff) {
+  const LIMIT = 10;
+  return `<table class="data plain diff"><thead><tr><th scope="col">What</th><th scope="col">Before</th><th scope="col">After</th></tr></thead>
+    <tbody>${diff.slice(0, LIMIT).map((d) => `<tr><td>${esc(d.what)}</td><td class="before">${esc(d.before ?? "Not in the CMDB")}</td>
+      <td class="after">${esc(d.after ?? "Removed")}</td></tr>`).join("")}</tbody></table>${
+    diff.length > LIMIT ? `<p class="label-muted">And ${diff.length - LIMIT} more changes of the same kind.</p>` : ""}`;
+}
+async function openFinding(id) {
+  history.replaceState(null, "", `#findings=${encodeURIComponent(id)}`);
+  openDrawer("Loading finding", `<span class="skel"></span><span class="skel"></span><span class="skel wide"></span>`);
+  let f;
+  try { f = await api(`/findings/${encodeURIComponent(id)}`); }
+  catch (e) { $("#drawer-body").innerHTML = `<p>${esc(e.message)}</p>`; return; }
+  const isTicket = f.action === "ticket";
+  const rr = f.evidence?.real_radius;
+  const impact = rr && rr.components ? `<p class="label-muted">If ${esc(f.subjects?.[0] || "it")} fails: ${esc(plural(rr.components, "component"))}, ${
+    esc(plural(rr.hospitals || 0, "hospital"))}, ${esc(plural(rr.business_services || 0, "business service"))}.</p>` : "";
+  const body = `<p class="meta-row"><span class="risk sev ${esc(f.severity)}">${esc(cap(f.severity))}</span>
+      <span>${esc(f.type)}</span><span>${esc(cap(f.status))}${f.resolved ? ", resolved" : ""}</span>
+      <span>Seen by ${esc((f.sources || []).map(srcName).join(", "))}</span></p>
+    <section><h3>${f.explained_by === "llm" ? "AI explanation" : "Explanation"}</h3><div class="prose">${md(f.explanation)}</div>${impact}</section>
+    <section><h3>Evidence</h3>${evidenceTable(f.evidence)}</section>
+    ${miniPath(f)}
+    <section><h3>Proposed action: ${isTicket ? "ticket" : "CMDB update"}</h3>
+      ${isTicket ? ticketPreview(f.ticket) : diffTable(f.diff || [])}
+      ${!isTicket && f.ticket ? `<h3>If rejected, this ticket is raised</h3>${ticketPreview(f.ticket)}` : ""}</section>
+    ${f.judgement ? `<section><h3>Judgement</h3><p>${esc(f.judgement.decision || "Needs human review")}</p></section>` : ""}`;
+  const foot = f.status === "open" ? `<button type="button" class="primary" data-act="approve">${isTicket ? "Create ticket" : "Approve CMDB update"}</button>
+      <button type="button" class="danger" data-act="reject">Reject</button>` : "";
+  $("#drawer-title").innerHTML = `${esc(cap(f.kind))}: <span class="id">${esc(affected(f))}</span>`;
+  $("#drawer-body").innerHTML = body;
+  $("#drawer-foot").innerHTML = foot;
+  $$("#drawer-foot button").forEach((b) => {
+    b.onclick = async () => {
+      $$("#drawer-foot button").forEach((x) => { x.disabled = true; });
+      try {
+        await api(`/findings/${encodeURIComponent(f.id)}/${b.dataset.act}`, { method: "POST", body: JSON.stringify({ approver: "ui" }) });
+        toast(b.dataset.act === "reject" ? "Finding rejected" : isTicket ? "Ticket created" : "CMDB updated");
+        await loadFindings();
+        openFinding(f.id);
+        loadChanges().then(() => current?.kind === "change" && $$(".changes button").forEach((x) => x.setAttribute("aria-current", String(x.dataset.change === current.id))));
+      } catch (e) {
+        toast(e.message);
+        $$("#drawer-foot button").forEach((x) => { x.disabled = false; });
+      }
+    };
+  });
+}
+
+// ================================================================ sources
+let sources = [];
+async function loadSources() {
+  const tb = $("#sources");
+  if (!sources.length) tb.innerHTML = Array.from({ length: 6 }, () => `<tr><td colspan="7"><span class="skel"></span></td></tr>`).join("");
+  try { sources = await api("/sources"); }
+  catch (e) { banner(e.message); tb.innerHTML = ""; return; }
+  tb.innerHTML = sources.map((s, i) => `<tr>
+      <th scope="row">${esc(srcName(s.name))}<br><span class="id label-muted">${esc(s.name)}</span></th>
+      <td>${esc(s.reveals)}</td><td>${esc(s.tool)}</td><td class="line2">${esc(s.raw)}</td>
+      <td class="num">${(s.raw_records ?? 0).toLocaleString()}</td><td>${esc(cap(s.window))}</td>
+      <td>${s.sample ? `<button type="button" class="ghost" data-i="${i}">View sample</button>` : ""}</td></tr>`).join("");
+  $$("#sources button[data-i]").forEach((b) => { b.onclick = () => showSample(Number(b.dataset.i)); });
+  const want = location.hash.startsWith("#sources=") ? decodeURIComponent(location.hash.slice(9)) : null;
+  if (want && $("#drawer").hidden) showSample(sources.findIndex((s) => s.name === want));
+}
+const pretty = (x) => typeof x === "string" ? x : JSON.stringify(x, null, 2);
+function showSample(i) {
+  const s = sources[i];
+  if (!s) return;
+  history.replaceState(null, "", `#sources=${encodeURIComponent(s.name)}`);
+  openDrawer(`${esc(srcName(s.name))}: one raw record and the evidence it produced`,
+    `<p class="sub">${esc(s.tool)}. Raw file <span class="id">${esc(s.sample.raw_file)}</span>.</p>
+     <div class="pair"><section><h3>Raw record</h3><pre class="raw" tabindex="0">${esc(Array.isArray(s.sample.raw) ? s.sample.raw.join("\n") : pretty(s.sample.raw))}</pre></section>
+     <section><h3>Evidence row</h3><pre class="raw" tabindex="0">${esc(pretty(s.sample.evidence))}</pre></section></div>`, "", true);
+}
+
+// ================================================================ incident
+const TOOL_TEXT = {
+  search_components: (i) => `Searched the CMDB for “${i.text}”`,
+  shared_dependencies: (i) => `Looked for what ${plural((i.routes || []).length, "route")} all depend on`,
+  changes_on: (i) => `Looked for changes on ${(i.components || []).slice(0, 4).join(", ")}${(i.components || []).length > 4 ? " and others" : ""}`,
+  impact_path: (i) => `Traced the impact path from ${i.source} to ${i.target}`,
+  who_to_page: (i) => `Looked up the owners of ${(i.components || []).slice(0, 4).join(", ")}`,
+  radius: (i) => `Computed what breaks if ${i.component} fails (${i.layer === "declared" ? "CMDB says" : "reality"})`,
+  get_component: (i) => `Read the CMDB record of ${i.name}`,
+  get_neighbourhood: (i) => `Listed the neighbours of ${i.name}`,
+  change_review: (i) => `Reviewed change ${i.change_id}`,
+};
+const toolText = (s) => (TOOL_TEXT[s.tool] || (() => `Ran ${s.tool}`))(s.input || {});
+function linkCI(name) { return `<a href="#ci=${encodeURIComponent(name)}" class="id">${esc(name)}</a>`; }
+function linkPath(p) {
+  const nodes = p.split(" -> ");
+  return `<a href="#ci=${encodeURIComponent(nodes[0])}&path=${encodeURIComponent(nodes.join(","))}" class="id">${esc(nodes.join(" to "))}</a>`;
+}
+function stateLine(r) {
+  if (!r.notice) return "";
+  if (r.notice.startsWith("AI explanation discarded")) return `<p class="notice">The AI answer used numbers or names that are not in the evidence, so it was discarded. Showing a rule-based summary of what the tools found.</p>`;
+  return `<p class="notice">AI explanation unavailable (free-tier limit or step limit). Showing the rule-based summary of what the tools found.</p>`;
+}
+$("#incident-form").onsubmit = async (e) => {
+  e.preventDefault();
+  const symptom = $("#symptom").value.trim() || $("#symptom").placeholder;
+  const out = $("#incident-out");
+  out.innerHTML = `<span class="skel"></span><span class="skel"></span><span class="skel"></span>`;
+  let r;
+  try { r = await api("/incident", { method: "POST", body: JSON.stringify({ symptom }) }); }
+  catch (err) { out.innerHTML = `<p class="notice">${esc(err.message)}</p>`; return; }
+  out.innerHTML = `<div class="result">
+    <h2>What the agent checked</h2>
+    ${r.steps.length ? `<ol class="steps">${r.steps.map((s) => `<li><span class="what">${esc(toolText(s))}</span>
+      <span class="tool">Query <span class="id">${esc(s.tool)}</span></span><span class="found">Found: ${esc(s.found || "")}</span></li>`).join("")}</ol>`
+      : `<p class="empty">No queries ran.</p>`}
+    <h2>Conclusion</h2>${stateLine(r)}<div class="prose">${md(r.answer)}</div>
+    ${r.paths.length ? `<p class="used">Path: ${r.paths.map(linkPath).join(" ")}</p>` : ""}
+    ${r.cis?.length ? `<p class="used">Components used: ${r.cis.map(linkCI).join(" ")}</p>` : ""}</div>`;
+  llmStatus();
+};
+
+// ================================================================ chat
+$("#chat-form").onsubmit = async (e) => {
+  e.preventDefault();
+  const q = $("#question").value.trim() || $("#question").placeholder;
+  $("#question").value = "";
+  const li = document.createElement("li");
+  li.innerHTML = `<p class="q">${esc(q)}</p><div class="a"><span class="skel"></span><span class="skel"></span></div>`;
+  $("#conversation").appendChild(li);
+  let r;
+  try { r = await api("/chat", { method: "POST", body: JSON.stringify({ message: q }) }); }
+  catch (err) { $(".a", li).innerHTML = `<p class="notice">${esc(err.message)}</p>`; return; }
+  $(".a", li).innerHTML = `${stateLine(r)}<div class="prose">${md(r.answer)}</div>
+    ${r.cis?.length ? `<p class="used">Components: ${r.cis.map(linkCI).join(" ")}</p>` : ""}
+    ${r.paths?.length ? `<p class="used">Paths: ${r.paths.map(linkPath).join(" ")}</p>` : ""}`;
+  llmStatus();
+};
+
+// ================================================================ routing and start
+async function route() {
+  const h = location.hash;
+  if (h.startsWith("#ci=")) {
+    const params = new URLSearchParams(h.slice(1));
+    showTab("change");
+    await selectComponent(params.get("ci"), params.get("path")?.split(",") || null);
+    return;
+  }
+  const tab = h.slice(1).split("=")[0];
+  if (TABS.includes(tab) && tab !== "change") { showTab(tab); return; }
+  showTab("change");
+  const want = h.startsWith("#change=") ? decodeURIComponent(h.slice(8)) : null;
+  const id = changes.some((c) => c.number === want) ? want : (changes.find((c) => c.number === "CHG-HEADLINE") || changes[0])?.number;
+  if (id && (current?.id !== id || current.kind !== "change")) { highlight = null; await selectChange(id, false); }
+}
+window.addEventListener("hashchange", () => { if (/^#(ci|change|findings|sources)=|^#(findings|incident|sources|chat|change)$/.test(location.hash)) route(); });
+let resizeTimer;
+window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { if (model) drawGraph(); }, 150); });
+
+(async () => {
+  llmStatus();
+  try { await api("/health"); }
+  catch (e) { banner(e.message); return; }
+  try { await loadChanges(); } catch (e) { banner(e.message); return; }
+  await route();
+})();

@@ -100,14 +100,41 @@ def list_findings(status: str | None = None, limit: int = Query(100, le=500)):
 
 @app.get("/findings/{fid}")
 def get_finding(fid: str):
-    f = F.get_finding(graph(), fid)
+    g = graph()
+    f = F.get_finding(g, fid)
     if f is None:
         raise HTTPException(404, "no such finding")
-    return f
+    return {**f, "diff": patch_diff(g, f)}
+
+
+def patch_diff(g, f):
+    """Before/after rows for a finding's proposed CMDB update (UI drawer)."""
+    rows = []
+    for op in f.get("patch") or []:
+        path = op.get("path", "")
+        if path.startswith("/cmdb_ci/") and op["op"] == "replace":
+            _, _, ci, field = path.split("/", 3)
+            cur = (Q.get_component(g, ci) or {}).get("props", {}).get(field)
+            rows.append({"what": f"{ci} {field}", "before": cur, "after": op["value"]})
+        elif path == "/cmdb_ci/-":
+            v = op["value"]
+            rows.append({"what": f"CI {v['name']}", "before": None,
+                         "after": ", ".join(f"{k} {v[k]}" for k in ("class", "site", "status", "ip_address") if v.get(k))})
+        elif path == "/cmdb_rel_ci/-":
+            v = op["value"]
+            rows.append({"what": "Relationship", "before": None,
+                         "after": f"{v['parent']} {v['type'].split('::')[0]} {v['child']}"})
+        elif path == "/cmdb_rel_ci" and op["op"] == "remove":
+            m = op.get("match", {})
+            before = (f"{m['parent']} {m['type'].split('::')[0]} {m['child']}" if "parent" in m
+                      else f"every relationship of {m.get('any_end')}")
+            rows.append({"what": "Relationship", "before": before, "after": None})
+    return rows
 
 
 @app.post("/findings/{fid}/approve")
 def approve(fid: str, d: Decision | None = None):
+    _risk.clear()
     res = approval.approve(graph(), DATA, RUNTIME, fid, (d or Decision()).approver)
     if res.get("error"):
         raise HTTPException(404 if res["error"] == "no such finding" else 409, res)
@@ -117,6 +144,7 @@ def approve(fid: str, d: Decision | None = None):
 @app.post("/findings/{fid}/reject")
 def reject(fid: str, d: Decision | None = None):
     d = d or Decision()
+    _risk.clear()
     res = approval.reject(graph(), RUNTIME, fid, d.approver, d.reason)
     if res.get("error"):
         raise HTTPException(404, res)
@@ -162,46 +190,51 @@ def dependency_edge(a, b, edges):
     return {"source": parent, "target": child, "label": rel, "status": status, "layers": layers, "evidence": ev}
 
 
+IMPACT_PAIRS = """
+MATCH (a:Component)-[:IMPACTS_REAL|IMPACTS_DECLARED]->(b:Component)
+WHERE a.name IN $n AND b.name IN $n
+RETURN DISTINCT a.name AS a, b.name AS b
+"""
+
+
 def review_graph(g, review):
-    """Bounded dependency view for a change: the declared path to each declared service plus the real
-    paths to high-safety services/offerings and to the EDs of the demo hospitals. Edges are drawn in CMDB
-    direction with relationship names; impact is shown by node colour."""
-    paths = []
-    real_nodes, declared_nodes = set(), set()
+    """Dependency view for a change (or a CI failing): every CI in the declared or real radius of the
+    targets, with each impact-layer pair drawn as its CMDB-direction edge (relationship name, layer status,
+    evidence). Departments are not drawn (they are counted in the comparison table). `paths` holds one real
+    and one declared path from the target to its most important service, for the small-screen list."""
+    real_nodes, declared_nodes, paths = set(), set(), []
     for t in review["per_target"]:
         src, dec, real = t["target"], t["declared"], t["real"]
-        real_nodes |= {x["name"] for x in real["impacted"]} | set(real["departments"]) | set(real["consumers"])
-        declared_nodes |= {x["name"] for x in dec["impacted"]} | set(dec["departments"])
-        for svc in dec.get("business_services", [])[:3]:
-            p = Q.impact_path(g, src, svc, "declared")
+        real_nodes |= {x["name"] for x in real.get("impacted", [])}
+        declared_nodes |= {x["name"] for x in dec.get("impacted", [])}
+        for layer, r in (("real", real), ("declared", dec)):
+            svc = (r.get("high_safety_services") or r.get("business_services") or [None])[0]
+            p = Q.impact_path(g, src, svc, layer) if svc else None
             if p:
-                paths.append({"layer": "declared", **p})
-        routes = real.get("by_label", {}).get("Interface", [])
-        targets = ["svc-emergency-care"] if "svc-emergency-care" in real["business_services"] else \
-            real.get("high_safety_services", [])[:2] + real.get("business_services", [])[:2]
-        for svc in targets:
-            p = Q.impact_path(g, src, svc)
-            if p:
-                paths.append({"layer": "real", **p})
-        for dept in [d for d in real.get("departments", []) if d.split("-")[0] in ("H03", "H17", "H44", "H22")]:
-            p = Q.impact_path(g, src, dept, via_routes=routes)
-            if p:
-                paths.append({"layer": "real", **p})
-    depts = {d for t in review["per_target"] for d in t["real"]["departments"] + t["declared"]["departments"]}
-    pairs = sorted({(b, a) if a in depts else (a, b)  # departments are never the first element (not Components)
-                    for p in paths for a, b in zip(p["nodes"], p["nodes"][1:])})
+                paths.append({"layer": layer, **p})
+    targets = set(review["targets"])
+    names = sorted(targets | real_nodes | declared_nodes)
+    pairs = {tuple(sorted((r["a"], r["b"]))) for r in Q.run(g, IMPACT_PAIRS, {"n": names})}
     edges = {}
-    for e in Q.pair_edges(g, pairs) if pairs else []:
-        edges.setdefault((e["a"], e["b"]), []).append(e)
-    nodes = sorted({n for p in paths for n in p["nodes"]})
+    for e in check(Q.set_edges(g, names)):
+        k = tuple(sorted((e["start"], e["end"])))
+        if k in pairs:  # only relationships that carry impact
+            edges.setdefault(k, []).append(e)
+    drawn = [dependency_edge(a, b, es) for (a, b), es in sorted(edges.items())]
     labels = {r["name"]: r["label"] for r in Q.run(g, "MATCH (c:Component) WHERE c.name IN $n RETURN c.name AS name, "
                                                       "[l IN labels(c) WHERE l <> 'Component'][0] AS label",
-                                                 {"n": nodes})}
-    targets = set(review["targets"])
-    return {"nodes": [{"id": n, "label": labels.get(n, "Department"), "class": UI_NAMES.get(labels.get(n, "Department")),
-                       "changed": n in targets, "impacted_real": n in real_nodes, "impacted_declared": n in declared_nodes}
-                      for n in nodes],
-            "edges": [dependency_edge(a, b, edges.get((a, b), [])) for a, b in pairs], "paths": paths}
+                                                 {"n": names})}
+    return {"nodes": [{"id": n, "label": labels.get(n), "class": UI_NAMES.get(labels.get(n)), "changed": n in targets,
+                       "impacted_real": n in real_nodes, "impacted_declared": n in declared_nodes}
+                      for n in names if n in labels],
+            "edges": [e for e in drawn if e["source"] in labels and e["target"] in labels], "paths": paths}
+
+
+def review_payload(g, review, out):
+    hidden = [{"from": e["src"], "to": e["dst"], "source": e.get("source"), "connector": e.get("connector"),
+               "count": e.get("count"), "days_seen": e.get("days_seen"), "first_seen": e.get("first_seen"),
+               "last_seen": e.get("last_seen")} for e in review.get("undocumented_edges", [])]
+    return {**out, "hidden_dependencies": hidden, "graph": review_graph(g, review), "llm": llm() is not None}
 
 
 @app.get("/sources")
@@ -214,11 +247,20 @@ def sources():
         return json.load(f)
 
 
+_risk = {}  # change number -> rule-based risk; cleared by approvals and rejections
+
+
 @app.get("/changes")
 def changes():
-    return Q.run(graph(), "MATCH (c:Change)-[:TARGETS]->(x) RETURN c.number AS number, c.short_description AS "
-                          "description, c.state AS state, c.start_date AS start_date, x.name AS target "
-                          "ORDER BY c.state DESC, c.start_date DESC")
+    g = graph()
+    rows = Q.run(g, "MATCH (c:Change)-[:TARGETS]->(x) RETURN c.number AS number, c.short_description AS "
+                    "description, c.state AS state, c.start_date AS start_date, x.name AS target "
+                    "ORDER BY c.state DESC, c.start_date DESC")
+    for r in rows:
+        if r["number"] not in _risk:
+            _risk[r["number"]] = Q.change_review(g, r["number"]).get("risk")
+        r["risk"] = _risk[r["number"]]
+    return rows
 
 
 @app.post("/changes/{cid}/review")
@@ -228,7 +270,26 @@ def change_review(cid: str):
     if out["facts"] is None:
         raise HTTPException(404, f"no change {cid}")
     review = check(Q.change_review(g, cid))
-    return {**out, "graph": review_graph(g, review), "llm": llm() is not None}
+    return review_payload(g, review, out)
+
+
+@app.get("/components/{name}/review")
+def component_review(name: str):
+    """What breaks if one CI fails: the change-review shape without a change and without the LLM."""
+    g = graph()
+    dec, real = check(Q.radius(g, name, "declared")), check(Q.radius(g, name, "real"))
+    if not real.get("found"):
+        raise HTTPException(404, f"no component {name}")
+    names = sorted({name} | {x["name"] for x in real["impacted"]} | set(real["consumers"]))
+    hidden = Q.run(g, Q.UNDOCUMENTED_IN, {"names": names, "limit": Q.LIMIT, "min_days": Q.MIN_DAYS_UNDOCUMENTED})
+    review = {"targets": [name], "per_target": [{"target": name, "declared": dec, "real": real}],
+              "undocumented_edges": hidden}
+    owners = Q.who_to_page(g, sorted({name} | {x["name"] for x in real["impacted"]
+                                               if x["label"] in ("Database", "VM", "Application")}))
+    facts = {"component": name, "declared": dec["counts"], "real": real["counts"],
+             "declared_services": dec["business_services"], "hidden_edges": [f"{e['src']} -> {e['dst']}" for e in hidden],
+             "warn": [o for o in owners if o["declared_owner"] or o["observed_owner"]]}
+    return review_payload(g, review, {"component": name, "facts": facts, "explanation": None, "notice": None})
 
 
 @app.post("/incident")

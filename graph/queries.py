@@ -75,7 +75,9 @@ def radius(g, name, layer="real", depth=10, timeout=TIMEOUT_MS):
     rows = run(g, RADIUS % {"term": f"AFFECTS_{up}"}, {"name": name, "depth": depth, "rel": f"IMPACTS_{up}"},
                timeout)
     if not rows:
-        return {"component": name, "layer": layer, "found": False}
+        if not run(g, "MATCH (c:Component {name: $name}) RETURN c.name LIMIT 1", {"name": name}, timeout):
+            return {"component": name, "layer": layer, "found": False}
+        rows = [{"impacted": [], "consumers": [], "departments": [], "hospitals": []}]  # exists, impacts nothing
     r = rows[0]
     impacted = sorted(r["impacted"], key=lambda x: x["name"])
     by_label = {}
@@ -328,7 +330,8 @@ WHERE a.name IN $names AND b.name IN $names AND NOT coalesce(o.health_check, fal
 OPTIONAL MATCH (a)-[d:DEPENDS_ON]-(b)
 WITH a, b, o, count(d) AS declared WHERE declared = 0
 RETURN a.name AS src, b.name AS dst, type(o) AS observed_as, o.msg_type AS msg_type, o.count AS count,
-       o.last_seen AS last_seen
+       o.last_seen AS last_seen, o.first_seen AS first_seen, o.days_seen AS days_seen, o.source AS source,
+       o.connector_type AS connector, o.port AS port
 ORDER BY src, dst LIMIT $limit
 """
 
@@ -565,6 +568,22 @@ RETURN p[0] AS a, p[1] AS b, type(e) AS type, CASE WHEN s:Department THEN s.id E
        e.days_seen AS days_seen, e.first_seen AS first_seen, e.last_seen AS last_seen, e.port AS port,
        e.connector_type AS connector_type, e.endpoint AS endpoint, e.rel_type AS rel_type, e.direction AS direction
 """
+
+
+SET_EDGES = """
+MATCH (a:Component)-[e]->(b:Component)
+WHERE a.name IN $names AND b.name IN $names AND NOT type(e) STARTS WITH 'IMPACTS' AND NOT type(e) STARTS WITH 'AFFECTS'
+RETURN a.name AS start, b.name AS end, type(e) AS type,
+       e.layer AS layer, e.source AS source, e.failover AS failover, e.count AS count, e.errors AS errors,
+       e.days_seen AS days_seen, e.first_seen AS first_seen, e.last_seen AS last_seen, e.port AS port,
+       e.connector_type AS connector_type, e.endpoint AS endpoint, e.rel_type AS rel_type, e.direction AS direction
+"""
+
+
+@guarded
+def set_edges(g, names, timeout=TIMEOUT_MS):
+    """Every declared and evidence edge between two components of a set (one query, any set size)."""
+    return run(g, SET_EDGES, {"names": list(names)}, timeout)
 
 
 @guarded

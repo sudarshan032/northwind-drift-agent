@@ -25,13 +25,53 @@ _names = {}
 
 
 def graph_names(g):
-    """All node names in the graph (cached per graph)."""
+    """All node names in the graph, lower case -> as stored (cached per graph)."""
     if g is None:
-        return set()
+        return {}
     if g.name not in _names:
         rows = g.query("MATCH (n) WHERE n.name IS NOT NULL RETURN n.name").result_set
-        _names[g.name] = {r[0].lower() for r in rows if isinstance(r[0], str)}
+        _names[g.name] = {r[0].lower(): r[0] for r in rows if isinstance(r[0], str)}
     return _names[g.name]
+
+
+def mentioned(text, names):
+    """Graph names that the prose mentions, as stored, in order of first mention."""
+    out = []
+    for tok in TOKEN.findall((text or "").translate(HYPHENS)):
+        n = names.get(tok.strip("._").lower())
+        if n and n not in out:
+            out.append(n)
+    return out
+
+
+COUNT_NAMES = {"components": "components", "routes": "interfaces", "applications": "applications",
+               "departments": "departments", "hospitals": "hospitals", "business_services": "business services",
+               "service_offerings": "service offerings"}
+
+
+def counts_text(c):
+    return ", ".join(f"{v} {COUNT_NAMES.get(k, k.replace('_', ' '))}" for k, v in c.items())
+
+
+def step_found(tool, r):
+    """One line: what a tool call returned (incident and chat step lists)."""
+    if isinstance(r, dict) and r.get("error"):
+        return f"Error: {r['error']}"
+    if r in (None, [], {}) or (isinstance(r, dict) and (r.get("found") is False or r.get("result") == "no results")):
+        return "Nothing found."
+    if isinstance(r, dict) and r.get("nodes"):
+        return "Path: " + " -> ".join(r["nodes"])
+    if isinstance(r, dict) and r.get("counts"):
+        return counts_text(r["counts"])
+    if isinstance(r, list):
+        keys = ("component", "name", "number", "team")
+        first = [str(next((x[k] for k in keys if isinstance(x, dict) and x.get(k)), "")) for x in r[:3]]
+        first = [x for x in first if x]
+        return f"{len(r)} result{'s' if len(r) != 1 else ''}" + (f": {', '.join(first)}" if first else "") + \
+            (" and more" if len(r) > 3 else "")
+    if isinstance(r, dict) and r.get("props"):
+        return f"{r.get('label')} at {r.get('site')}, managed by {r.get('managed_by')}"
+    return "Result returned."
 
 
 def _num(s):
@@ -118,8 +158,8 @@ def summarise_trace(trace, question=""):
         elif name == "search_components" and isinstance(r, list) and r:
             out.append("Matching components: " + ", ".join(x["name"] for x in r[:8]) + ".")
         elif name == "radius" and isinstance(r, dict) and r.get("counts"):
-            out.append(f"Radius of {r['component']} ({r['layer']}): " + ", ".join(
-                f"{v} {k}" for k, v in r["counts"].items()) + ".")
+            out.append(f"If {r['component']} fails ({'CMDB says' if r['layer'] == 'declared' else 'reality'}): "
+                       + counts_text(r["counts"]) + ".")
     if not out:
         return "Rule-based summary: no tool evidence was gathered."
     return "Rule-based summary from the tool results. " + " ".join(out)

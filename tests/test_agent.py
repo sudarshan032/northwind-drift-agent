@@ -180,6 +180,8 @@ def test_incident_headline(env):
     changes = [m for m in llm.calls[3]["messages"] if m["role"] == "user"][-1]["content"][0]["content"]
     assert "CHG-HEADLINE" in changes
     assert "CHG-HEADLINE" in out["answer"]
+    assert out["steps"][2]["found"].endswith("and more") and "CHG-HEADLINE" in out["steps"][2]["found"]
+    assert {"lrc-db-01", "dc1-host-07", "ORU-CRIT-H03"} <= set(out["cis"])
 
 
 def test_ambiguity_judgement(env):

@@ -1,0 +1,131 @@
+/* Design tokens (UI_SPEC section 3). Every colour, size, spacing, radius, line, shadow and motion value used by
+   the UI lives here; app.css and app.js only reference these custom properties. */
+:root {
+  color-scheme: light;
+  /* colour: two records of the same hospital. declared = CMDB, signal = evidence that contradicts it */
+  --paper: #F5F7F6;
+  --surface: #FFFFFF;
+  --ink: #18212B;
+  --ink-muted: #55606B;
+  --rule: #D7DDE1;
+  --rule-strong: #6B7782;       /* graph lines and arrowheads: 4.3:1 on paper */
+  --declared: #2F5D8A;
+  --signal: #B8322B;
+  --caution: #9A6400;
+  --steady: #2E6B48;
+  --signal-tint: #F8E6E4;       /* impacted node fill; ink 13.5:1 on it */
+  --declared-tint: #E6EEF6;     /* selected row, active toggle */
+  --on-accent: #FFFFFF;         /* text on declared / signal fills */
+  --skeleton: #E7EBEE;
+  --overlay: rgba(24, 33, 43, 0.32);
+  --shadow-overlay: 0 8px 24px rgba(24, 33, 43, 0.16);
+
+  /* type */
+  --font-ui: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-id: "Atkinson Hyperlegible Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --t-13: 13px;
+  --t-15: 15px;
+  --t-17: 17px;
+  --t-21: 21px;
+  --t-28: 28px;
+  --t-40: 40px;
+  --w-body: 400;
+  --w-strong: 600;
+  --lh-body: 1.5;
+  --lh-head: 1.2;
+  --measure: 75ch;
+
+  /* spacing (4-px base) */
+  --s-4: 4px;
+  --s-8: 8px;
+  --s-12: 12px;
+  --s-16: 16px;
+  --s-24: 24px;
+  --s-32: 32px;
+  --s-48: 48px;
+  --s-64: 64px;
+
+  /* shape and lines */
+  --r-control: 6px;
+  --r-panel: 10px;
+  --r-none: 0;
+  --line: 1px;
+  --line-graph: 1.5px;
+  --line-bold: 3px;
+  --focus: 2px;
+  --focus-offset: 2px;
+  --dash-observed: 6 4;
+  --dash-declared-only: 1.5 4;
+  --dash-failover: 8 3 1.5 3;
+  --faded: 0.3;
+
+  /* layout */
+  --content-max: 1440px;
+  --gutter: 24px;
+  --list-w: 300px;
+  --drawer-w: 560px;
+  --drawer-wide: 960px;
+  --control-h: 36px;
+  --tier-gutter: 128px;
+  --tier-gap: 104px;
+  --node-w: 176px;
+  --node-h: 40px;
+  --group-w: 208px;
+  --group-h: 52px;
+  --node-gap: 24px;
+  --badge-w: 40px;
+  --canvas-min-h: 240px;
+  --panel-max-h: 320px;
+  --tip-max: 360px;
+  --chip-h: 22px;
+  --toast-life: 4000;           /* ms, read by app.js */
+
+  /* motion: only in response to the user */
+  --motion: 180ms;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --paper: #141A20;
+    --surface: #1B232B;
+    --ink: #E7ECEF;
+    --ink-muted: #A3AEB7;
+    --rule: #2E3943;
+    --rule-strong: #8A97A3;
+    --declared: #7FA8D4;
+    --signal: #F07068;
+    --caution: #E0A84A;
+    --steady: #6FBF8E;
+    --signal-tint: #3A2524;
+    --declared-tint: #1F2D3B;
+    --on-accent: #1B232B;
+    --skeleton: #243039;
+    --overlay: rgba(0, 0, 0, 0.5);
+    --shadow-overlay: 0 8px 24px rgba(0, 0, 0, 0.45);
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --paper: #141A20;
+  --surface: #1B232B;
+  --ink: #E7ECEF;
+  --ink-muted: #A3AEB7;
+  --rule: #2E3943;
+  --rule-strong: #8A97A3;
+  --declared: #7FA8D4;
+  --signal: #F07068;
+  --caution: #E0A84A;
+  --steady: #6FBF8E;
+  --signal-tint: #3A2524;
+  --declared-tint: #1F2D3B;
+  --on-accent: #1B232B;
+  --skeleton: #243039;
+  --overlay: rgba(0, 0, 0, 0.5);
+  --shadow-overlay: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --motion: 0ms; }
+}
