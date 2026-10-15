@@ -22,7 +22,7 @@ database moved to the Hyderabad integration team.
 ## Run
 
 ```bash
-docker compose up --build     # FalkorDB + seed (generate + load, ~10 s) + API/UI
+docker compose up --build     # FalkorDB + seed (generate raw exports, run connectors, load; ~25 s) + API/UI
 open http://localhost:8000    # UI; FalkorDB browser on http://localhost:3000
 ```
 
@@ -35,9 +35,10 @@ Development:
 ```bash
 uv venv --python 3.11 && uv sync --frozen
 docker compose up -d falkordb
-uv run python -m ingest.generate --seed 42 --out data/
+uv run python -m ingest.generate --seed 42 --out data/      # raw exports + connectors, ~15 s, ~390 MB
+uv run python -m ingest.connect --data data/                 # re-run the connectors alone
 uv run python -m ingest.load --data data/ --graph northwind --fresh
-uv run python -m pytest -q          # 64 tests; all agent tests use a scripted fake LLM
+uv run python -m pytest -q                                   # 79 tests; agent tests use a scripted fake LLM
 uv run uvicorn api.main:app --port 8000
 ```
 
@@ -45,59 +46,138 @@ uv run uvicorn api.main:app --port 8000
 
 ```mermaid
 flowchart LR
-  subgraph gen["ingest (Python, seed 42)"]
-    W[world.py<br/>one truth model] --> V[views.py<br/>CMDB · discovery · observed<br/>identity · evidence]
-    D[drift.py<br/>D1–D14 plan +<br/>ground_truth.json] --> V
+  subgraph gen["generator (seed 42, fictional truth model)"]
+    W[world.py truth] --> X[export.py]
+    D[drift.py D1-D14 + ground_truth] --> X
   end
-  V -->|CSV / JSONL| L[load.py<br/>MERGE, UNWIND batches]
-  L --> G[(FalkorDB<br/>graph northwind)]
-  I[graph/impact.py<br/>IMPACTS_* rules in Cypher] --> G
-  Q[graph/queries.py<br/>detectors · radius · change review<br/>protection · access · paging · centrality] --> G
-  A[agent/ LangGraph flows<br/>triage · change review · incident<br/>ambiguity · chat] --> Q
-  A -.-> C[Claude via anthropic SDK<br/>or scripted FakeLLM]
-  P[api/main.py FastAPI] --> A
+  X -->|native formats| R[(data/raw/&lt;source&gt;<br/>ServiceNow CSV, IRE JSON,<br/>Prometheus, OTLP, nfdump,<br/>Mirth XML, Veeam, Pure,<br/>Entra, SQL audit, Workday, ITSM)]
+  R --> K[ingest/sources/* connectors<br/>+ IRE-style identification]
+  K --> N[(data/normalised<br/>evidence rows with source,<br/>source_record, match rule)]
+  N --> L[load.py MERGE / UNWIND]
+  L --> G[(FalkorDB: declared · evidence ·<br/>reconciliation layers)]
+  I[graph/impact.py] --> G
+  Q[graph/queries.py detectors, radius,<br/>change review, protection, access] --> G
+  A[agent/ LangGraph flows] --> Q
+  A -.-> C[Claude or FakeLLM]
+  P[api/main.py] --> A
   P --> Q
-  U[ui/index.html<br/>Cytoscape.js] --> P
-  P -->|approve only| CM[CMDB CSVs +<br/>declared edges] 
+  U[ui/index.html] --> P
+  P -->|approve: CMDB patch| CM[CMDB export + declared edges]
+  P -->|approve: ticket| T[tickets.jsonl]
 ```
 
 The LLM never writes to the CMDB or to declared edges. It reads through fixed, parameterised Cypher tools and
 writes only `:Finding` nodes and mock pages. A CMDB change happens only when a human approves a finding's
-proposed patch. Approval re-runs the detector and appends to `runtime/audit.jsonl`.
+proposed patch; everything else becomes a ticket. Approval re-runs the detector and appends to `runtime/audit.jsonl`.
+
+## Where the data comes from
+
+Every input is the export of a real tool's documented format (sources in `RESEARCH_NOTES.md` R9–R18). Each source has a
+connector in `ingest/sources/<source>.py` that turns its raw files into normalised evidence; the loader loads only that.
+
+| Source | Real-world tool it stands in for | Raw format generated | Window |
+|---|---|---|---|
+| `cmdb_export` | ServiceNow CMDB table export | CSV exports of `cmdb_ci`, `cmdb_rel_ci` (parent/child/type as sys_ids), `cmdb_rel_type`, `cmn_location`, `cmn_department`, `sys_user_group`, `change_request` (raw choice codes) | current state |
+| `discovery_scanner` | ServiceNow Discovery / BMC Helix Discovery | IRE payload JSON `{"items": [{className, values, lookup}], "relations": [...]}` per scan batch, listening services (`tcp_port`), scan schedule | last scan per subnet |
+| `apm_otel` | OpenTelemetry Collector `servicegraph` connector -> Prometheus | Prometheus text scrapes of `traces_service_graph_request_total`, `..._failed_total`, `..._request_server_seconds` histogram (`client`, `server`, `connection_type`, `failed`); OTLP/JSON span sample | 14 days (hourly demo + central, daily elsewhere) |
+| `netflow` | IPFIX / NetFlow v9 collector (nfdump) | nfdump 1.7 CSV (`firstSeen, duration, proto, srcAddr, srcPort, dstAddr, dstPort, packets, bytes, flows`) + reverse-DNS/tag enrichment | 14 days |
+| `interface_engine` | Mirth Connect / NextGen Connect | channel export XML (TCP Listener, TCP Sender, Database Writer with JDBC URL, DICOM Listener/Sender) + daily ChannelStatistics per connector with SOURCE metadata | 14 days |
+| `backup_software` | Veeam Backup & Replication | REST `/api/v1/sessions` JSON (BackupJob, BackupCopyJob, `isStorageSnapshot`, Success/Warning/Failed) | 14 days |
+| `storage_telemetry` | Pure Storage FlashArray REST 2.x | `pod-replica-links` (async: lag, recovery_point, status) and `pods` (sync) samples, hourly | 14 days |
+| `identity_sso` | Microsoft Entra ID sign-in logs | Graph `signIn` JSON (userPrincipalName = bare pseudonymous ID, appDisplayName, deviceDetail, status.errorCode) | 14 days |
+| `db_audit` | SQL Server Audit (`sys.fn_get_audit_file`) | audit CSV (event_time, action_id SL/UP/AL…, server_principal_name, database_name, statement) | 14 days, demo sites + GCC-HYD |
+| `hr_feed` | Workday-style worker export | RaaS CSV (Employee_ID, Worker_Status, Active / Terminated / On_Leave flags, dates; no names) | current state |
+| `itsm_history` | ServiceNow `incident` / `change_request` history | CSV exports with sys_id references and raw state codes | 90 days |
+
+![Sources tab: a Mirth Database Writer connector and the evidence row it produced](docs/sources.png)
+
+**HL7 interfaces.** Interfaces are CMDB CIs registered by the integration team in the custom class
+`u_cmdb_ci_hl7_interface` (what real ServiceNow customers do; there is no out-of-the-box HL7 class). What the CMDB
+lacks is each interface's internal destinations. Those are discovered from the interface engine's channel
+configuration and statistics: the `ORU-CRIT-*` channels' Database Writer JDBC URL
+(`jdbc:sqlserver://dc1-vm-lrc01:1433;databaseName=lrc`) is how the headline dependency on `lrc-db-01` is found.
+
+## How evidence is calculated
+
+**Identification** (all connectors, `ingest/sources/identify.py`, ServiceNow IRE order): `serial_number`, then `name`
+(case-insensitive, aliases included), then `ip_address` (unique IPs only); the server end of network evidence first
+tries `ip:port` against the scanner's listening services. The rule used is recorded on every row
+(`match_rule` / `client_rule` / `server_rule`, `IDENTIFIES {matched_by}`). Unmatched evidence becomes an
+`:UnregisteredEndpoint` (network/sign-in) or a shadow-IT candidate (discovery).
+
+| Source | Calculation |
+|---|---|
+| `apm_otel` | One edge per (client, server): `count` = sum of counter increases, `errors` from the failed counter, `p95_ms` by linear interpolation inside the histogram bucket holding the 95th percentile, `days_seen` = distinct UTC days with a non-zero increase. The span sample, parsed with the standard rule (CLIENT -> SERVER span in another service, or CLIENT with `db.system` / `server.address`), agrees with the metrics for the sampled hours (test). |
+| `netflow` | The server is the endpoint on a well-known or registered service port (104, 443, 636, 1433, 1972, 2575, 5000, …); an ephemeral port (≥ 49152) marks the client. Aggregated per (client CI, server CI, server port): bytes, packets, `days_seen`, first/last seen. Monitoring probes are excluded. |
+| `interface_engine` | Each channel = the Interface CI of the same name. Each destination connector = an edge route -> destination (TCP Sender host:port, Database Writer JDBC host:port -> the database listening there, HTTP sender -> API). Statistics give `count` (sent), `errors` (error), `days_seen`; the source connector's SOURCE metadata gives the inbound edge from the sending system. |
+| `backup_software` | Per object: `last_success` (latest Success or Warning; snapshot-only never counts), target, and Backup Copy targets (other site, immutable vault); copies also prove repository replication. A Failed job followed by a Success within 48 h is not a finding. |
+| `storage_telemetry` | Per pair: mode, `max_lag_s`, last transfer, state; lag above the RPO of what the array stores for more than 1 h continuously is reported in the protection check. |
+| `identity_sso` + `db_audit` | Successful sign-ins -> user -> application access; audit SELECT / DML / DDL-admin -> read / write / admin on the database (admin keeps every timestamp). Compared with MEMBER_OF -> HAS_ROLE -> GRANTS and approved change windows; employment status from `hr_feed`. |
+| `itsm_history` | Observed owner = the assignment group with the most resolved incidents plus implemented changes in 90 days; ties are not reported. |
+
+**Thresholds** (`ingest/config.py`): undocumented / unregistered traffic on ≥ 3 distinct days; backups failing = no
+success in 7 days (cutoff 2026-10-07T23:59:59Z); transient failure window 48 h; ownership window 90 days; RPO breach
+> 1 h; ephemeral ports ≥ 49152; snapshot end 2026-10-14T23:59:59Z (replay data, never "now").
+
+Comparison change `CHG0031513` (planned upgrade of `emr-app`) touches far more, but the CMDB already records it all, so it is LOW risk: the risk is the gap, not the size.
+
+![Change review of CHG0031513](docs/change-review-low.png)
+
+A finding shows its evidence sources and whether approval patches the CMDB or raises a ticket:
+
+![D1 finding with sources and proposed CMDB patch](docs/findings.png)
+
+## What may be written back to the CMDB
+
+A finding may propose a **CMDB patch** only when it concerns a CI's existence, one of its CMDB attributes
+(`os_version`, `serial_number`, `ip_address`, `support_group`, `status`) or a CMDB relationship. Metrics, events, job
+runs, logins and lag values never go into the CMDB (`agent/approval.validate` rejects anything else).
+
+| Finding | Action on approval |
+|---|---|
+| D1 undocumented dependency, D2 stale relationship, D4 retired CI still linked, D5 owner drift, D6 shadow IT (register CI), D7 ghost (retire after confirmation), D8 attribute drift, D14 unregistered app (register if approved, otherwise security ticket) | CMDB patch to the CMDB export + declared graph edges, recorded as a closed `change_request` |
+| D9 protection gap, D10 backups failing | `incident` to NW-Backup-Storage |
+| D11 data residency | `sn_si_incident` + compliance notification |
+| D12 access drift | `sn_si_incident` |
+
+Tickets are ServiceNow-shaped JSON (`table`, `short_description`, `cmdb_ci`, `assignment_group`, `priority`,
+`category`, `description` with evidence and sources) appended to `runtime/tickets.jsonl`; there is no real ticketing
+integration.
 
 ## Data model
 
-Three views of one fictional estate stay separate in the graph. They meet on the same `:Component` nodes.
+The graph keeps three layers apart (every node and edge has a `layer` property):
 
-| View | Source files | Graph |
+| Layer | Contents | Graph |
 |---|---|---|
-| **Declared** (what the CMDB says) | `cmdb/cmdb_ci.csv`, `cmdb_rel_ci.csv`, locations, departments, support groups, changes; `identity/*` | `CONTAINS`, `DEPENDS_ON {failover}`, `RUNS_ON`, `STORES_ON`, `REPLICATES_TO`, `BACKED_UP_BY`, `CONNECTS_THROUGH`, `LOCATED_AT`, `IN_DEPARTMENT`, `MANAGED_BY`, `MEMBER_OF`, `HAS_ROLE`, `GRANTS {level}`, `TARGETS` |
-| **Discovered** (what scanners see) | `discovery/scan_results.jsonl`, `scan_coverage.csv` | `:Discovered` nodes, `IDENTIFIES` (by serial, else hostname + IP) |
-| **Observed** (what really happens) | flows, netflow, replication, backup jobs, access log, ownership evidence | `OBSERVED_CALLS`, `OBSERVED_NETFLOW`, `OBSERVED_REPLICATES_TO`, `OBSERVED_BACKUP_TO`, `OBSERVED_ACCESS`, `OBSERVED_OWNER`; endpoints with no CMDB record become `:UnregisteredEndpoint` |
+| **CMDB (declared)** | the `cmdb_export` connector's tables and the IAM export | `:Component` + class label, `:Site`, `:Department`, `:SupportGroup`, `:Change`, `:User`, `:Group`, `:Role`; `CONTAINS`, `DEPENDS_ON {failover}`, `RUNS_ON`, `STORES_ON`, `REPLICATES_TO`, `BACKED_UP_BY`, `CONNECTS_THROUGH`, `LOCATED_AT`, `IN_DEPARTMENT`, `MANAGED_BY`, `MEMBER_OF`, `HAS_ROLE`, `GRANTS`, `TARGETS` |
+| **Evidence (discovered / observed)** | normalised connector output, each item with `source`, `source_record`, first/last seen and measurements | `:Discovered`, `:UnregisteredEndpoint`; `OBSERVED_CALLS {source}`, `OBSERVED_NETFLOW {port}`, `OBSERVED_REPLICATES_TO`, `OBSERVED_BACKUP_TO {job_type}`, `OBSERVED_ACCESS {action}`, `OBSERVED_OWNER` |
+| **Reconciliation** | identification, analysis and findings | `IDENTIFIES {matched_by}`, `IMPACTS_*` / `AFFECTS_*`, `:Finding`, `ABOUT` |
 
-Every CI is `:Component` plus a class label: `BusinessService`, `Application`, `Interface`, `Database`, `VM`,
-`Host`, `StorageArray`, `BackupTarget`, `NetworkDevice`, `MedicalDevice`, `Endpoint`, `EndpointGroup` or
-`ExternalService`.
+Classes follow ServiceNow and CSDM: Business Service (`cmdb_ci_service_business`), Service Offering
+(`service_offering`, the 51 per-hospital ED critical-results services, contained by `svc-emergency-care`),
+Application, Interface (HL7), Database, Virtual Machine, Server, Storage Array, Backup Target, Network Device,
+Medical Device, Endpoint / Endpoint Group. Offerings and business services are counted separately everywhere.
+Relationship names: Contains, Depends on, Runs on, Stored on, Replicates to, Backed up by, Connects to.
 
-The full data set has 49k nodes and 150k edges. Relationship types follow ServiceNow:
-`Provides storage for::Stored on` and `Connects to::Connected by` are standard; `Replicates to` and
-`Backed up by` are documented custom types.
+The full data set has about 49k nodes and 142k edges.
 
-**Why declared and observed stay separate.** The gap between them is the product. Merging them would hide the
-lie. Keeping both on the same nodes makes "in the CMDB but never seen" and "seen but never declared" a single
-pattern match each.
+**Why declared and evidence stay separate.** The gap between them is the product. Keeping both on the same nodes
+makes "in the CMDB but never seen" and "seen but never declared" a single pattern match each.
 
-**Impact layer.** `graph/impact.py` materialises one documented rule set as derived edges, built in Cypher:
-- `IMPACTS_DECLARED` uses declared edges only.
-- `IMPACTS_REAL` uses declared structure plus observed traffic.
-- Terminal `AFFECTS_*` edges reach a route's data consumer and the departments it serves.
+**Impact layer.** `graph/impact.py` materialises one documented rule set as derived edges, built in Cypher
+(`IMPACTS_DECLARED` from declared edges only, `IMPACTS_REAL` from declared structure plus evidence, terminal
+`AFFECTS_*` to a route's data consumer and the departments it serves). Direction is always "if a fails, b is
+impacted": runs on, stored on, depends on and observed calls propagate; a route that pushes data depends on its
+source; a business service or offering is impacted when anything it contains is. Health checks, failover links and
+calls into telemetry sinks never carry impact.
 
-Direction is always "if a fails, b is impacted". Concretely:
-- Runs on, stores on, depends on and observed calls all propagate impact.
-- A route that pushes data depends on its source.
-- A business service is impacted when anything it contains is.
-
-Health checks, failover links and fire-and-forget syslog never carry impact.
+**The change review screen** draws a conventional CMDB dependency view: business services at the top, then service
+offerings, interfaces, departments, applications, databases, virtual machines, servers and storage; arrows in CMDB
+direction labelled with the relationship name; impact shown by red fill (toggle Reality / CMDB says), the changed
+component outlined; solid grey = in the CMDB and confirmed, dashed red = observed only, grey dotted = in the CMDB
+with no evidence, blue dashed = failover. Hovering an edge shows its layers, source, counts, days seen and first/last
+seen. The Sources tab shows one raw record per source next to the evidence row it produced.
 
 ## Drift catalogue
 
@@ -248,9 +328,9 @@ This project differs in three ways:
 
 ## Repository
 
-`ingest/` holds the generator and loader. `graph/` holds the impact rules and queries. `agent/` holds the LLM
+`ingest/` holds the truth model, raw exporters (`export.py`), source modules and connectors (`sources/`), the connector runner (`connect.py`) and the loader. `graph/` holds the impact rules and queries. `agent/` holds the LLM
 interface, tools, findings, approval and flows. `api/` is the FastAPI service. `ui/` is a single page.
-`tests/` has 64 tests, the oracle, sanity queries and the VERIFY generator.
+`tests/` has 79 tests, the oracle, sanity queries and the VERIFY generator.
 
 `data_demo/` is a committed gzip subset: all 51 hospitals, both data centres, both cloud regions and GCC-HYD.
 

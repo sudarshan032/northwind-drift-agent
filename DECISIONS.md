@@ -234,3 +234,50 @@ Clarified, not changed:
 
 ## 56. Layers
 - Loader tags every node and edge with `layer`: `declared` (CMDB export + IAM), `evidence` (discovered/observed: `:Discovered`, `:UnregisteredEndpoint`, `OBSERVED_*`), `reconciliation` (`IDENTIFIES`, impact layers, `:Finding`, `ABOUT`).
+
+## 57. Pipeline: raw exports -> connectors -> normalised evidence -> graph
+- The generator (`ingest/export.py`) renders the unchanged truth model + drift plan into each source's native files under `data/raw/<source>/`. Connectors (`ingest/sources/<source>.py`, orchestrated by `python -m ingest.connect`) read only those files and write `data/normalised/`; the loader and the oracle read only `normalised/` (plus the declared IAM export in `data/identity/`). Every evidence row has `source` and `source_record` (file + row/item/ID). Each source module holds both halves of its format (writer + connector) so format and parser change together.
+- `generate` runs the connectors at the end, so `data/` is always complete. Generation ≈ 15 s; full data 388 MB (apm_otel 199 MB) — under 500 MB.
+
+## 58. Identification (ServiceNow IRE order)
+- `ingest/sources/identify.py`: serial_number, then name (case-insensitive; serial-matched discovery hostnames become aliases), then sys_id, then IP (only IPs owned by exactly one CI); server ends of network evidence first try `ip:port` against the discovery scanner's listening services (Service Mapping style), which is how device netflow resolves to the PACS cache / lab middleware application rather than its VM. The rule used is stored on every row (`match_rule`, `client_rule`, `server_rule`) and on `IDENTIFIES {matched_by}`. Names resolved only by IP become aliases (D13 DICOM AE titles). D8 serial drift now identifies by name (was hostname + IP); results are unchanged.
+
+## 59. cmdb_export
+- Raw-value export (`sysparm_display_value=false` style): references as sys_ids, choices as codes (install_status 1/7, operational_status 1/6, change state −2/3, risk 2–4); `Depends on::Used by` uses its OOB sys_id; other reference tables get deterministic sys_ids. Manufacturer/model are exported as text (no core_company / cmdb_model export). `failover` and replication `mode` are custom `u_failover`, `u_replication_mode`. `cmdb_export.write(cmdb_export.read(x))` reproduces the export byte for byte (test).
+- Approval edits the CMDB *export* (read -> patch -> write) and re-runs the cmdb_export connector, so the raw export remains the system of record.
+
+## 60. discovery_scanner
+- IRE payloads batched at ~600 items (the API accepts multi-item payloads; one payload per host would mean ~12k files). Devices carry a `cmdb_ci_network_adapter` lookup; listening services are `cmdb_ci_appl` / DB-instance items with `tcp_port`, related `Runs on::Runs` to the host item (research R10 shows tcp_port on SQL instances; cmdb_tcp rows were not added).
+
+## 61. apm_otel and netflow details
+- servicegraph: configured `latency_histogram_buckets` [10ms, 50ms, 100ms, 500ms, 1s, 5s] instead of the 16 defaults (size), `failed` label included, empty `connection_type` omitted (equivalent in Prometheus). Scrapes contain every series seen so far (cumulative counters), timestamps in ms at the end of each period. Calls into telemetry sinks (`config.TELEMETRY_SINKS`, the SIEM) carry no impact (replaces the old syslog-protocol rule: servicegraph has no protocol label).
+- netflow: nfdump 1.7 CSV layout (smaller than 1.6's 48 columns), both directions per conversation, plus collector enrichment columns `srcDns`/`dstDns`/`tag`; health-check probes are tagged `monitoring-probe` by the collector and dropped by the connector. D14's external app is seen here (its IP has no CMDB record -> `:UnregisteredEndpoint` by reverse-DNS name) and in sign-ins.
+
+## 62. interface_engine
+- All HL7 and DICOM routes are channels in one Mirth export (DICOM routes use DICOM Listener/Sender connectors; the CMDB still records the PACS node as `via`). Statistics are daily per connector with ChannelStatistics field names (`error`, not `errored`) and the SOURCE metadata column naming the sending application for the inbound edge; DICOM-MOD channels have no single sender (modalities), so no inbound edge — as before. Counts are now daily and `count` = sent (errors separate); the 3-day rule is unaffected.
+
+## 63. backup_software and the D9/D10 boundary
+- Veeam REST session JSON; one job per protected object with task fields flattened (objectName, repositoryName, sourceRepositoryName). Successful backups are followed by Backup Copy sessions to the DR appliance and the immutable vault; those copies also prove appliance -> DR / vault replication (the array API does not cover backup repositories).
+- REALISM_SPEC: snapshot-only sessions never count as a backup. To keep the catalogue unchanged, D10 ("backups failing") applies to objects that have backup jobs (not snapshot-only) and no success in 7 days; an object with only snapshots is a protection gap (D9), not a failing backup. The oracle and the Cypher detector use the same rule.
+- Backup sessions are capped at 10 hours (incremental-forever); the old model let the 900 TB VNA's full backup "end" in 2027.
+
+## 64. storage_telemetry RPO evidence
+- Lag above the RPO of the CIs stored on the source array counts only as a continuous run longer than `RPO_BREACH_MIN_HOURS` (1 h) of hourly samples; single-hour spikes are noise. RPO 0 (sync mirrors) is checked by the pod state, not lag. No breaches occur in the generated data; the protection check reports them when present.
+
+## 65. Identity sources
+- The declared IAM export (`data/identity/users.csv`) no longer carries employment status (`account_enabled=true` for all: the D12 terminated user's account was never disabled); status comes from the HR feed's Workday flags. Sign-ins create user -> application access edges (`login`), the database audit creates read/write/admin edges (admin with every timestamp). D12's reason `disabled_user` is now `inactive_in_hr`. App-level read/write events of the old access log are represented as additional sign-ins (an SSO session per app use).
+
+## 66. itsm_history
+- 90 days of incident and change history generated from the ownership evidence (incidents 2–8, changes 1–3 per CI per team, service-desk noise 1 incident), so the dominant team still always wins and ties do not occur. `assignment_group` on a closed record is the resolving / implementing group (OOB has `resolved_by` as a user only). Raw state codes (incident 7, change 3).
+
+## 67. CMDB write-back enforcement
+- See #54; enforced in `agent/approval.validate` and tested: D9–D12 approvals write `incident` / `sn_si_incident` tickets and never touch the CMDB export; D1/D2/D4–D8 patches pass the allowlist; `backup_offsite` or other non-CMDB fields are rejected.
+
+## 68. Dependency view
+- Change review draws a bounded subgraph (declared path to each declared service, real paths to Emergency care / high-safety services and to the EDs of H03, H17, H22, H44) as a conventional CMDB dependency view: fixed tiers (business service, service offering, interface, department, application, database, VM, server, storage), CMDB-direction arrows labelled with the relationship name, a barycentre ordering inside tiers, impact by red fill (toggle Reality / CMDB says), changed component outlined. Edge status: confirmed (solid grey), observed only (dashed red, label "Depends on (observed: <source>, not in CMDB)"), declared without evidence (grey dotted), failover (blue dashed); structural relationships (runs on, stored on, contains, department) are solid grey. Hover/tap shows layers, source, counts, days seen, first/last seen.
+
+## 69. Sources tab
+- `normalised/sources.json` (written by the connectors) lists, per source, the tool it stands in for, what it reveals, the raw format, raw record count, evidence rows, window, and one raw record next to the evidence row it produced; served at `GET /sources`.
+
+## 70. Hidden edges use the 3-day rule
+- Change review's "undocumented edges inside the real radius" now applies the same ≥ 3-day rule as D1, so a one-off ad-hoc flow (noise) no longer shows as a hidden dependency (CHG0031513: 0 hidden edges, low risk).

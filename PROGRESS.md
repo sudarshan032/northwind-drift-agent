@@ -41,3 +41,4 @@ Re-read this file, RUN_PROMPT.md and DATA_SPEC.md after any context compaction.
 ## Phase 4 — done: ui/index.html; screenshots in docs/.
 # REALISM run
 - Step A done: config module, write-back rule + tickets, CSDM offerings, layer tags. Next: source-native raw formats + connectors.
+- Realism steps A-D done (config, write-back+tickets, offerings, layers; 11 source-native formats + connectors; connector tests; dependency view + Sources tab). Next: README, screenshots, clean-room, REPORT Realism section.

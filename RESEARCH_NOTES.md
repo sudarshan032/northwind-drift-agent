@@ -154,3 +154,174 @@ is an owner decision (REPORT.md).
 
 **Changed:** nothing; clinics have one SD-WAN router; ~half of home-health and hospice
 offices use an LTE gateway as their only WAN device.
+
+---
+
+# REALISM_SPEC: real tool export formats (researched 2026-10-16)
+
+Each section lists what was verified and how the generator follows it. **[verified]**
+= official docs or vendor source code; **[secondary]** = vendor SDK, community or
+third-party integration; **[unverified]** = not confirmed. Deviations are logged in
+DECISIONS #57–#70.
+
+## R9. ServiceNow table exports (cmdb_export, itsm_history)
+- CSV list exports use field names as headers; by default reference and choice columns
+  show display values; `sysparm_display_value=false` ("export with sys_id") gives
+  32-hex sys_ids and raw choice codes. [verified / secondary]
+  https://www.servicenow.com/docs/r/7LhbZn3yz3Q58qhjZoU9iQ/aCxgzUZg5t5zw62sOHOL8A ,
+  https://www.servicenow.com/community/itom-forum/now-knowledge-exchange-export-excel-csv-with-sys-id/td-p/2821700
+- `cmdb_ci` fields (sys_id, name, sys_class_name, serial_number, ip_address, mac_address,
+  os, os_version, model_id, manufacturer, location, department, support_group,
+  assignment_group, install_status, operational_status, used_for, busines_criticality,
+  short_description); `install_status` 1 Installed … 7 Retired; `operational_status` 1
+  Operational … 6 Retired. [secondary: Ansible ServiceNow collection]
+  https://raw.githubusercontent.com/ansible-collections/servicenow.itsm/main/plugins/module_utils/configuration_item.py ,
+  https://davidmac.pro/posts/2026-02-22-sn-ci-status-fields/
+- `cmdb_rel_ci` (sys_id, parent, child, type, port, percent_outage, connection_strength),
+  `cmdb_rel_type` (sys_id, name, parent_descriptor, child_descriptor); `Depends on::Used by`
+  has the well-known sys_id 1a9cb166f1571100a92eb60da2bce5c5. [verified docs / secondary]
+  https://www.servicenow.com/docs/r/K~TMjGrGv2CmYjaGLbVoJQ/gHIPLkI4~BHd6TBZesIWXQ
+- `change_request` state −5 New … −2 Scheduled, −1 Implement, 0 Review, 3 Closed, 4 Canceled;
+  risk 1 Very High … 4 Low; `incident` state 1 New … 6 Resolved, 7 Closed. [secondary]
+  https://raw.githubusercontent.com/ansible-collections/servicenow.itsm/main/plugins/module_utils/change_request.py ,
+  https://raw.githubusercontent.com/ansible-collections/servicenow.itsm/main/plugins/module_utils/incident.py
+- CSDM: the service offering class is `service_offering` (parent = business service). [verified]
+  https://www.servicenow.com/docs/r/7LhbZn3yz3Q58qhjZoU9iQ/lgk7xCyuQ9Z4bLzajL5utg
+- Security incidents (`sn_si_incident`): state names Draft … Closed confirmed, numeric codes [unverified].
+
+**Generator:** raw-value exports (sys_id references, numeric `install_status` /
+`operational_status`, change `state` and `risk` codes, incident state 7); `cmdb_ci`
+adds `operational_status`, `assignment_group`, `mac_address`; `cmdb_rel_ci` adds `port`,
+`percent_outage`, `connection_strength`; `cmdb_rel_type` exported; per-site services
+classed `service_offering`. Custom fields are `u_*`. Manufacturer and model are exported as
+text (a real raw export would reference core_company / cmdb_model, which are not exported).
+
+## R10. ServiceNow IRE payload (discovery_scanner)
+- `POST /api/now/identifyreconcile`: `items[]` (className, values, lookup[], internal_id,
+  sys_object_source_info), `referenceItems[]`, `relations[]` (type, parent/child as
+  positions in `items`). Identification rules match serial number, then name, then IP/MAC
+  (the identifier rules per class). [verified]
+  https://www.servicenow.com/docs/r/eJIqiaxRKVcMaR8XQU6_oA/AawFLNaPF5h3FoI97~DLtg ,
+  https://www.servicenow.com/docs/r/LZHoJyH9VPKmhdIph_6gSw/WMrpD2qQz3IbhO1aOIa~Jg
+- SQL Server instances carry `tcp_port` / `instance_name`; TCP observations land in `cmdb_tcp`.
+  [secondary] https://www.servicenow.com/community/itom-articles/servicenow-sql-server-discovery-troubleshooting-the-hidden-tcp/ta-p/3369338
+
+**Generator:** one payload per scan batch of ~600 items (the API accepts multi-item
+payloads); device items with a `cmdb_ci_network_adapter` lookup; application and database
+items with `tcp_port` related `Runs on::Runs` to their host item (listening services).
+
+## R11. OpenTelemetry servicegraph, Prometheus text, OTLP/JSON (apm_otel)
+- servicegraph metrics `traces_service_graph_request_total`,
+  `traces_service_graph_request_failed_total`, histograms `..._request_server` /
+  `..._request_client` (seconds); labels client, server, connection_type (empty,
+  messaging_system, database, virtual_node) and failed; database server node named from
+  db.name / db.namespace; default buckets 2 ms … 15 s, configurable via
+  `latency_histogram_buckets`. [verified: source + README]
+  https://raw.githubusercontent.com/open-telemetry/opentelemetry-collector-contrib/main/connector/servicegraphconnector/README.md ,
+  https://raw.githubusercontent.com/open-telemetry/opentelemetry-collector-contrib/main/connector/servicegraphconnector/connector.go ,
+  https://raw.githubusercontent.com/open-telemetry/opentelemetry-collector-contrib/main/connector/servicegraphconnector/internal/store/edge.go
+- Prometheus text exposition: `# HELP`, `# TYPE`, `name{labels} value [timestamp_ms]`,
+  histogram `_bucket{le}` cumulative, `_sum`, `_count`. [verified]
+  https://prometheus.io/docs/instrumenting/exposition_formats/
+- OTLP/JSON: protobuf JSON mapping with lowerCamelCase keys, hex traceId/spanId, integer
+  enums (kind, status.code), 64-bit integers (`*UnixNano`, intValue) as strings. [verified]
+  https://opentelemetry.io/docs/specs/otlp/ ,
+  https://raw.githubusercontent.com/open-telemetry/opentelemetry-proto/main/examples/trace.json
+
+**Generator:** hourly/daily scrapes with ms timestamps, cumulative counters, labels
+client / connection_type (omitted when empty, which Prometheus treats as absent) / failed /
+server, configured buckets 10 ms–5 s (+Inf) to keep the data set under 500 MB; the
+`_seconds` suffix on the histogram name is inferred from the Prometheus exporter's unit
+handling [unverified]. Span sample (2 h, demo hospitals) obeys the OTLP mapping; tests parse
+the scrapes with `prometheus_client` and check that span counts equal metric increases.
+
+## R12. nfdump CSV (netflow)
+- nfdump 1.6.x `-o csv`: 48 columns `ts,te,td,sa,da,sp,dp,pr,flg,fwd,stos,ipkt,ibyt,opkt,obyt,…`
+  plus a Summary footer; nfdump 1.7.x: `firstSeen,duration,proto,srcAddr,srcPort,dstAddr,
+  dstPort,packets,bytes,flows` with millisecond timestamps and numeric protocol. [verified: source]
+  https://raw.githubusercontent.com/phaag/nfdump/master/src/output/output_csv.c ,
+  https://raw.githubusercontent.com/phaag/nfdump/v1.6.25/bin/output_csv.c
+- IANA: 104 DICOM, 1433 ms-sql-s, 1972 intersys-cache, 2575 hl7, 636 ldaps; dynamic ports
+  49152–65535. [verified] https://www.iana.org/assignments/service-names-port-numbers/service-names-port-numbers.csv
+- IPFIX element names (flowStartMilliseconds, sourceIPv4Address, destinationTransportPort,
+  packetDeltaCount, octetDeltaCount) for comparison. [verified]
+  https://www.iana.org/assignments/ipfix/ipfix-information-elements.csv
+
+**Generator:** nfdump 1.7 layout, both directions of every aggregated conversation, UTC,
+plus three collector-enrichment columns (`srcDns`, `dstDns`, `tag`) that nfdump itself does
+not emit (flow analysers add reverse DNS and application tags; DECISIONS #61).
+
+## R13. Mirth Connect (interface_engine)
+- Channel XML: `<channel>` with `<sourceConnector>` / `<destinationConnectors><connector>`,
+  `<properties class=…>` and `<transportName>`: TCP Listener (TcpReceiverProperties,
+  listenerConnectorProperties host/port), TCP Sender (TcpDispatcherProperties, remoteAddress,
+  remotePort), Database Writer (DatabaseDispatcherProperties, driver, url), HTTP Sender (host
+  URL), DICOM Listener / Sender (DICOMReceiver/DispatcherProperties, host, port). [verified: source]
+  https://raw.githubusercontent.com/nextgenhealthcare/connect/development/server/src/com/mirth/connect/connectors/tcp/TcpReceiverProperties.java ,
+  https://raw.githubusercontent.com/nextgenhealthcare/connect-examples/master/Channels/Validate%20XSD%20Source%20Filter/Example%20-%20Validate%20XSD.xml
+- `GET /api/channels/statistics`: serverId, channelId, received, sent, error, filtered, queued;
+  default metadata columns SOURCE and TYPE. [verified: source]
+  https://raw.githubusercontent.com/nextgenhealthcare/connect/development/core-models/src/com/mirth/connect/model/ChannelStatistics.java ,
+  https://raw.githubusercontent.com/nextgenhealthcare/connect/development/core-models/src/com/mirth/connect/model/util/DefaultMetaData.java
+
+**Generator:** one `<channel>` per HL7/DICOM route; Database Writer JDBC URL
+`jdbc:sqlserver://<host>:1433;databaseName=…` for the critical-results staging; daily
+statistics per connector (`metaDataId`) with the ChannelStatistics field names, and the
+SOURCE metadata value (sending application) on the source connector rows.
+
+## R14. Veeam Backup & Replication REST v1 (backup_software)
+- `/api/v1/sessions`: id, name, jobId, sessionType (BackupJob, BackupCopyJob, …),
+  creationTime, endTime, state (Stopped, Working, …), progressPercent, result {result: None |
+  Success | Warning | Failed, message, isCanceled}, progress {transferredSize, …}; snapshot-only
+  jobs have `isStorageSnapshot: true` in their job state. [verified: OpenAPI in the docs]
+  https://helpcenter.veeam.com/references/vbr/13/rest/1.2-rev1/tag/Sessions
+- Commvault equivalent: jobSummary (jobId, status, jobType, backupLevelName, …). [secondary]
+  https://raw.githubusercontent.com/Commvault/cvpysdk/master/cvpysdk/job.py
+
+**Generator:** a sessions page `{"data": [...], "pagination": {...}}`; per-object task fields
+flattened onto each session (objectName, repositoryName, sourceRepositoryName) because the
+model has one job per protected object; `isStorageSnapshot` carried on the session.
+
+## R15. Pure Storage FlashArray REST 2.x (storage_telemetry)
+- Pod replica links: id, direction, lag (ms), local_pod, remote_pod, remotes [{name,
+  resource_type}], paused, recovery_point (ms; null while baselining), status replicating |
+  baselining | paused | quiescing | quiesced | idle | unhealthy. [verified: OpenAPI models]
+  https://raw.githubusercontent.com/PureStorage-OpenConnect/py-pure-client/master/pypureclient/flasharray/_common/models/pod_replica_link_v_2_52.py
+
+**Generator:** hourly `pod-replica-links` samples for async pairs (ActiveDR-style) and `pods`
+samples for synchronous room A/B mirrors (ActiveCluster); `_polled_array` / `_sampled_at`
+record which array was read and when (collector metadata).
+
+## R16. Microsoft Entra ID sign-ins (identity_sso)
+- Graph `signIn`: id, createdDateTime, userPrincipalName, userId, appDisplayName, appId,
+  ipAddress, clientAppUsed, conditionalAccessStatus, isInteractive, resourceDisplayName,
+  status {errorCode, failureReason, additionalDetails}, deviceDetail {deviceId, displayName,
+  operatingSystem, browser}, location {city, state, countryOrRegion}; error 50126 = invalid
+  credentials. [verified]
+  https://learn.microsoft.com/en-us/graph/api/resources/signin?view=graph-rest-1.0 ,
+  https://learn.microsoft.com/en-us/entra/identity-platform/reference-error-codes
+
+**Generator:** those fields with `userPrincipalName` = the bare pseudonymous ID (no domain,
+no `userDisplayName`); ~1% failed sign-ins (50126) followed by a success.
+
+## R17. SQL Server Audit (db_audit)
+- `sys.fn_get_audit_file` columns (event_time UTC, sequence_number, action_id, succeeded,
+  session_id, server_principal_name, database_principal_name, server_instance_name,
+  database_name, schema_name, object_name, statement, class_type, client_ip,
+  application_name, …); action_id codes SL, IN, UP, DL, EX, AL, CR, DR, LGIS, LGIF;
+  class_type U (table). [verified columns; codes secondary]
+  https://learn.microsoft.com/en-us/sql/relational-databases/system-functions/sys-fn-get-audit-file-transact-sql?view=sql-server-ver16 ,
+  https://raw.githubusercontent.com/elastic/integrations/main/packages/microsoft_sqlserver/data_stream/audit/elasticsearch/ingest_pipeline/default.yml
+
+**Generator:** a CSV of those columns (7 fractional digits), principals are pseudonymous IDs;
+IRIS / Oracle / PostgreSQL audit exports are mapped into the same columns.
+
+## R18. Workday worker export (hr_feed)
+- Get_Workers: Worker_Reference (Employee_ID), status derived from the Active, Terminated and
+  On_Leave flags (a worker on leave is still Active), Hire_Date, Termination_Date; RaaS
+  column names are report-defined. [verified Get_Workers doc; RaaS names unverified]
+  https://community.workday.com/sites/default/files/file-hosting/productionapi/Human_Resources/v45.0/Get_Workers.html
+
+**Generator:** RaaS-style CSV with Employee_ID, Worker_Type, Worker_Status, the three flags,
+Hire_Date, Termination_Date, Effective_Date, Supervisory_Organization; no worker names or
+emails (DATA_SPEC privacy rule).
