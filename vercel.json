@@ -1,0 +1,19 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "fastapi",
+  "regions": [
+    "bom1"
+  ],
+  "crons": [
+    {
+      "path": "/cron/reset",
+      "schedule": "0 21 * * *"
+    }
+  ],
+  "functions": {
+    "index.py": {
+      "maxDuration": 60,
+      "excludeFiles": "{data/**,runtime/**,docs/**,tests/**,.venv/**,data_demo/raw/**,data_demo/truth/**,data_demo/identity/**,data_demo/*.json,data_demo/normalised/*.gz,ingest/generate.py,ingest/export.py,ingest/drift.py,*.md}"
+    }
+  }
+}

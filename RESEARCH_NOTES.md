@@ -360,3 +360,48 @@ Checked 2026-10-16 against the live API and the docs.
   "but there are exceptions". https://openrouter.ai/docs/guides/privacy/provider-logging ; OpenRouter does not log
   prompts by default: https://openrouter.ai/support . Third-party survey of free endpoint retention (unverified,
   context only): https://www.truefoundry.com/blog/openrouter-free-models-whats-actually-free-and-what-it-costs-you
+
+## R20. Vercel (public deployment)
+
+Checked 2026-10-16.
+
+- **Python runtime / FastAPI.** Vercel detects FastAPI from `pyproject.toml`, `requirements.txt` or `Pipfile`
+  and loads a top-level `app` from `app.py`, `index.py`, `server.py`, `main.py`, `wsgi.py` or `asgi.py` (also under
+  `src/` or `app/`), or from `tool.vercel.entrypoint`. Python 3.12 (default), 3.13, 3.14. Dependencies from
+  `pyproject.toml` with or without `uv.lock`. "A Python framework preset takes precedence over file-based
+  functions", so `api/*.py` does not become separate functions. `app.mount()` with `StaticFiles` is promoted to the
+  CDN at build time. https://vercel.com/docs/functions/runtimes/python ,
+  https://vercel.com/docs/frameworks/backend/fastapi ,
+  https://vercel.com/docs/functions/runtimes/python/api-directory . Observed: the local `vercel build` rejected a
+  `functions` key of `api/main.py` ("doesn't match any Serverless Functions inside the api directory"), so the
+  entrypoint is a root `index.py` that imports the app.
+- **Hobby limits.** Max duration 300 s default and maximum (Fluid compute); memory 2 GB / 1 vCPU; bundle 500 MB
+  uncompressed for Python (250 MB for others); request/response body 4.5 MB; functions run in a single region
+  (default `iad1`, changeable with `"regions"` in `vercel.json`; Hobby: "Single region").
+  https://vercel.com/docs/functions/limitations , https://vercel.com/docs/functions/configuring-functions/region
+- **Regions.** `bom1` = AWS `ap-south-1`, Mumbai, the same AWS region as the FalkorDB Cloud instance.
+  https://vercel.com/docs/regions
+- **Cron.** Hobby: up to 100 cron jobs, minimum interval once per day, precision per hour (±59 min); more frequent
+  expressions fail the deployment. https://vercel.com/docs/cron-jobs/usage-and-pricing . Vercel sends
+  `Authorization: Bearer $CRON_SECRET` (GET) when `CRON_SECRET` is set; delivery is best effort and may repeat, so the job must be idempotent. https://vercel.com/docs/cron-jobs/manage-cron-jobs
+- **Bundling.** No tree-shaking for Python; everything reachable is included unless excluded with `excludeFiles`
+  (glob) in `vercel.json` `functions`. https://vercel.com/docs/functions/runtimes/python . Observed: the deployed
+  function is 35.6 MB in `bom1`.
+
+## R21. FalkorDB Cloud free tier
+
+Checked 2026-10-16 against the docs and the live instance (AWS ap-south-1).
+
+- **Memory.** "The Free Tier includes 100MB of RAM, which is also the maximum size of your graph dataset." No
+  persistence, no backups; "free instances that aren't utilized for 1 day will be stopped, and deleted after 7
+  days"; multi-graph supported; AWS or GCP. https://docs.falkordb.com/cloud/tiers/free.md . Live: `INFO memory`
+  reports `maxmemory` 100 MB.
+- **TLS.** Not on the free tier; TLS starts at Startup (plans table: TLS ✗ for FREE).
+  https://www.falkordb.com/plans/ , https://docs.falkordb.com/cloud/ . Live: a TLS connection times out, a plain
+  connection with username and password works, so the deployment sets `FALKORDB_TLS=false`.
+- **Connection limits and IP allowlisting.** Not documented for any tier on the pages above (checked the tier
+  page, the plans table and the cloud overview); private networking is Enterprise only. Live: connections from a
+  laptop and from Vercel `bom1` (dynamic IPs) both succeed, so there is no allowlist on this instance.
+- **Memory command.** `GRAPH.MEMORY USAGE <graph> [SAMPLES n]` reports per-graph memory in MB
+  (`total_graph_sz_mb`, matrices, node and edge blocks and attributes, indices).
+  https://docs.falkordb.com/commands/graph.memory.html

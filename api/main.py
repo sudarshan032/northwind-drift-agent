@@ -1,6 +1,7 @@
 """FastAPI service (AGENT_SPEC phase 3). Run: uvicorn api.main:app
 
-Config (env): FALKORDB_HOST, FALKORDB_PORT, NORTHWIND_GRAPH (northwind),
+Config (env): FALKORDB_HOST, FALKORDB_PORT, FALKORDB_USERNAME, FALKORDB_PASSWORD, FALKORDB_TLS,
+DEPLOY_MODE (local | public), NORTHWIND_GRAPH (northwind), CRON_SECRET (Vercel cron),
 NORTHWIND_DATA (data), NORTHWIND_RUNTIME (runtime), LLM_PROVIDER, OPENROUTER_API_KEY,
 NORTHWIND_MODELS, ANTHROPIC_API_KEY.
 The UI is served from ui/ at /.
@@ -10,8 +11,7 @@ import json
 import os
 from contextlib import asynccontextmanager
 
-from falkordb import FalkorDB
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, Header, HTTPException, Query
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -20,8 +20,10 @@ from agent import approval, findings as F, flows
 from agent.llm import NO_KEY, get_llm
 from agent.tools import notifications as read_notifications
 from graph import queries as Q
+from graph.connection import connect
 
 GRAPH = os.environ.get("NORTHWIND_GRAPH", "northwind")
+PUBLIC = os.environ.get("DEPLOY_MODE", "local") == "public"  # Vercel: no disk writes, cached AI, approvals in the DB
 DATA = os.environ.get("NORTHWIND_DATA", "data")
 RUNTIME = os.environ.get("NORTHWIND_RUNTIME", "runtime")
 UI = os.path.join(os.path.dirname(__file__), "..", "ui")
@@ -42,8 +44,7 @@ _db = None
 def graph():
     global _db
     if _db is None:
-        _db = FalkorDB(host=os.environ.get("FALKORDB_HOST", "localhost"),
-                       port=int(os.environ.get("FALKORDB_PORT", 6379)))
+        _db = connect()
     return _db.select_graph(GRAPH)
 
 
@@ -75,6 +76,7 @@ def health():
     g = graph()
     n = g.query("MATCH (n:Component) RETURN count(n)").result_set[0][0]
     return {"status": "ok", "graph": GRAPH, "components": n, "llm": llm() is not None,
+            "mode": "public" if PUBLIC else "local",
             "llm_message": None if llm() else NO_KEY}
 
 
@@ -135,7 +137,9 @@ def patch_diff(g, f):
 @app.post("/findings/{fid}/approve")
 def approve(fid: str, d: Decision | None = None):
     _risk.clear()
-    res = approval.approve(graph(), DATA, RUNTIME, fid, (d or Decision()).approver)
+    g = graph()
+    res = (approval.approve(g, None, approval.GraphRecords(g), fid, (d or Decision()).approver) if PUBLIC
+           else approval.approve(g, DATA, RUNTIME, fid, (d or Decision()).approver))
     if res.get("error"):
         raise HTTPException(404 if res["error"] == "no such finding" else 409, res)
     return res
@@ -145,7 +149,8 @@ def approve(fid: str, d: Decision | None = None):
 def reject(fid: str, d: Decision | None = None):
     d = d or Decision()
     _risk.clear()
-    res = approval.reject(graph(), RUNTIME, fid, d.approver, d.reason)
+    g = graph()
+    res = approval.reject(g, approval.GraphRecords(g) if PUBLIC else RUNTIME, fid, d.approver, d.reason)
     if res.get("error"):
         raise HTTPException(404, res)
     return res
@@ -329,7 +334,57 @@ def critical():
 
 @app.get("/notifications")
 def notifications():
-    return read_notifications(RUNTIME)
+    return approval.GraphRecords(graph()).list("notification") if PUBLIC else read_notifications(RUNTIME)
+
+
+@app.get("/api/health")
+def api_health():
+    """Database connectivity for monitoring (Vercel); 503 when FalkorDB is unreachable."""
+    import time
+    from fastapi.responses import JSONResponse
+    t = time.perf_counter()
+    try:
+        g = graph()
+        n = g.query("MATCH (c:Component) RETURN count(c)").result_set[0][0]
+    except Exception as e:  # report, never leak connection details
+        return JSONResponse({"status": "error", "db": "unreachable", "error": type(e).__name__,
+                             "mode": "public" if PUBLIC else "local"}, status_code=503)
+    return {"status": "ok", "db": "connected", "mode": "public" if PUBLIC else "local", "graph": GRAPH,
+            "components": n, "latency_ms": round((time.perf_counter() - t) * 1000)}
+
+
+def reset_demo():
+    """Public mode: undo every approval (newest first) from the undo log in the graph, drop the records and
+    findings, rebuild the impact layer and re-run triage, so the demo is back in its loaded state."""
+    if not PUBLIC:
+        raise HTTPException(409, "reset is only available in public mode; reload the local stack instead")
+    from agent import grounding
+    from graph import impact
+    g = graph()
+    logs = approval.GraphRecords(g).list("undo", limit=10000)  # newest first
+    for log in logs:
+        approval.revert(g, log["ops"])
+    g.query("MATCH (r:Record) DELETE r")
+    g.query("MATCH (f:Finding) DETACH DELETE f")
+    impact.build(g)
+    res = flows.triage(g, llm())
+    _risk.clear()
+    grounding._names.pop(GRAPH, None)
+    return {"status": "reset", "approvals_undone": len(logs), "findings": res["total"]}
+
+
+@app.post("/reset")
+def reset():
+    return reset_demo()
+
+
+@app.get("/cron/reset")
+def cron_reset(authorization: str | None = Header(default=None)):
+    """Daily Vercel cron (Hobby: once per day). Vercel sends `Authorization: Bearer $CRON_SECRET`."""
+    secret = os.environ.get("CRON_SECRET")
+    if not secret or authorization != f"Bearer {secret}":
+        raise HTTPException(401, "cron secret required")
+    return reset_demo()
 
 
 @app.post("/chat")

@@ -570,3 +570,27 @@ covers every API addition; the incident test checks the new step results.
   name and number in it is real, so the grounding check passes it. Change review risk, verdict and table never use
   the LLM.
 - Screenshots were taken with Chromium only; no Safari or Firefox pass.
+
+## Public deployment (branch `deploy`)
+
+- **Live:** https://northwind-drift-agent.vercel.app (Vercel Hobby, function `bom1`, 35.6 MB bundle) on FalkorDB
+  Cloud free tier (AWS ap-south-1). Public mode: cached AI answers only, no disk writes, approvals and an undo log
+  in the graph, "Reset demo" plus a daily cron reset. Steps to reproduce: README "Deploy your own".
+- **Connection:** plain TCP with username and password works (421-634 ms first connect from a laptop); TLS times
+  out (the free tier has no TLS), so `FALKORDB_TLS=false`.
+- **One-time load from a laptop:** 17,132 nodes, 63,378 edges in 12 s; triage 6 s; 59 findings.
+- **Memory (free tier 100 MB):** `GRAPH.MEMORY USAGE` 21 MB; `used_memory` 32 MB steady; 48 MB peak while serving
+  (triage, sampled every 20 ms); 47 MB peak during the load. A pristine second copy for reset was tried first and
+  rejected (59 MB steady, 89 MB peak, DECISIONS #85).
+- **Change reviews on the cloud database:** CHG-HEADLINE high (declared 4 components, 0 hospitals; real 107
+  components, 51 interfaces, 51 hospitals, 51 departments, 2 business services, 51 offerings), cached AI
+  explanation; CHG0031513 low (231 components in both views), cached AI explanation.
+- **Live latency per call (laptop in India to bom1):** static files 0.4-0.6 s; health, changes, findings, sources,
+  CI review 0.16-0.28 s; change reviews 0.32-0.45 s; incident (cached, 5 steps) 0.30 s; chat 0.17 s; approve
+  1.1 s; scan 4.0 s; reset 4.2 s. Every call is far inside the 60-second function limit (Hobby maximum 300 s).
+- **Tests:** 97 passed, including `tests/test_public.py` (cached-only LLM, public provider switch, health, approvals
+  of a relationship, an owner attribute, a shadow CI and an unregistered app plus a ticket, all reverted by the cron
+  reset, with no file written).
+- **Not done:** `vercel dev` / local `vercel build` could not create the build venv with the uv-managed Python 3.12
+  (`ensurepip` failed); public mode was tested with the TestClient against the local FalkorDB and then on the real
+  deployment instead. Triage and the demo chat question have no cached AI answer (rule-based text is shown).

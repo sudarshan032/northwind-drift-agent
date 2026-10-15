@@ -101,10 +101,14 @@ $("#theme").onclick = () => {
   syncThemeButton();
 };
 
+let cachedAI = false;
+const aiLabel = () => cachedAI ? "Cached AI explanation" : "AI explanation";
 async function llmStatus() {
   try {
     const s = await api("/llm");
     const el = $("#llm-status");
+    cachedAI = s.provider === "cached";
+    if (cachedAI) { el.textContent = `Cached AI explanations only (${s.cached_answers ?? 0} saved answers)`; return; }
     if (s.provider === "none" || !s.models?.length) { el.textContent = "AI explanations off"; return; }
     const model = s.models[0].replace(/^[^/]+\//, "").replace(/:free$/, "");
     el.innerHTML = `AI model <span class="id">${esc(model)}</span>` +
@@ -662,7 +666,7 @@ function renderAI(isChange) {
     return;
   }
   const fallback = !review.llm || review.notice;
-  head.textContent = fallback ? "Rule-based explanation" : "AI explanation";
+  head.textContent = fallback ? "Rule-based explanation" : aiLabel();
   note.hidden = !review.notice;
   note.textContent = review.notice ? `${review.notice.replace(/, showing/, ". Showing")}.`.replace(/\.\.$/, ".") : "";
   text.innerHTML = md(review.explanation);
@@ -787,7 +791,7 @@ async function openFinding(id) {
   const body = `<p class="meta-row"><span class="risk sev ${esc(f.severity)}">${esc(cap(f.severity))}</span>
       <span>${esc(f.type)}</span><span>${esc(cap(f.status))}${f.resolved ? ", resolved" : ""}</span>
       <span>Seen by ${esc((f.sources || []).map(srcName).join(", "))}</span></p>
-    <section><h3>${f.explained_by === "llm" ? "AI explanation" : "Explanation"}</h3><div class="prose">${md(f.explanation)}</div>${impact}</section>
+    <section><h3>${f.explained_by === "llm" ? aiLabel() : "Explanation"}</h3><div class="prose">${md(f.explanation)}</div>${impact}</section>
     <section><h3>Evidence</h3>${evidenceTable(f.evidence)}</section>
     ${miniPath(f)}
     <section><h3>Proposed action: ${isTicket ? "ticket" : "CMDB update"}</h3>
@@ -923,10 +927,26 @@ window.addEventListener("hashchange", () => { if (/^#(ci|change|findings|sources
 let resizeTimer;
 window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { if (model) drawGraph(); }, 150); });
 
+$("#reset").onclick = async (e) => {
+  e.target.disabled = true;
+  toast("Resetting the demo");
+  try {
+    const r = await api("/reset", { method: "POST" });
+    toast(`Demo reset: ${plural(r.approvals_undone, "approval")} undone`);
+    findings = [];
+    await loadChanges();
+    current = null;
+    await route();
+  } catch (err) { banner(err.message); }
+  e.target.disabled = false;
+};
+
 (async () => {
-  llmStatus();
-  try { await api("/health"); }
-  catch (e) { banner(e.message); return; }
+  try {
+    const h = await api("/health");
+    $("#reset").hidden = h.mode !== "public";
+  } catch (e) { banner(e.message); return; }
+  await llmStatus();
   try { await loadChanges(); } catch (e) { banner(e.message); return; }
   await route();
 })();

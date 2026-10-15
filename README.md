@@ -19,6 +19,23 @@ Emergency department stages messages in it. The real radius is 51 routes, 51 hos
 and the Emergency care business service, so the risk is **HIGH**. The CMDB also names the wrong team: the
 database moved to the Hyderabad integration team.
 
+## Live demo
+
+**https://northwind-drift-agent.vercel.app** (Vercel Hobby, function in `bom1` Mumbai; FalkorDB Cloud free tier in
+AWS ap-south-1, the same region).
+
+- It runs the demo subset (all 51 hospitals, the full drift catalogue, 6,482 components) in public mode
+  (`DEPLOY_MODE=public`): nothing is generated on startup and nothing is written to disk.
+- AI text is **cached only**: answers recorded with free models are bundled read-only (`deploy/llm_cache/`) and
+  shown as "Cached AI explanation". Anything not in the bundle shows the rule-based explanation with "No cached AI
+  explanation for this request". No model is called, so the demo costs nothing and cannot run out of requests.
+- Approvals work: a CMDB update changes the graph (the demo's CMDB), and tickets, notifications, the audit trail and
+  an undo log are stored as `:Record` nodes in FalkorDB. **Reset demo** (header button, `POST /reset`) undoes every
+  approval from the undo log, clears the records, rebuilds the impact layer and re-runs triage. A daily Vercel
+  cron (`/cron/reset`, 21:00 UTC, Hobby allows once a day) does the same, which also keeps the free instance from
+  being stopped for inactivity.
+- `GET /api/health` reports database connectivity and latency.
+
 ## Run
 
 ```bash
@@ -39,9 +56,33 @@ docker compose up -d falkordb
 uv run python -m ingest.generate --seed 42 --out data/      # raw exports + connectors, ~15 s, ~390 MB
 uv run python -m ingest.connect --data data/                 # re-run the connectors alone
 uv run python -m ingest.load --data data/ --graph northwind --fresh
-uv run python -m pytest -q                                   # 93 tests; agent tests use a scripted fake LLM
+uv run python -m pytest -q                                   # 97 tests; agent tests use a scripted fake LLM
 uv run uvicorn api.main:app --port 8000
 ```
+
+### Deploy your own (Vercel Hobby + FalkorDB Cloud free tier)
+
+1. **FalkorDB Cloud**: sign up (https://www.falkordb.com/try-free/), create a **Free** instance (pick the AWS
+   region closest to your Vercel region; this demo uses ap-south-1). In the console, **Deployments → Instances →
+   your instance**: the **Connectivity** tab shows the endpoint `host:port`, the **Instance Details** tab shows the
+   FalkorDB user and password (**Show**). The free tier has no TLS.
+2. **Load the demo subset once, from your machine**: put the four values in `.env` (gitignored) as
+   `FALKORDB_HOST`, `FALKORDB_PORT`, `FALKORDB_USERNAME`, `FALKORDB_PASSWORD`, then run
+   `uv run python -m deploy.load_cloud`. It tries TLS and plain connections, keeps the one that works, loads
+   `data_demo/` fresh, runs triage, and prints memory per step (free tier: 100 MB).
+3. **Vercel**: `npm i -g vercel`, then in the repository `vercel link` (creates the project; `.vercel/` is
+   gitignored).
+4. **Credentials go in Vercel, not in files**: Project → **Settings → Environment Variables** (Production), add
+   `DEPLOY_MODE=public`, `FALKORDB_HOST`, `FALKORDB_PORT`, `FALKORDB_USERNAME`, `FALKORDB_PASSWORD`,
+   `FALKORDB_TLS=false`, `NORTHWIND_DATA=data_demo` and `CRON_SECRET` (any random string of 16+ characters). Or from
+   the CLI: `vercel env add FALKORDB_PASSWORD production` and paste the value at the prompt.
+5. `vercel deploy --prod`. `vercel.json` sets the FastAPI preset, region `bom1`, a 60-second function limit, the
+   files excluded from the function (full data, tests, docs, generator), and the daily reset cron;
+   `.vercelignore` keeps the 390 MB data set out of the upload. The entrypoint is `index.py`.
+6. Check `https://<project>.vercel.app/api/health`: `"db": "connected"`.
+
+To refresh the cached AI answers: run the demo flows locally with a free OpenRouter key (`python -m agent.prewarm`),
+then `python -m deploy.bundle_cache` and redeploy.
 
 ## Architecture
 
@@ -329,6 +370,9 @@ only the synthetic Northwind Health data. Do not send real CMDB or patient data 
 | Method | Endpoint | Purpose |
 |---|---|---|
 | GET | `/health` | Service and graph status |
+| GET | `/api/health` | Database connectivity and latency (503 when unreachable) |
+| POST | `/reset` | Public mode: undo every approval and restore the demo |
+| GET | `/cron/reset` | Same, for the daily Vercel cron (needs `Authorization: Bearer $CRON_SECRET`) |
 | GET | `/llm` | LLM provider, models and remaining free requests today |
 | POST | `/scan` | Run triage |
 | GET | `/findings`, `/findings/{id}` | List findings, or one finding with its before/after diff |

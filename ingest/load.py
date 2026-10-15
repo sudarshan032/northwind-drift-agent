@@ -25,7 +25,7 @@ import os
 import time
 from collections import Counter
 
-from falkordb import FalkorDB
+from graph.connection import connect
 
 from graph import impact
 from ingest.sources import common
@@ -105,7 +105,7 @@ class Loader:
 
     def __init__(self, data, graph, host="localhost", port=6379, batch=BATCH):
         self.data = data
-        self.db = FalkorDB(host=host, port=port)
+        self.db = connect(host, port)  # FALKORDB_USERNAME / PASSWORD / TLS from the environment
         self.g = self.db.select_graph(graph)
         self.batch = batch
         self.unresolved = Counter()

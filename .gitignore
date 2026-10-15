@@ -7,3 +7,4 @@ data/*
 !data/README.md
 runtime/
 .env
+.vercel

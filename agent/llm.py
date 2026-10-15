@@ -38,7 +38,19 @@ UNAVAILABLE = "AI explanation unavailable (free-tier limit), showing rule-based 
 
 
 class LLMUnavailable(Exception):
-    """Budget exhausted, job cap reached, or every model failed."""
+    """Budget exhausted, job cap reached, every model failed, or (public mode) no cached answer."""
+
+    def __init__(self, msg="", notice=None):
+        super().__init__(msg)
+        self.notice = notice or UNAVAILABLE
+
+
+NOT_CACHED = "No cached AI explanation for this request, showing rule-based explanation"
+
+
+def notice_of(llm):
+    """The fallback sentence this LLM's failures should show (public mode differs)."""
+    return getattr(llm, "notice", UNAVAILABLE)
 
 
 @dataclass
@@ -123,6 +135,7 @@ class Capped:
 
     def __init__(self, llm, n):
         self.llm, self.n, self.used = llm, n, 0
+        self.notice = notice_of(llm)
 
     def respond(self, system, messages, tools=None, tool_choice=None):
         if self.used >= self.n:
@@ -281,6 +294,35 @@ class OpenRouterLLM:
                 "limit": (info or {}).get("limit", self.budget.daily), "source": "openrouter /key" if info else "local"}
 
 
+class CachedLLM:
+    """Public mode: answers only from a read-only bundle of cached responses
+    (`deploy/llm_cache/`, made by `python -m deploy.bundle_cache`). Never calls
+    a model, never writes. A miss raises LLMUnavailable with NOT_CACHED."""
+
+    notice = NOT_CACHED
+
+    def __init__(self, path=None):
+        self.path = path or os.environ.get("NORTHWIND_LLM_CACHE", os.path.join("deploy", "llm_cache"))
+        self.cache = Cache(self.path)
+        try:
+            with open(os.path.join(self.path, "models.json")) as f:
+                self.models = json.load(f)
+        except (OSError, ValueError):
+            self.models = []
+
+    def respond(self, system, messages, tools=None, tool_choice=None):
+        msgs, specs = to_openai(system, messages, tools)
+        hit = self.cache.get(self.cache.key(self.models, system, msgs, specs + ([tool_choice] if tool_choice else [])))
+        if hit is None:
+            raise LLMUnavailable("not in the cached answers", notice=NOT_CACHED)
+        return hit
+
+    def status(self):
+        n = len([f for f in os.listdir(self.path) if f.endswith(".json") and f != "models.json"]) \
+            if os.path.isdir(self.path) else 0
+        return {"provider": "cached", "models": self.models, "remaining": None, "cached_answers": n}
+
+
 # --------------------------------------------------------------------------
 # Claude and the fake
 # --------------------------------------------------------------------------
@@ -352,6 +394,8 @@ class FakeLLM:
 
 
 def provider():
+    if os.environ.get("DEPLOY_MODE", "local") == "public":
+        return "cached"  # public demo: cached answers only, whatever else is configured
     p = os.environ.get("LLM_PROVIDER", "").strip().lower()
     if p:
         return p
@@ -371,6 +415,8 @@ def get_llm():
         return ClaudeLLM()
     if p == "fake":
         return FakeLLM(final="(fake provider) no live model configured.")
+    if p == "cached":
+        return CachedLLM()
     return None
 
 

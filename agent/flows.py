@@ -22,7 +22,7 @@ from typing import TypedDict
 from langgraph.graph import END, StateGraph
 
 from agent import findings as F, grounding as G
-from agent.llm import JOB_CAPS, NO_KEY, UNAVAILABLE, LLMUnavailable, capped
+from agent.llm import JOB_CAPS, NO_KEY, UNAVAILABLE, LLMUnavailable, capped, notice_of
 from agent.tools import READ_ONLY, Toolbox
 from graph import queries as Q
 
@@ -106,7 +106,7 @@ def run_loop(llm, box, system, question, tool_names, max_steps, job):
                                                   for t in box.trace]}
     answer, notice, bad = out["answer"], None, []
     if not answer:  # unavailable, step limit or unusable final reply
-        notice = UNAVAILABLE
+        notice = notice_of(llm)
     else:
         answer, bad = G.grounded(answer, facts, G.graph_names(box.g), job)
         notice = DISCARDED if bad else None
@@ -181,8 +181,8 @@ def triage(g, llm=None, top_n=10):
             try:
                 got = parse_explanations(job.respond(EXPLAIN, [{"role": "user", "content": json.dumps(
                     facts, default=str)}]).text)
-            except LLMUnavailable:
-                got, notice = {}, UNAVAILABLE
+            except LLMUnavailable as e:
+                got, notice = {}, e.notice
             names, discarded = G.graph_names(g), 0
             for f in fs[:top_n]:
                 if got.get(f["id"]):
@@ -259,10 +259,10 @@ def change_review(g, change_id, llm=None):
             return {"explanation": template_review(facts)}
         try:
             reply = job.respond(CHANGE, [{"role": "user", "content": json.dumps(facts, default=str)[:12000]}])
-        except LLMUnavailable:
-            return {"explanation": template_review(facts), "notice": UNAVAILABLE}
+        except LLMUnavailable as e:
+            return {"explanation": template_review(facts), "notice": e.notice}
         if not reply.text:
-            return {"explanation": template_review(facts), "notice": UNAVAILABLE}
+            return {"explanation": template_review(facts), "notice": notice_of(job)}
         text, bad = G.grounded(reply.text, facts, G.graph_names(g), f"change_review {change_id}")
         if text is None:
             return {"explanation": template_review(facts), "notice": DISCARDED, "mismatches": bad}
@@ -359,8 +359,8 @@ def ambiguity(g, llm=None):
             try:
                 reply = llm.respond(JUDGE, [{"role": "user", "content": json.dumps(c, default=str)[:12000]}])
                 j = parse_judgement(reply.text)
-            except LLMUnavailable:
-                j = {"decision": None, "reasons": [UNAVAILABLE], "by": "none"}
+            except LLMUnavailable as e:
+                j = {"decision": None, "reasons": [e.notice], "by": "none"}
         fid = F.finding_id(c["kind"], c["key"])
         if F.get_finding(g, fid) is None:
             F.store(g, [{"id": fid, "type": c["kind"], "kind": "naming mismatch" if c["kind"] == "D13" else

@@ -1,0 +1,12 @@
+# upload only what the public deployment needs (the full data set is ~390 MB)
+.venv
+.env
+data
+runtime
+docs
+tests
+*.log
+data_demo/*
+!data_demo/normalised
+data_demo/normalised/*
+!data_demo/normalised/sources.json
