@@ -20,6 +20,7 @@ Graph model
 
 import argparse
 import csv
+import ipaddress
 import json
 import os
 import time
@@ -194,6 +195,16 @@ class Loader:
                 subnets.setdefault(r["site"], []).append(r["subnet"])
         self.run("UNWIND $rows AS r MATCH (s:Site {id: r.s}) SET s.scanned_subnets = r.n",
                  [{"s": k, "n": v} for k, v in sorted(subnets.items())])
+        # IP-in-CIDR is not expressible in Cypher: record each CI's scanned subnet at ingest.
+        nets = {s: [ipaddress.ip_network(n) for n in v] for s, v in subnets.items()}
+        rows = []
+        for n, r in self.cis.items():
+            if r["ip_address"]:
+                ip = ipaddress.ip_address(r["ip_address"])
+                hit = next((str(x) for x in nets.get(r["site"], []) if ip in x), None)
+                if hit:
+                    rows.append({"c": n, "s": hit})
+        self.run("UNWIND $rows AS r MATCH (c:Component {name: r.c}) SET c.scanned_subnet = r.s", rows)
 
     # ---- observed --------------------------------------------------------
 
@@ -245,7 +256,8 @@ class Loader:
                 e["first_seen"], e["last_seen"] = min(e["first_seen"], t), max(e["last_seen"], t)
                 e["days"].add(t[:10])
         def props(e):  # distinct days with traffic, kept for the ">= 3 days" rule
-            return {**{k: v for k, v in e.items() if k != "days"}, "days_seen": len(e["days"])}
+            return {**{k: v for k, v in e.items() if k != "days"}, "days_seen": len(e["days"]),
+                    "days": sorted(e["days"])}
 
         # Endpoints with no CMDB record become :UnregisteredEndpoint nodes so their traffic stays visible.
         self.run("UNWIND $rows AS r MERGE (x:UnregisteredEndpoint {name: r.n}) SET x.ip_address = r.ip",
@@ -297,12 +309,14 @@ class Loader:
         for e in read_jsonl(self.path("observed", "access_log.jsonl")):
             k = (e["user"], e["target"], e["action"])
             x = agg.setdefault(k, {"count": 0, "failures": 0, "first_seen": e["ts"], "last_seen": e["ts"],
-                                   "workstations": set()})
+                                   "workstations": set(), "times": []})
+            if e["action"] == "admin":  # admin events keep timestamps for the change-window check
+                x["times"].append(e["ts"])
             x["count"] += 1
             x["failures"] += e["result"] != "success"
             x["first_seen"], x["last_seen"] = min(x["first_seen"], e["ts"]), max(x["last_seen"], e["ts"])
             x["workstations"].add(e["workstation"])
-        rows = [{"u": u, "c": c, "a": a, "p": dict(x, workstations=sorted(x["workstations"]))}
+        rows = [{"u": u, "c": c, "a": a, "p": dict(x, workstations=sorted(x["workstations"]), times=sorted(x["times"]))}
                 for (u, c, a), x in sorted(agg.items())]
         self.run("UNWIND $rows AS r MATCH (u:User {id: r.u}) MATCH (c:Component {name: r.c}) "
                  "MERGE (u)-[e:OBSERVED_ACCESS {action: r.a}]->(c) SET e += r.p",

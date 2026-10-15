@@ -140,3 +140,324 @@ ORDER BY users DESC LIMIT 5
 def unregistered_app_path(g, app, timeout=TIMEOUT_MS):
     """Access path for an unregistered app: group -> users -> app -> API -> data."""
     return run(g, D14_PATH, {"app": app}, timeout)
+
+
+# --------------------------------------------------------------------------
+# Drift detectors (same rules as tests/oracle.py, RUN_PROMPT 4.1), one per type.
+# Each returns rows with a `key` list identical to ground_truth finding_keys.
+# --------------------------------------------------------------------------
+
+SNAPSHOT_END = "2026-10-14T23:59:59Z"
+BACKUP_CUTOFF = "2026-10-07T23:59:59Z"  # SNAPSHOT_END - 7 days
+DISCOVERABLE = sorted(__import__("ingest.world", fromlist=["DISCOVERABLE_CLASSES"]).DISCOVERABLE_CLASSES)
+REL_TYPE_NAME = {"DEPENDS_ON": "Depends on::Used by", "REPLICATES_TO": "Replicates to::Replica of"}
+
+# Union of distinct days over all (non health-check) observed edges of a pair.
+# (FalkorDB does not allow a reduce() nested in another reduce(), hence two steps.)
+_FLAT = "reduce(acc = [], l IN dl | acc + l)"
+_DAYS = "reduce(s = [], d IN flat | CASE WHEN d IN s THEN s ELSE s + [d] END)"
+
+DETECTORS = {
+    # D1: observed traffic between two CIs on >= 3 distinct days, no declared DEPENDS_ON either way.
+    "D1": f"""
+        MATCH (a:Component)-[o:OBSERVED_CALLS|OBSERVED_NETFLOW]->(b:Component)
+        WHERE NOT coalesce(o.health_check, false)
+        WITH a, b, collect(o.days) AS dl
+        WITH a, b, {_FLAT} AS flat
+        WITH a, b, {_DAYS} AS days WHERE size(days) >= 3
+        OPTIONAL MATCH (a)-[dep:DEPENDS_ON]-(b)
+        WITH a, b, days, count(dep) AS declared WHERE declared = 0
+        RETURN ['undocumented', a.name, b.name] AS key, size(days) AS days_seen
+        ORDER BY key LIMIT $limit""",
+    # D2: declared DEPENDS_ON / REPLICATES_TO, failover=false, neither end retired, nothing observed.
+    "D2": """
+        MATCH (a:Component)-[d:DEPENDS_ON|REPLICATES_TO]->(b:Component)
+        WHERE d.failover = false AND a.status <> 'retired' AND b.status <> 'retired'
+        OPTIONAL MATCH (a)-[o:OBSERVED_CALLS|OBSERVED_NETFLOW]-(b) WHERE NOT coalesce(o.health_check, false)
+        OPTIONAL MATCH (a)-[rp:OBSERVED_REPLICATES_TO]->(b)
+        WITH a, b, d, count(o) AS traffic, count(rp) AS repl
+        WHERE (type(d) = 'DEPENDS_ON' AND traffic = 0) OR (type(d) = 'REPLICATES_TO' AND repl = 0)
+        RETURN ['stale', a.name, b.name, type(d)] AS key
+        ORDER BY a.name, b.name LIMIT $limit""",
+    # D4: retired CI still holding CMDB relationships.
+    "D4": """
+        MATCH (r:Component {status: 'retired'})
+              -[e:CONTAINS|DEPENDS_ON|RUNS_ON|STORES_ON|REPLICATES_TO|BACKED_UP_BY|CONNECTS_THROUGH]-(o:Component)
+        WITH r, collect(DISTINCT o.name) AS linked
+        RETURN ['retired_linked', r.name] AS key, linked ORDER BY r.name LIMIT $limit""",
+    # D5: dominant team in ownership evidence differs from the CMDB support group (ties ignored).
+    "D5": """
+        MATCH (g:SupportGroup)-[o:OBSERVED_OWNER]->(c:Component)
+        WITH c, g.name AS team, o.incidents_resolved + o.changes_implemented AS w
+        ORDER BY w DESC, team
+        WITH c, collect({team: team, w: w}) AS ts
+        WHERE size(ts) = 1 OR ts[0].w > ts[1].w
+        MATCH (c)-[:MANAGED_BY]->(m:SupportGroup)
+        WHERE m.name <> ts[0].team
+        RETURN ['owner', c.name] AS key, m.name AS cmdb_owner, ts[0].team AS observed_owner, ts[0].w AS evidence
+        ORDER BY c.name LIMIT $limit""",
+    # D6: discovered device that identifies no CI.
+    "D6": """
+        MATCH (d:Discovered) WHERE NOT (d)-[:IDENTIFIES]->(:Component)
+        RETURN ['shadow', d.hostname, d.ip_address] AS key, d.site AS site, d.model AS model
+        ORDER BY d.site, d.hostname LIMIT $limit""",
+    # D7: operational discoverable CI in a scanned subnet, never discovered, no traffic.
+    "D7": """
+        MATCH (c:Component)
+        WHERE c.status = 'operational' AND c.class IN $classes AND c.count IS NULL
+              AND c.scanned_subnet IS NOT NULL AND NOT (c)<-[:IDENTIFIES]-(:Discovered)
+        OPTIONAL MATCH (c)-[o:OBSERVED_CALLS|OBSERVED_NETFLOW]-() WHERE NOT coalesce(o.health_check, false)
+        WITH c, count(o) AS traffic WHERE traffic = 0
+        RETURN ['ghost', c.name] AS key, c.site AS site, c.ip_address AS ip ORDER BY c.name LIMIT $limit""",
+    # D8: identified CI whose os_version / serial_number / ip_address differs from discovery.
+    "D8": """
+        MATCH (d:Discovered)-[:IDENTIFIES]->(c:Component)
+        UNWIND ['os_version', 'serial_number', 'ip_address'] AS f
+        WITH c, d, f WHERE c[f] IS NOT NULL AND d[f] IS NOT NULL AND c[f] <> d[f]
+        RETURN ['attribute', c.name, f] AS key, c[f] AS cmdb, d[f] AS discovered ORDER BY c.name, f LIMIT $limit""",
+    # D9: PHI CI with backup_offsite=true whose storage/backup/replication path never leaves its site.
+    "D9": """
+        MATCH (c:Component)
+        WHERE c.status = 'operational' AND c.handles_phi = true AND c.backup_offsite = true
+              AND c.backup_policy IS NOT NULL
+        OPTIONAL MATCH p = (c)-[:STORES_ON|OBSERVED_BACKUP_TO|OBSERVED_REPLICATES_TO*1..6]->(x:Component)
+        WHERE x.site <> c.site
+              AND all(r IN relationships(p) WHERE type(r) <> 'OBSERVED_BACKUP_TO' OR r.last_success IS NOT NULL)
+        WITH c, count(x) AS offsite WHERE offsite = 0
+        OPTIONAL MATCH (c)-[b:OBSERVED_BACKUP_TO]->(t)
+        WITH c, collect(t.name) AS backup_targets
+        RETURN ['protection', c.name] AS key, c.site AS site, backup_targets ORDER BY key LIMIT $limit""",
+    # D10: CI with a backup policy and no successful backup in the last 7 days.
+    "D10": """
+        MATCH (c:Component) WHERE c.status = 'operational' AND c.backup_policy IS NOT NULL
+        OPTIONAL MATCH (c)-[b:OBSERVED_BACKUP_TO]->()
+        WITH c, max(b.last_success) AS last_success
+        WHERE last_success IS NULL OR last_success <= $cutoff
+        RETURN ['backup_failing', c.name] AS key, last_success ORDER BY c.name LIMIT $limit""",
+    # D11: PHI data replicated or sent into cloud-central-india.
+    "D11": """
+        MATCH (a:Component)-[o:OBSERVED_REPLICATES_TO]->(b:Component)
+        WHERE b.site = 'cloud-central-india' OR b.data_residency = 'IN'
+        OPTIONAL MATCH (p:Component)-[:STORES_ON]->(a) WHERE p.handles_phi = true
+        WITH a, b, o, count(p) AS phi_stored WHERE a.handles_phi = true OR phi_stored > 0
+        RETURN ['residency', a.name, b.name] AS key, 'replication' AS via, o.volumes AS detail
+        UNION
+        MATCH (a:Component)-[o:OBSERVED_CALLS]->(b:Component)
+        WHERE (b.site = 'cloud-central-india' OR b.data_residency = 'IN') AND a.handles_phi = true
+              AND NOT (a.site = 'cloud-central-india' OR a.data_residency = 'IN')
+        RETURN ['residency', a.name, b.name] AS key, 'flow' AS via, [o.msg_type] AS detail""",
+    # D12: access by a disabled user, with no grant path, or admin on a production DB outside a window.
+    "D12": """
+        MATCH (u:User)-[e:OBSERVED_ACCESS]->(c:Component)
+        OPTIONAL MATCH (u)-[:MEMBER_OF]->(:Group)-[:HAS_ROLE]->(:Role)-[gr:GRANTS]->(c)
+        WITH u, c, e, max(CASE gr.level WHEN 'read' THEN 1 WHEN 'write' THEN 2 WHEN 'admin' THEN 3 ELSE 0 END) AS lvl
+        WITH u, c, e, coalesce(lvl, 0) AS lvl,
+             CASE e.action WHEN 'admin' THEN 3 WHEN 'write' THEN 2 ELSE 1 END AS need
+        UNWIND (CASE WHEN size(e.times) = 0 THEN [null] ELSE e.times END) AS t
+        OPTIONAL MATCH (ch:Change)-[:TARGETS]->(c)
+        WHERE t IS NOT NULL AND ch.approval = 'approved' AND ch.start_date <= t AND t <= ch.end_date
+        WITH u, c, e, lvl, need, t, count(ch) AS windows
+        WITH u, c, lvl, need,
+             sum(CASE WHEN t IS NOT NULL AND windows = 0 AND c:Database AND c.environment = 'production'
+                      THEN 1 ELSE 0 END) AS outside
+        WITH u, c, CASE WHEN u.status <> 'active' THEN 'disabled_user'
+                        WHEN lvl < need THEN 'no_grant_path'
+                        WHEN outside > 0 THEN 'admin_outside_change_window' END AS reason
+        WHERE reason IS NOT NULL
+        WITH u, c, collect(DISTINCT reason) AS reasons
+        RETURN ['access', u.id, c.name] AS key, reasons ORDER BY key LIMIT $limit""",
+    # D14: endpoint with no CMDB record carrying traffic on >= 3 distinct days.
+    "D14": f"""
+        MATCH (x:UnregisteredEndpoint)-[o:OBSERVED_CALLS|OBSERVED_NETFLOW]-()
+        WHERE NOT coalesce(o.health_check, false)
+        WITH x, collect(o.days) AS dl
+        WITH x, {_FLAT} AS flat
+        WITH x, {_DAYS} AS days WHERE size(days) >= 3
+        OPTIONAL MATCH (u:User)-[a:OBSERVED_ACCESS]->(x)
+        WITH x, days, count(DISTINCT u) AS users
+        RETURN ['unregistered_app', x.name] AS key, size(days) AS days_seen, users ORDER BY key LIMIT $limit""",
+}
+
+ALIASES = """
+MATCH (c:Component) WHERE c.aliases IS NOT NULL
+UNWIND c.aliases AS a
+RETURN a AS alias, c.name AS ci ORDER BY ci, alias LIMIT $limit
+"""
+
+
+@guarded
+def detect(g, drift_type, timeout=TIMEOUT_MS, limit=LIMIT):
+    """Run one detector; rows carry `key` (ground-truth format)."""
+    rows = run(g, DETECTORS[drift_type], {"limit": limit, "classes": DISCOVERABLE, "cutoff": BACKUP_CUTOFF},
+               timeout)
+    for r in rows:
+        if r["key"][0] == "stale":
+            r["key"][3] = REL_TYPE_NAME[r["key"][3]]
+    return rows
+
+
+@guarded
+def resolved_aliases(g, timeout=TIMEOUT_MS, limit=LIMIT):
+    """D13: names resolved to the same CI by serial or IP (not findings)."""
+    return run(g, ALIASES, {"limit": limit}, timeout)
+
+
+def detect_all(g, timeout=TIMEOUT_MS):
+    """All detectors: {type: rows} plus D13 aliases. D3 never appears."""
+    out = {t: detect(g, t, timeout=timeout) for t in DETECTORS}
+    out["D13"] = resolved_aliases(g, timeout=timeout)
+    return out
+
+
+# --------------------------------------------------------------------------
+# Change review, protection, access, paging, centrality, lookups
+# --------------------------------------------------------------------------
+
+CHANGE_TARGETS = """
+MATCH (ch:Change {number: $id})-[:TARGETS]->(x:Component)
+RETURN ch.number AS number, ch.short_description AS description, ch.state AS state, ch.approval AS approval,
+       ch.start_date AS start_date, collect(x.name) AS targets
+"""
+
+UNDOCUMENTED_IN = """
+MATCH (a:Component)-[o:OBSERVED_CALLS|OBSERVED_NETFLOW]->(b:Component)
+WHERE a.name IN $names AND b.name IN $names AND NOT coalesce(o.health_check, false)
+OPTIONAL MATCH (a)-[d:DEPENDS_ON]-(b)
+WITH a, b, o, count(d) AS declared WHERE declared = 0
+RETURN a.name AS src, b.name AS dst, type(o) AS observed_as, o.msg_type AS msg_type, o.count AS count,
+       o.last_seen AS last_seen
+ORDER BY src, dst LIMIT $limit
+"""
+
+
+def change_review(g, change_id, timeout=TIMEOUT_MS):
+    """Declared vs real radius of a change's targets, the undocumented edges
+    inside the real radius, and a risk level:
+    high   real radius reaches a patient_safety_impact=high business service the declared one does not
+    medium real radius strictly larger; low otherwise."""
+    try:
+        ch = run(g, CHANGE_TARGETS, {"id": change_id}, timeout)
+        if not ch:
+            return {"change": change_id, "found": False}
+        ch = ch[0]
+        out = {"change": change_id, "found": True, **ch, "targets": sorted(ch["targets"]), "per_target": []}
+        dec_all, real_all, dec_hi, real_hi, names = set(), set(), set(), set(), set()
+        for t in out["targets"]:
+            d, r = radius(g, t, "declared", timeout=timeout), radius(g, t, "real", timeout=timeout)
+            for x in (d, r):
+                if "error" in x:
+                    return {"change": change_id, **x}
+            dec_all |= {x["name"] for x in d["impacted"]}
+            real_all |= {x["name"] for x in r["impacted"]}
+            dec_hi |= set(d["high_safety_services"])
+            real_hi |= set(r["high_safety_services"])
+            names |= {t} | {x["name"] for x in r["impacted"]} | set(r["consumers"])
+            out["per_target"].append({"target": t, "declared": d, "real": r})
+        hidden = run(g, UNDOCUMENTED_IN, {"names": sorted(names), "limit": LIMIT}, timeout)
+        newly_hi = sorted(real_hi - dec_hi)
+        risk = "high" if newly_hi else "medium" if len(real_all) > len(dec_all) else "low"
+        out.update(risk=risk, newly_reached_high_safety_services=newly_hi, undocumented_edges=hidden,
+                   declared_count=len(dec_all), real_count=len(real_all))
+        return out
+    except QueryTimeout:
+        return {"error": "query timed out", "query": "change_review"}
+
+
+PROTECTION = """
+MATCH (c:Component)
+WHERE c.status = 'operational' AND c.handles_phi = true AND c.backup_policy IS NOT NULL
+OPTIONAL MATCH p = (c)-[:STORES_ON|OBSERVED_BACKUP_TO|OBSERVED_REPLICATES_TO*1..6]->(x:Component)
+WHERE all(r IN relationships(p) WHERE type(r) <> 'OBSERVED_BACKUP_TO' OR r.last_success IS NOT NULL)
+WITH c, collect(DISTINCT x) AS reach
+OPTIONAL MATCH (c)-[b:OBSERVED_BACKUP_TO]->()
+WITH c, reach, max(b.last_success) AS last_success
+WITH c, last_success, [x IN reach WHERE x.site <> c.site | x.name] AS offsite,
+     [x IN reach WHERE x:BackupTarget AND x.immutable = true | x.name] AS vault
+WHERE size(offsite) = 0 OR size(vault) = 0 OR last_success IS NULL OR last_success <= $cutoff
+RETURN c.name AS component, c.site AS site, size(offsite) > 0 AS reaches_other_site,
+       size(vault) > 0 AS reaches_immutable_vault, last_success, c.backup_offsite AS cmdb_backup_offsite
+ORDER BY component LIMIT $limit
+"""
+
+
+@guarded
+def protection_check(g, timeout=TIMEOUT_MS, limit=LIMIT):
+    """PHI components whose protection chain is broken: no copy at another
+    site, no copy in the immutable vault, or no successful backup in 7 days."""
+    return run(g, PROTECTION, {"cutoff": BACKUP_CUTOFF, "limit": limit}, timeout)
+
+
+@guarded
+def access_check(g, timeout=TIMEOUT_MS):
+    """Observed accesses with no MEMBER_OF -> HAS_ROLE -> GRANTS path, by
+    disabled users, or admin outside approved change windows (with reasons)."""
+    return detect(g, "D12", timeout=timeout)
+
+
+WHO_TO_PAGE = """
+MATCH (c:Component) WHERE c.name IN $names
+OPTIONAL MATCH (c)-[:MANAGED_BY]->(m:SupportGroup)
+OPTIONAL MATCH (g:SupportGroup)-[o:OBSERVED_OWNER]->(c)
+WITH c, m, g, o.incidents_resolved + o.changes_implemented AS w ORDER BY w DESC
+WITH c, m, collect(g.name)[0] AS observed
+RETURN c.name AS component, m.name AS declared_owner, observed AS observed_owner,
+       observed IS NOT NULL AND observed <> m.name AS differs
+ORDER BY component LIMIT $limit
+"""
+
+
+@guarded
+def who_to_page(g, names, timeout=TIMEOUT_MS, limit=LIMIT):
+    """Declared (MANAGED_BY) vs observed (OBSERVED_OWNER) owner per component."""
+    return run(g, WHO_TO_PAGE, {"names": list(names), "limit": limit}, timeout)
+
+
+CRITICAL = """
+CALL algo.betweenness({nodeLabels: $labels, relationshipTypes: ['OBSERVED_CALLS'], samplingSize: 5000,
+                       samplingSeed: 42})
+YIELD node, score
+RETURN node.name AS name, [l IN labels(node) WHERE l <> 'Component'][0] AS label, score
+ORDER BY score DESC, name LIMIT $limit
+"""
+CRITICAL_LABELS = ["Component"]  # full observed graph is fast (~0.1 s); samplingSize 5000 >= nodes => exact
+
+
+@guarded
+def critical_nodes(g, limit=10, timeout=TIMEOUT_MS):
+    """Top components by betweenness on the observed call graph (fixed seed)."""
+    return run(g, CRITICAL, {"labels": CRITICAL_LABELS, "limit": limit}, timeout)
+
+
+COMPONENT = """
+MATCH (c:Component {name: $name})
+OPTIONAL MATCH (c)-[:LOCATED_AT]->(s:Site)
+OPTIONAL MATCH (c)-[:MANAGED_BY]->(m:SupportGroup)
+RETURN properties(c) AS props, [l IN labels(c) WHERE l <> 'Component'][0] AS label, s.id AS site,
+       s.full_name AS site_name, m.name AS managed_by
+"""
+
+
+@guarded
+def get_component(g, name, timeout=TIMEOUT_MS):
+    rows = run(g, COMPONENT, {"name": name}, timeout)
+    return rows[0] if rows else None
+
+
+NEIGHBOURHOOD = """
+MATCH (c {name: $name}) WHERE c:Component OR c:UnregisteredEndpoint
+MATCH p = (c)-[*1..%(depth)d]-(n)
+WHERE all(r IN relationships(p) WHERE NOT type(r) IN ['IMPACTS_DECLARED', 'IMPACTS_REAL', 'AFFECTS_DECLARED',
+                                                    'AFFECTS_REAL', 'LOCATED_AT', 'MANAGED_BY', 'OBSERVED_OWNER'])
+UNWIND relationships(p) AS r
+WITH DISTINCT r, startNode(r) AS a, endNode(r) AS b LIMIT $limit
+RETURN coalesce(a.name, a.id) AS src, [l IN labels(a) WHERE l <> 'Component'][0] AS src_label, type(r) AS type,
+       coalesce(b.name, b.id) AS dst, [l IN labels(b) WHERE l <> 'Component'][0] AS dst_label,
+       r.failover AS failover
+"""
+
+
+@guarded
+def get_neighbourhood(g, name, depth=1, limit=300, timeout=TIMEOUT_MS):
+    """Edges within `depth` (<= 2) hops of a component, for the agent and UI."""
+    depth = max(1, min(int(depth), 2))
+    return run(g, NEIGHBOURHOOD % {"depth": depth}, {"name": name, "limit": limit}, timeout)

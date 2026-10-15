@@ -23,3 +23,33 @@ def clean_data(tmp_path_factory):
     out = tmp_path_factory.mktemp("nodrift")
     generate(42, str(out), inject=False)
     return str(out)
+
+
+def _load(data, graph):
+    """Fresh-load `data` into `graph`; returns the Loader (needs FalkorDB)."""
+    import os
+    from falkordb import FalkorDB
+    from ingest.load import Loader
+    host, port = os.environ.get("FALKORDB_HOST", "localhost"), int(os.environ.get("FALKORDB_PORT", 6379))
+    db = FalkorDB(host=host, port=port)
+    if graph in db.list_graphs():
+        db.select_graph(graph).delete()
+    ld = Loader(data, graph, host=host, port=port)
+    ld.load()
+    return ld
+
+
+@pytest.fixture(scope="session")
+def full_graph(drift_data):
+    ld = _load(drift_data, "northwind_test_full")
+    yield ld.g
+    ld.g.delete()
+
+
+@pytest.fixture(scope="session")
+def demo_graph(tmp_path_factory):
+    out = tmp_path_factory.mktemp("demo")
+    generate(42, str(out), inject=True, subset="demo", gz=True)
+    ld = _load(str(out), "northwind_test_demo")
+    yield ld.g, str(out)
+    ld.g.delete()

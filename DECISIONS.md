@@ -173,3 +173,18 @@ Clarified, not changed:
 
 ## 41. FalkorDB timeouts
 - docker-compose sets `FALKORDB_ARGS="TIMEOUT_MAX 60000 TIMEOUT_DEFAULT 10000 MAX_QUEUED_QUERIES 25"` (parameter names verified at docs.falkordb.com/getting-started/configuration). This replaces the image's deprecated `TIMEOUT 1000` and its `RESULTSET_SIZE 10000` default (now unlimited; every agent query has its own LIMIT). Agent tool queries pass a 5 s per-query timeout and return `{"error": "query timed out"}` instead of raising.
+
+## 42. Phase 1 detectors: loader enrichments for exact Cypher
+- `OBSERVED_CALLS` / `OBSERVED_NETFLOW` carry `days` (sorted distinct dates) so the ≥ 3-day rule unions days across the per-msg-type edges of a pair, exactly like the oracle. `OBSERVED_ACCESS` admin edges carry `times` so the change-window rule checks every admin event. Each CI gets `scanned_subnet` (its IP's scanned CIDR, computed at ingest: IP-in-CIDR is not expressible in Cypher) for D7.
+- FalkorDB quirks worked around: no `reduce` nested in `reduce` (two WITH steps); pattern predicates after `WITH` and filtered pattern comprehensions fail ("Type mismatch", "Unable to resolve filtered alias"), so those use `OPTIONAL MATCH … count() = 0`.
+- Detectors are in `graph/queries.py:DETECTORS` (D1, D2, D4–D12, D14) plus `resolved_aliases` (D13); D3 has no detector and the failover rule keeps it silent. Tests assert exact equality with ground truth on the full data and the demo subset.
+- D10 cutoff is the constant `SNAPSHOT_END - 7 days` (2026-10-07T23:59:59Z), never "now" (replay data).
+
+## 43. Change review risk
+- high: the real radius reaches a `patient_safety_impact=high` business service the declared radius does not; medium: real radius has strictly more components; else low. Undocumented edges = observed calls/netflow between nodes of the real radius (targets, impacted, consumers) with no declared `DEPENDS_ON` either way.
+
+## 44. Critical nodes
+- `algo.betweenness({nodeLabels: ['Component'], relationshipTypes: ['OBSERVED_CALLS'], samplingSize: 5000, samplingSeed: 42})` (signature verified at docs.falkordb.com/algorithms/betweenness-centrality). The full observed call graph takes ~0.1 s, so no label restriction was needed; samplingSize 5000 ≥ node count samples every source (exact, and seed-independent).
+
+## 45. Who to page / protection / access
+- Observed owner = team with the largest incidents + changes in `OBSERVED_OWNER`; flagged when it differs from `MANAGED_BY`. Protection check returns PHI components with no copy at another site, no copy in an immutable vault, or no success in 7 days (= D9 ∪ D10 here). Access check = the D12 detector with reasons (`disabled_user`, `no_grant_path`, `admin_outside_change_window`).
