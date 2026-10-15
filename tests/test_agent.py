@@ -126,6 +126,11 @@ def test_grounding_rejects_wrong_count_and_wrong_ci(env, caplog):
     assert out["answer"].startswith("Rule-based summary")
 
 
+def test_truncated_batch_keeps_complete_items():
+    cut = '{"explanations": [{"id": "F-1", "text": "lrc-db-01 is \\"undocumented\\"."}, {"id": "F-2", "text": "Prot'
+    assert flows.parse_explanations(cut) == {"F-1": 'lrc-db-01 is "undocumented".'}
+
+
 def test_triage_without_llm_uses_templates(env):
     g, _, _ = env
     res = flows.triage(g, None, top_n=3)

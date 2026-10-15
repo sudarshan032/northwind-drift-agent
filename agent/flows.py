@@ -144,7 +144,14 @@ def parse_explanations(text):
         items = json.loads(m.group(0)).get("explanations", []) if m else []
     except (json.JSONDecodeError, AttributeError):
         items = []
-    return {str(x["id"]): str(x["text"]) for x in items if isinstance(x, dict) and x.get("id") and x.get("text")}
+    got = {str(x["id"]): str(x["text"]) for x in items if isinstance(x, dict) and x.get("id") and x.get("text")}
+    if not got:  # a reply cut off at max_tokens: keep every complete {"id", "text"} item
+        for m in ITEM.finditer(text or ""):
+            got[m.group(1)] = json.loads(f'"{m.group(2)}"')
+    return got
+
+
+ITEM = re.compile(r'"id"\s*:\s*"([^"]+)"\s*,\s*"text"\s*:\s*"((?:[^"\\]|\\.)*)"')
 
 
 class TriageState(TypedDict, total=False):

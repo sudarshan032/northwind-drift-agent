@@ -237,7 +237,7 @@ class OpenRouterLLM:
         hit = self.cache.get(k)
         if hit is not None:
             return hit
-        payload = {"model": self.models[0], "models": self.models, "messages": msgs, "max_tokens": 4000}
+        payload = {"model": self.models[0], "models": self.models, "messages": msgs, "max_tokens": 8000}
         if specs:
             payload["tools"] = specs
             if tool_choice:
