@@ -34,6 +34,7 @@ import json
 import os
 from datetime import datetime, timedelta, timezone
 
+from ingest.views import open_in
 from ingest.world import DISCOVERABLE_CLASSES
 
 END = datetime(2026, 10, 14, 23, 59, 59, tzinfo=timezone.utc)
@@ -47,9 +48,9 @@ def _csv(path):
 
 
 def _jsonl(path):
-    if not os.path.exists(path):
+    if not (os.path.exists(path) or os.path.exists(path + ".gz")):
         return
-    with open(path, encoding="utf-8") as f:
+    with open_in(path) as f:  # plain or .gz
         for line in f:
             yield json.loads(line)
 

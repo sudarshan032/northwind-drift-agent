@@ -5,19 +5,21 @@ organisation. Its footprint (51 hospitals, ~1,000 clinics, ~800 non-acute sites,
 7 western US states, a capability centre in Hyderabad) is sized on the public
 footprint of a large US health system, but no real organisation's systems,
 people, network addresses or incidents are represented. City names are real US
-places used only as locations.
+places used only as locations; vendor product names are used only as models.
 
 - No personal data: users are pseudonymous IDs (`u-h03-00412`) with role labels.
   There are no human names, no emails and no patients.
-- IP addresses are drawn from private RFC 1918 ranges.
+- IP addresses come from private RFC 1918 ranges (external SaaS uses the
+  RFC 5737 documentation range 203.0.113.0/24).
 
 ## How it was generated
 
 ```
-uv run python -m ingest.generate --seed 42 --out data/
+python -m ingest.generate --seed 42 --out data
 ```
 
 - `SEED=42`, `SNAPSHOT_END=2026-10-14T23:59:59Z`, observation window 14 days.
+- Drift injection: on. Subset: none (full world).
 - Same seed gives byte-identical files.
 - `truth/world.json` is the internal truth model (tests only; never loaded).
 - `ground_truth.json` lists every deliberately injected drift.

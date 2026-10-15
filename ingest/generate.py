@@ -92,7 +92,7 @@ def subset_world(world, states=DEMO_STATES):
     return out
 
 
-def generate(seed=SEED, out="data", inject=True, subset=None, command=None):
+def generate(seed=SEED, out="data", inject=True, subset=None, command=None, gz=False):
     t0 = time.time()
     world = build_world(seed)
     if subset == "demo":
@@ -101,10 +101,13 @@ def generate(seed=SEED, out="data", inject=True, subset=None, command=None):
     if os.path.isdir(out):
         for sub in ("truth", "cmdb", "discovery", "observed", "identity", "evidence"):
             shutil.rmtree(os.path.join(out, sub), ignore_errors=True)
+        for f in ("ground_truth.json", "README.md"):
+            if os.path.exists(os.path.join(out, f)):
+                os.remove(os.path.join(out, f))
     for sub in ("truth", "cmdb", "discovery", "observed", "identity", "evidence"):
         os.makedirs(os.path.join(out, sub), exist_ok=True)
 
-    with open(os.path.join(out, "truth", "world.json"), "w", encoding="utf-8", newline="\n") as f:
+    with views.open_out(os.path.join(out, "truth", "world.json"), gz) as f:
         json.dump(world, f, sort_keys=True, separators=(",", ":"))
     views.prepare(world)
 
@@ -114,18 +117,18 @@ def generate(seed=SEED, out="data", inject=True, subset=None, command=None):
     for t in ("cmn_location", "cmn_department", "sys_user_group", "change_request"):
         write_csv(f"{out}/cmdb/{t}.csv", cm[t])
     disc = views.discovery_view(world, plan)
-    views.write_jsonl(f"{out}/discovery/scan_results.jsonl", disc["scan_results"])
+    views.write_jsonl(f"{out}/discovery/scan_results.jsonl", disc["scan_results"], gz)
     write_csv(f"{out}/discovery/scan_coverage.csv", disc["scan_coverage"])
     idn = views.identity_view(world, plan)
     for t in ("users", "groups", "memberships", "roles", "grants"):
         write_csv(f"{out}/identity/{t}.csv", idn[t])
     write_csv(f"{out}/evidence/ownership_evidence.csv", views.evidence_view(world, plan)["ownership_evidence"])
-    counts = views.write_observed(world, plan, out)
+    counts = views.write_observed(world, plan, out, gz)
     with open(f"{out}/ground_truth.json", "w", encoding="utf-8", newline="\n") as f:
         json.dump(plan["ground_truth"], f, indent=1, sort_keys=True)
         f.write("\n")
     cmd = command or f"python -m ingest.generate --seed {seed} --out {out}" + \
-        ("" if inject else " --no-drift") + (f" --subset {subset}" if subset else "")
+        ("" if inject else " --no-drift") + (f" --subset {subset}" if subset else "") + (" --gzip" if gz else "")
     with open(f"{out}/README.md", "w", encoding="utf-8", newline="\n") as f:
         f.write(README.format(command=cmd, seed=seed, drift="on" if inject else "off",
                               subset=subset or "none (full world)"))
@@ -139,9 +142,10 @@ def main():
     ap.add_argument("--out", default="data")
     ap.add_argument("--no-drift", action="store_true", help="disable drift injection (views agree)")
     ap.add_argument("--subset", choices=["demo"], help="demo region: WA + OR, both DCs, clouds, GCC-HYD")
+    ap.add_argument("--gzip", action="store_true", help="write .jsonl/.json files gzip-compressed (byte-stable)")
     a = ap.parse_args()
     out = a.out.rstrip("/") or "."
-    res = generate(a.seed, out, inject=not a.no_drift, subset=a.subset)
+    res = generate(a.seed, out, inject=not a.no_drift, subset=a.subset, gz=a.gzip)
     print(json.dumps(res, indent=1))
 
 

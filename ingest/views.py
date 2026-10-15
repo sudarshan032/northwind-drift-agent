@@ -7,9 +7,12 @@ from a plan entry. Observed files are large, so they are streamed to disk
 by `write_observed` instead of being built in memory.
 """
 
+import gzip
+import io
 import ipaddress
 import json
 import math
+import os
 from datetime import datetime, timedelta, timezone
 
 from ingest.world import CENTRAL_SITES, DEMO_SITES, WINDOW_DAYS, rng_for
@@ -494,23 +497,39 @@ def prepare(world):
     return world
 
 
-def write_jsonl(path, rows):
+def open_out(path, gz=False):
+    """Text writer; with gz the file gets a .gz suffix and a fixed gzip
+    header (mtime=0) so output stays byte-identical across runs."""
+    if not gz:
+        return open(path, "w", encoding="utf-8", newline="\n")
+    raw = gzip.GzipFile(filename="", mode="wb", fileobj=open(path + ".gz", "wb"), mtime=0)
+    return io.TextIOWrapper(raw, encoding="utf-8", newline="\n")
+
+
+def open_in(path):
+    """Read a plain or .gz text file transparently."""
+    if not os.path.exists(path) and os.path.exists(path + ".gz"):
+        return io.TextIOWrapper(gzip.open(path + ".gz", "rb"), encoding="utf-8")
+    return open(path, encoding="utf-8")
+
+
+def write_jsonl(path, rows, gz=False):
     n = 0
-    with open(path, "w", encoding="utf-8", newline="\n") as f:
+    with open_out(path, gz) as f:
         for row in rows:
             f.write(json.dumps(row, separators=(",", ":")) + "\n")
             n += 1
     return n
 
 
-def write_observed(world, plan, out):
+def write_observed(world, plan, out, gz=False):
     """Stream all observed files; returns record counts."""
     alias = plan["flow_alias"]
     legs = [leg for rel in world["rels"] for leg in rel["obs"]]
     counts = {}
     files = {("flows", True): "flows_hourly.jsonl", ("flows", False): "flows_daily.jsonl",
              ("netflow", True): "netflow_hourly.jsonl", ("netflow", False): "netflow_daily.jsonl"}
-    handles = {k: open(f"{out}/observed/{v}", "w", encoding="utf-8", newline="\n") for k, v in files.items()}
+    handles = {k: open_out(f"{out}/observed/{v}", gz) for k, v in files.items()}
     try:
         for leg in legs:
             hourly = is_hourly(world, leg)
@@ -524,10 +543,9 @@ def write_observed(world, plan, out):
     finally:
         for h in handles.values():
             h.close()
-    counts["backup_jobs.jsonl"] = write_jsonl(f"{out}/observed/backup_jobs.jsonl", backup_jobs(world, plan))
-    counts["replication_status.jsonl"] = write_jsonl(f"{out}/observed/replication_status.jsonl",
-                                                     replication_status(world, plan))
-    counts["access_log.jsonl"] = write_jsonl(f"{out}/observed/access_log.jsonl", access_log(world, plan))
-    counts["traces_sample.otlp.jsonl"] = write_jsonl(f"{out}/observed/traces_sample.otlp.jsonl",
-                                                     traces_sample(world))
+    for name, rows in (("backup_jobs.jsonl", backup_jobs(world, plan)),
+                       ("replication_status.jsonl", replication_status(world, plan)),
+                       ("access_log.jsonl", access_log(world, plan)),
+                       ("traces_sample.otlp.jsonl", traces_sample(world))):
+        counts[name] = write_jsonl(f"{out}/observed/{name}", rows, gz)
     return counts

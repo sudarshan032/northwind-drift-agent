@@ -1,0 +1,1468 @@
+[
+ {
+  "ci_ids": [
+   "lrc-db-01",
+   "dc1-vm-lrc01",
+   "dc1-host-07",
+   "lis-reporting",
+   "ORU-CRIT-H01",
+   "ORU-CRIT-H02",
+   "ORU-CRIT-H03",
+   "ORU-CRIT-H04",
+   "ORU-CRIT-H05",
+   "ORU-CRIT-H06",
+   "ORU-CRIT-H07",
+   "ORU-CRIT-H08",
+   "ORU-CRIT-H09",
+   "ORU-CRIT-H10",
+   "ORU-CRIT-H11",
+   "ORU-CRIT-H12",
+   "ORU-CRIT-H13",
+   "ORU-CRIT-H14",
+   "ORU-CRIT-H15",
+   "ORU-CRIT-H16",
+   "ORU-CRIT-H17",
+   "ORU-CRIT-H18",
+   "ORU-CRIT-H19",
+   "ORU-CRIT-H20",
+   "ORU-CRIT-H21",
+   "ORU-CRIT-H22",
+   "ORU-CRIT-H23",
+   "ORU-CRIT-H24"
+  ],
+  "description": "All 24 ORU-CRIT-* critical-result routes stage messages in lrc-db-01 (VM dc1-vm-lrc01 on host dc1-host-07). CMDB links lrc-db-01 only to lis-reporting. CHG-HEADLINE patches dc1-host-07.",
+  "expected_finding": "undocumented_dependency",
+  "finding_keys": [
+   [
+    "undocumented",
+    "ORU-CRIT-H01",
+    "lrc-db-01"
+   ],
+   [
+    "undocumented",
+    "ORU-CRIT-H02",
+    "lrc-db-01"
+   ],
+   [
+    "undocumented",
+    "ORU-CRIT-H03",
+    "lrc-db-01"
+   ],
+   [
+    "undocumented",
+    "ORU-CRIT-H04",
+    "lrc-db-01"
+   ],
+   [
+    "undocumented",
+    "ORU-CRIT-H05",
+    "lrc-db-01"
+   ],
+   [
+    "undocumented",
+    "ORU-CRIT-H06",
+    "lrc-db-01"
+   ],
+   [
+    "undocumented",
+    "ORU-CRIT-H07",
+    "lrc-db-01"
+   ],
+   [
+    "undocumented",
+    "ORU-CRIT-H08",
+    "lrc-db-01"
+   ],
+   [
+    "undocumented",
+    "ORU-CRIT-H09",
+    "lrc-db-01"
+   ],
+   [
+    "undocumented",
+    "ORU-CRIT-H10",
+    "lrc-db-01"
+   ],
+   [
+    "undocumented",
+    "ORU-CRIT-H11",
+    "lrc-db-01"
+   ],
+   [
+    "undocumented",
+    "ORU-CRIT-H12",
+    "lrc-db-01"
+   ],
+   [
+    "undocumented",
+    "ORU-CRIT-H13",
+    "lrc-db-01"
+   ],
+   [
+    "undocumented",
+    "ORU-CRIT-H14",
+    "lrc-db-01"
+   ],
+   [
+    "undocumented",
+    "ORU-CRIT-H15",
+    "lrc-db-01"
+   ],
+   [
+    "undocumented",
+    "ORU-CRIT-H16",
+    "lrc-db-01"
+   ],
+   [
+    "undocumented",
+    "ORU-CRIT-H17",
+    "lrc-db-01"
+   ],
+   [
+    "undocumented",
+    "ORU-CRIT-H18",
+    "lrc-db-01"
+   ],
+   [
+    "undocumented",
+    "ORU-CRIT-H19",
+    "lrc-db-01"
+   ],
+   [
+    "undocumented",
+    "ORU-CRIT-H20",
+    "lrc-db-01"
+   ],
+   [
+    "undocumented",
+    "ORU-CRIT-H21",
+    "lrc-db-01"
+   ],
+   [
+    "undocumented",
+    "ORU-CRIT-H22",
+    "lrc-db-01"
+   ],
+   [
+    "undocumented",
+    "ORU-CRIT-H23",
+    "lrc-db-01"
+   ],
+   [
+    "undocumented",
+    "ORU-CRIT-H24",
+    "lrc-db-01"
+   ]
+  ],
+  "id": "D1-HEADLINE",
+  "sources": [
+   "flows_hourly",
+   "cmdb_rel_ci",
+   "change_request"
+  ],
+  "type": "D1"
+ },
+ {
+  "ci_ids": [
+   "pharm-app",
+   "lis-db-01"
+  ],
+  "description": "pharm-app depends on lis-db-01 (flows); no CMDB relationship.",
+  "expected_finding": "undocumented_dependency",
+  "finding_keys": [
+   [
+    "undocumented",
+    "pharm-app",
+    "lis-db-01"
+   ]
+  ],
+  "id": "D1-01",
+  "sources": [
+   "flows",
+   "cmdb_rel_ci"
+  ],
+  "type": "D1"
+ },
+ {
+  "ci_ids": [
+   "billing-app",
+   "emr-db-01"
+  ],
+  "description": "billing-app depends on emr-db-01 (flows); no CMDB relationship.",
+  "expected_finding": "undocumented_dependency",
+  "finding_keys": [
+   [
+    "undocumented",
+    "billing-app",
+    "emr-db-01"
+   ]
+  ],
+  "id": "D1-02",
+  "sources": [
+   "flows",
+   "cmdb_rel_ci"
+  ],
+  "type": "D1"
+ },
+ {
+  "ci_ids": [
+   "portal-app",
+   "sched-app"
+  ],
+  "description": "portal-app depends on sched-app (flows); no CMDB relationship.",
+  "expected_finding": "undocumented_dependency",
+  "finding_keys": [
+   [
+    "undocumented",
+    "portal-app",
+    "sched-app"
+   ]
+  ],
+  "id": "D1-03",
+  "sources": [
+   "flows",
+   "cmdb_rel_ci"
+  ],
+  "type": "D1"
+ },
+ {
+  "ci_ids": [
+   "dwh-etl-app",
+   "pacs-db-01"
+  ],
+  "description": "dwh-etl-app depends on pacs-db-01 (flows); no CMDB relationship.",
+  "expected_finding": "undocumented_dependency",
+  "finding_keys": [
+   [
+    "undocumented",
+    "dwh-etl-app",
+    "pacs-db-01"
+   ]
+  ],
+  "id": "D1-04",
+  "sources": [
+   "flows",
+   "cmdb_rel_ci"
+  ],
+  "type": "D1"
+ },
+ {
+  "ci_ids": [
+   "h03-rtls",
+   "emr-app"
+  ],
+  "description": "h03-rtls depends on emr-app (flows); no CMDB relationship.",
+  "expected_finding": "undocumented_dependency",
+  "finding_keys": [
+   [
+    "undocumented",
+    "h03-rtls",
+    "emr-app"
+   ]
+  ],
+  "id": "D1-05",
+  "sources": [
+   "flows",
+   "cmdb_rel_ci"
+  ],
+  "type": "D1"
+ },
+ {
+  "ci_ids": [
+   "h03-mri-01",
+   "h03-pacs-cache"
+  ],
+  "description": "h03-mri-01 depends on h03-pacs-cache (netflow); no CMDB relationship.",
+  "expected_finding": "undocumented_dependency",
+  "finding_keys": [
+   [
+    "undocumented",
+    "h03-mri-01",
+    "h03-pacs-cache"
+   ]
+  ],
+  "id": "D1-06",
+  "sources": [
+   "netflow",
+   "cmdb_rel_ci"
+  ],
+  "type": "D1"
+ },
+ {
+  "ci_ids": [
+   "h17-lab-01",
+   "h17-labmw"
+  ],
+  "description": "h17-lab-01 depends on h17-labmw (netflow); no CMDB relationship.",
+  "expected_finding": "undocumented_dependency",
+  "finding_keys": [
+   [
+    "undocumented",
+    "h17-lab-01",
+    "h17-labmw"
+   ]
+  ],
+  "id": "D1-07",
+  "sources": [
+   "netflow",
+   "cmdb_rel_ci"
+  ],
+  "type": "D1"
+ },
+ {
+  "ci_ids": [
+   "ris-app",
+   "sched-db-01"
+  ],
+  "description": "CMDB says ris-app depends on sched-db-01; no traffic in 14 days.",
+  "expected_finding": "stale_relationship",
+  "finding_keys": [
+   [
+    "stale",
+    "ris-app",
+    "sched-db-01",
+    "Depends on::Used by"
+   ]
+  ],
+  "id": "D2-01",
+  "sources": [
+   "cmdb_rel_ci",
+   "flows"
+  ],
+  "type": "D2"
+ },
+ {
+  "ci_ids": [
+   "pharm-app",
+   "billing-db-01"
+  ],
+  "description": "CMDB says pharm-app depends on billing-db-01; no traffic in 14 days.",
+  "expected_finding": "stale_relationship",
+  "finding_keys": [
+   [
+    "stale",
+    "pharm-app",
+    "billing-db-01",
+    "Depends on::Used by"
+   ]
+  ],
+  "id": "D2-02",
+  "sources": [
+   "cmdb_rel_ci",
+   "flows"
+  ],
+  "type": "D2"
+ },
+ {
+  "ci_ids": [
+   "portal-app",
+   "lis-app"
+  ],
+  "description": "CMDB says portal-app depends on lis-app; no traffic in 14 days.",
+  "expected_finding": "stale_relationship",
+  "finding_keys": [
+   [
+    "stale",
+    "portal-app",
+    "lis-app",
+    "Depends on::Used by"
+   ]
+  ],
+  "id": "D2-03",
+  "sources": [
+   "cmdb_rel_ci",
+   "flows"
+  ],
+  "type": "D2"
+ },
+ {
+  "ci_ids": [
+   "dwh-etl-app",
+   "sched-db-01"
+  ],
+  "description": "CMDB says dwh-etl-app depends on sched-db-01; no traffic in 14 days.",
+  "expected_finding": "stale_relationship",
+  "finding_keys": [
+   [
+    "stale",
+    "dwh-etl-app",
+    "sched-db-01",
+    "Depends on::Used by"
+   ]
+  ],
+  "id": "D2-04",
+  "sources": [
+   "cmdb_rel_ci",
+   "flows"
+  ],
+  "type": "D2"
+ },
+ {
+  "ci_ids": [
+   "h03-emr-edge",
+   "lis-app"
+  ],
+  "description": "CMDB says h03-emr-edge depends on lis-app; no traffic in 14 days.",
+  "expected_finding": "stale_relationship",
+  "finding_keys": [
+   [
+    "stale",
+    "h03-emr-edge",
+    "lis-app",
+    "Depends on::Used by"
+   ]
+  ],
+  "id": "D2-05",
+  "sources": [
+   "cmdb_rel_ci",
+   "flows"
+  ],
+  "type": "D2"
+ },
+ {
+  "ci_ids": [
+   "mon-app",
+   "ie-db-01"
+  ],
+  "description": "CMDB says mon-app depends on ie-db-01; no traffic in 14 days.",
+  "expected_finding": "stale_relationship",
+  "finding_keys": [
+   [
+    "stale",
+    "mon-app",
+    "ie-db-01",
+    "Depends on::Used by"
+   ]
+  ],
+  "id": "D2-06",
+  "sources": [
+   "cmdb_rel_ci",
+   "flows"
+  ],
+  "type": "D2"
+ },
+ {
+  "ci_ids": [
+   "arr-dr-01",
+   "arr-pri-a-01"
+  ],
+  "description": "arr-dr-01 -> arr-pri-a-01 (Replicates to::Replica of) is a failover path (failover=true): quiet until failover, not stale.",
+  "expected_finding": "none",
+  "finding_keys": [
+   [
+    "stale",
+    "arr-dr-01",
+    "arr-pri-a-01",
+    "Replicates to::Replica of"
+   ]
+  ],
+  "id": "D3-01",
+  "sources": [
+   "cmdb_rel_ci"
+  ],
+  "type": "D3"
+ },
+ {
+  "ci_ids": [
+   "emr-app",
+   "emr-db-dr"
+  ],
+  "description": "emr-app -> emr-db-dr (Depends on::Used by) is a failover path (failover=true): quiet until failover, not stale.",
+  "expected_finding": "none",
+  "finding_keys": [
+   [
+    "stale",
+    "emr-app",
+    "emr-db-dr",
+    "Depends on::Used by"
+   ]
+  ],
+  "id": "D3-02",
+  "sources": [
+   "cmdb_rel_ci"
+  ],
+  "type": "D3"
+ },
+ {
+  "ci_ids": [
+   "ie-app",
+   "ie-app-dr"
+  ],
+  "description": "ie-app -> ie-app-dr (Depends on::Used by) is a failover path (failover=true): quiet until failover, not stale.",
+  "expected_finding": "none",
+  "finding_keys": [
+   [
+    "stale",
+    "ie-app",
+    "ie-app-dr",
+    "Depends on::Used by"
+   ]
+  ],
+  "id": "D3-03",
+  "sources": [
+   "cmdb_rel_ci"
+  ],
+  "type": "D3"
+ },
+ {
+  "ci_ids": [
+   "pacs-app",
+   "pacs-vna-dr"
+  ],
+  "description": "pacs-app -> pacs-vna-dr (Depends on::Used by) is a failover path (failover=true): quiet until failover, not stale.",
+  "expected_finding": "none",
+  "finding_keys": [
+   [
+    "stale",
+    "pacs-app",
+    "pacs-vna-dr",
+    "Depends on::Used by"
+   ]
+  ],
+  "id": "D3-04",
+  "sources": [
+   "cmdb_rel_ci"
+  ],
+  "type": "D3"
+ },
+ {
+  "ci_ids": [
+   "ris-app-legacy",
+   "ris-db-01"
+  ],
+  "description": "ris-app-legacy is retired but still linked to ris-db-01.",
+  "expected_finding": "retired_still_linked",
+  "finding_keys": [
+   [
+    "retired_linked",
+    "ris-app-legacy"
+   ]
+  ],
+  "id": "D4-01",
+  "sources": [
+   "cmdb_ci",
+   "cmdb_rel_ci"
+  ],
+  "type": "D4"
+ },
+ {
+  "ci_ids": [
+   "lab-interface-legacy",
+   "lis-app"
+  ],
+  "description": "lab-interface-legacy is retired but still linked to lis-app.",
+  "expected_finding": "retired_still_linked",
+  "finding_keys": [
+   [
+    "retired_linked",
+    "lab-interface-legacy"
+   ]
+  ],
+  "id": "D4-02",
+  "sources": [
+   "cmdb_ci",
+   "cmdb_rel_ci"
+  ],
+  "type": "D4"
+ },
+ {
+  "ci_ids": [
+   "dc1-host-25",
+   "arr-pri-b-03"
+  ],
+  "description": "dc1-host-25 is retired but still linked to arr-pri-b-03.",
+  "expected_finding": "retired_still_linked",
+  "finding_keys": [
+   [
+    "retired_linked",
+    "dc1-host-25"
+   ]
+  ],
+  "id": "D4-03",
+  "sources": [
+   "cmdb_ci",
+   "cmdb_rel_ci"
+  ],
+  "type": "D4"
+ },
+ {
+  "ci_ids": [
+   "dwh-etl-app"
+  ],
+  "description": "CMDB support group of dwh-etl-app is NW-Data-Analytics; incidents and changes are handled by HYD-Cloud-Ops.",
+  "expected_finding": "owner_drift",
+  "finding_keys": [
+   [
+    "owner",
+    "dwh-etl-app"
+   ]
+  ],
+  "id": "D5-01",
+  "sources": [
+   "cmdb_ci",
+   "ownership_evidence"
+  ],
+  "type": "D5"
+ },
+ {
+  "ci_ids": [
+   "ie-db-01"
+  ],
+  "description": "CMDB support group of ie-db-01 is NW-DBA; incidents and changes are handled by HYD-Integration-Support.",
+  "expected_finding": "owner_drift",
+  "finding_keys": [
+   [
+    "owner",
+    "ie-db-01"
+   ]
+  ],
+  "id": "D5-02",
+  "sources": [
+   "cmdb_ci",
+   "ownership_evidence"
+  ],
+  "type": "D5"
+ },
+ {
+  "ci_ids": [
+   "lrc-db-01"
+  ],
+  "description": "CMDB support group of lrc-db-01 is NW-Lab-Systems; incidents and changes are handled by HYD-Integration-Support.",
+  "expected_finding": "owner_drift",
+  "finding_keys": [
+   [
+    "owner",
+    "lrc-db-01"
+   ]
+  ],
+  "id": "D5-03",
+  "sources": [
+   "cmdb_ci",
+   "ownership_evidence"
+  ],
+  "type": "D5"
+ },
+ {
+  "ci_ids": [
+   "portal-app"
+  ],
+  "description": "CMDB support group of portal-app is NW-Digital-Portal; incidents and changes are handled by HYD-Cloud-Ops.",
+  "expected_finding": "owner_drift",
+  "finding_keys": [
+   [
+    "owner",
+    "portal-app"
+   ]
+  ],
+  "id": "D5-04",
+  "sources": [
+   "cmdb_ci",
+   "ownership_evidence"
+  ],
+  "type": "D5"
+ },
+ {
+  "ci_ids": [
+   "ris-db-01"
+  ],
+  "description": "CMDB support group of ris-db-01 is NW-Imaging-Systems; incidents and changes are handled by NW-DBA.",
+  "expected_finding": "owner_drift",
+  "finding_keys": [
+   [
+    "owner",
+    "ris-db-01"
+   ]
+  ],
+  "id": "D5-05",
+  "sources": [
+   "cmdb_ci",
+   "ownership_evidence"
+  ],
+  "type": "D5"
+ },
+ {
+  "ci_ids": [
+   "siem-app"
+  ],
+  "description": "CMDB support group of siem-app is NW-SecOps; incidents and changes are handled by HYD-Cybersecurity.",
+  "expected_finding": "owner_drift",
+  "finding_keys": [
+   [
+    "owner",
+    "siem-app"
+   ]
+  ],
+  "id": "D5-06",
+  "sources": [
+   "cmdb_ci",
+   "ownership_evidence"
+  ],
+  "type": "D5"
+ },
+ {
+  "ci_ids": [],
+  "description": "Scanner found WIN-FILESRV01 (OptiPlex 9020 (repurposed)) at C0108 172.16.107.40; no CMDB record.",
+  "expected_finding": "shadow_it",
+  "finding_keys": [
+   [
+    "shadow",
+    "WIN-FILESRV01",
+    "172.16.107.40"
+   ]
+  ],
+  "id": "D6-01",
+  "sources": [
+   "scan_results",
+   "cmdb_ci"
+  ],
+  "type": "D6"
+ },
+ {
+  "ci_ids": [],
+  "description": "Scanner found NAS-BACKUP (DiskStation DS920+) at C0266 172.17.9.41; no CMDB record.",
+  "expected_finding": "shadow_it",
+  "finding_keys": [
+   [
+    "shadow",
+    "NAS-BACKUP",
+    "172.17.9.41"
+   ]
+  ],
+  "id": "D6-02",
+  "sources": [
+   "scan_results",
+   "cmdb_ci"
+  ],
+  "type": "D6"
+ },
+ {
+  "ci_ids": [],
+  "description": "Scanner found RADWS-3D-07 (Precision 7920 (3D imaging workstation)) at H03 10.103.8.240; no CMDB record.",
+  "expected_finding": "shadow_it",
+  "finding_keys": [
+   [
+    "shadow",
+    "RADWS-3D-07",
+    "10.103.8.240"
+   ]
+  ],
+  "id": "D6-03",
+  "sources": [
+   "scan_results",
+   "cmdb_ci"
+  ],
+  "type": "D6"
+ },
+ {
+  "ci_ids": [],
+  "description": "Scanner found AP-ROGUE-4F (Archer AX55) at H03 10.103.0.240; no CMDB record.",
+  "expected_finding": "shadow_it",
+  "finding_keys": [
+   [
+    "shadow",
+    "AP-ROGUE-4F",
+    "10.103.0.240"
+   ]
+  ],
+  "id": "D6-04",
+  "sources": [
+   "scan_results",
+   "cmdb_ci"
+  ],
+  "type": "D6"
+ },
+ {
+  "ci_ids": [],
+  "description": "Scanner found SW-UNMANAGED (TL-SG108) at C0078 172.16.77.42; no CMDB record.",
+  "expected_finding": "shadow_it",
+  "finding_keys": [
+   [
+    "shadow",
+    "SW-UNMANAGED",
+    "172.16.77.42"
+   ]
+  ],
+  "id": "D6-05",
+  "sources": [
+   "scan_results",
+   "cmdb_ci"
+  ],
+  "type": "D6"
+ },
+ {
+  "ci_ids": [],
+  "description": "Scanner found US-PORTABLE-02 (Vscan Air) at C0068 172.16.67.70; no CMDB record.",
+  "expected_finding": "shadow_it",
+  "finding_keys": [
+   [
+    "shadow",
+    "US-PORTABLE-02",
+    "172.16.67.70"
+   ]
+  ],
+  "id": "D6-06",
+  "sources": [
+   "scan_results",
+   "cmdb_ci"
+  ],
+  "type": "D6"
+ },
+ {
+  "ci_ids": [],
+  "description": "Scanner found h17-nas-radiology (DiskStation DS1522+) at H17 10.117.1.240; no CMDB record.",
+  "expected_finding": "shadow_it",
+  "finding_keys": [
+   [
+    "shadow",
+    "h17-nas-radiology",
+    "10.117.1.240"
+   ]
+  ],
+  "id": "D6-07",
+  "sources": [
+   "scan_results",
+   "cmdb_ci"
+  ],
+  "type": "D6"
+ },
+ {
+  "ci_ids": [],
+  "description": "Scanner found raspberrypi (Raspberry Pi 4 Model B) at DC-PRI 10.10.4.250; no CMDB record.",
+  "expected_finding": "shadow_it",
+  "finding_keys": [
+   [
+    "shadow",
+    "raspberrypi",
+    "10.10.4.250"
+   ]
+  ],
+  "id": "D6-08",
+  "sources": [
+   "scan_results",
+   "cmdb_ci"
+  ],
+  "type": "D6"
+ },
+ {
+  "ci_ids": [],
+  "description": "Scanner found dc1-vm-poc-ai01 (VMware Virtual Platform) at DC-PRI 10.10.7.240; no CMDB record.",
+  "expected_finding": "shadow_it",
+  "finding_keys": [
+   [
+    "shadow",
+    "dc1-vm-poc-ai01",
+    "10.10.7.240"
+   ]
+  ],
+  "id": "D6-09",
+  "sources": [
+   "scan_results",
+   "cmdb_ci"
+  ],
+  "type": "D6"
+ },
+ {
+  "ci_ids": [],
+  "description": "Scanner found VENDOR-RAS-GW (Remote service gateway) at H03 10.103.8.241; no CMDB record.",
+  "expected_finding": "shadow_it",
+  "finding_keys": [
+   [
+    "shadow",
+    "VENDOR-RAS-GW",
+    "10.103.8.241"
+   ]
+  ],
+  "id": "D6-10",
+  "sources": [
+   "scan_results",
+   "cmdb_ci"
+  ],
+  "type": "D6"
+ },
+ {
+  "ci_ids": [
+   "h05-srv-old-07"
+  ],
+  "description": "h05-srv-old-07 is operational in the CMDB at H05 10.105.1.200 (scanned subnet) but never discovered and has no traffic.",
+  "expected_finding": "ghost_ci",
+  "finding_keys": [
+   [
+    "ghost",
+    "h05-srv-old-07"
+   ]
+  ],
+  "id": "D7-01",
+  "sources": [
+   "cmdb_ci",
+   "scan_results",
+   "scan_coverage"
+  ],
+  "type": "D7"
+ },
+ {
+  "ci_ids": [
+   "dc1-host-26"
+  ],
+  "description": "dc1-host-26 is operational in the CMDB at DC-PRI 10.10.1.210 (scanned subnet) but never discovered and has no traffic.",
+  "expected_finding": "ghost_ci",
+  "finding_keys": [
+   [
+    "ghost",
+    "dc1-host-26"
+   ]
+  ],
+  "id": "D7-02",
+  "sources": [
+   "cmdb_ci",
+   "scan_results",
+   "scan_coverage"
+  ],
+  "type": "D7"
+ },
+ {
+  "ci_ids": [
+   "c0078-acc-03"
+  ],
+  "description": "c0078-acc-03 is operational in the CMDB at C0078 172.16.77.50 (scanned subnet) but never discovered and has no traffic.",
+  "expected_finding": "ghost_ci",
+  "finding_keys": [
+   [
+    "ghost",
+    "c0078-acc-03"
+   ]
+  ],
+  "id": "D7-03",
+  "sources": [
+   "cmdb_ci",
+   "scan_results",
+   "scan_coverage"
+  ],
+  "type": "D7"
+ },
+ {
+  "ci_ids": [
+   "h22-xray-03"
+  ],
+  "description": "h22-xray-03 is operational in the CMDB at H22 10.122.8.200 (scanned subnet) but never discovered and has no traffic.",
+  "expected_finding": "ghost_ci",
+  "finding_keys": [
+   [
+    "ghost",
+    "h22-xray-03"
+   ]
+  ],
+  "id": "D7-04",
+  "sources": [
+   "cmdb_ci",
+   "scan_results",
+   "scan_coverage"
+  ],
+  "type": "D7"
+ },
+ {
+  "ci_ids": [
+   "h03-prn-9001"
+  ],
+  "description": "h03-prn-9001 is operational in the CMDB at H03 10.103.31.200 (scanned subnet) but never discovered and has no traffic.",
+  "expected_finding": "ghost_ci",
+  "finding_keys": [
+   [
+    "ghost",
+    "h03-prn-9001"
+   ]
+  ],
+  "id": "D7-05",
+  "sources": [
+   "cmdb_ci",
+   "scan_results",
+   "scan_coverage"
+  ],
+  "type": "D7"
+ },
+ {
+  "ci_ids": [
+   "h08-esx-02"
+  ],
+  "description": "CMDB os_version of h08-esx-02 is 7.0 U3; discovery reports 8.0 U2.",
+  "expected_finding": "attribute_drift",
+  "finding_keys": [
+   [
+    "attribute",
+    "h08-esx-02",
+    "os_version"
+   ]
+  ],
+  "id": "D8-01",
+  "sources": [
+   "cmdb_ci",
+   "scan_results"
+  ],
+  "type": "D8"
+ },
+ {
+  "ci_ids": [
+   "c0337-wan-01"
+  ],
+  "description": "CMDB os_version of c0337-wan-01 is 16.12.4; discovery reports 17.9.4a.",
+  "expected_finding": "attribute_drift",
+  "finding_keys": [
+   [
+    "attribute",
+    "c0337-wan-01",
+    "os_version"
+   ]
+  ],
+  "id": "D8-02",
+  "sources": [
+   "cmdb_ci",
+   "scan_results"
+  ],
+  "type": "D8"
+ },
+ {
+  "ci_ids": [
+   "h02-mri-02"
+  ],
+  "description": "CMDB os_version of h02-mri-02 is 1.0; discovery reports LTSC 2019.",
+  "expected_finding": "attribute_drift",
+  "finding_keys": [
+   [
+    "attribute",
+    "h02-mri-02",
+    "os_version"
+   ]
+  ],
+  "id": "D8-03",
+  "sources": [
+   "cmdb_ci",
+   "scan_results"
+  ],
+  "type": "D8"
+ },
+ {
+  "ci_ids": [
+   "n106-wan-01"
+  ],
+  "description": "CMDB ip_address of n106-wan-01 is 172.20.105.230; discovery reports 172.20.105.1.",
+  "expected_finding": "attribute_drift",
+  "finding_keys": [
+   [
+    "attribute",
+    "n106-wan-01",
+    "ip_address"
+   ]
+  ],
+  "id": "D8-04",
+  "sources": [
+   "cmdb_ci",
+   "scan_results"
+  ],
+  "type": "D8"
+ },
+ {
+  "ci_ids": [
+   "n363-acc-01"
+  ],
+  "description": "CMDB ip_address of n363-acc-01 is 172.21.106.230; discovery reports 172.21.106.3.",
+  "expected_finding": "attribute_drift",
+  "finding_keys": [
+   [
+    "attribute",
+    "n363-acc-01",
+    "ip_address"
+   ]
+  ],
+  "id": "D8-05",
+  "sources": [
+   "cmdb_ci",
+   "scan_results"
+  ],
+  "type": "D8"
+ },
+ {
+  "ci_ids": [
+   "n273-fw-01"
+  ],
+  "description": "CMDB ip_address of n273-fw-01 is 172.21.16.230; discovery reports 172.21.16.2.",
+  "expected_finding": "attribute_drift",
+  "finding_keys": [
+   [
+    "attribute",
+    "n273-fw-01",
+    "ip_address"
+   ]
+  ],
+  "id": "D8-06",
+  "sources": [
+   "cmdb_ci",
+   "scan_results"
+  ],
+  "type": "D8"
+ },
+ {
+  "ci_ids": [
+   "c0085-acc-01"
+  ],
+  "description": "CMDB serial_number of c0085-acc-01 is FOCTWVYW253; discovery reports FOCTWVYWGQ4.",
+  "expected_finding": "attribute_drift",
+  "finding_keys": [
+   [
+    "attribute",
+    "c0085-acc-01",
+    "serial_number"
+   ]
+  ],
+  "id": "D8-07",
+  "sources": [
+   "cmdb_ci",
+   "scan_results"
+  ],
+  "type": "D8"
+ },
+ {
+  "ci_ids": [
+   "c0079-acc-01"
+  ],
+  "description": "CMDB serial_number of c0079-acc-01 is FOCQ49AK426; discovery reports FOCQ49AKLCS.",
+  "expected_finding": "attribute_drift",
+  "finding_keys": [
+   [
+    "attribute",
+    "c0079-acc-01",
+    "serial_number"
+   ]
+  ],
+  "id": "D8-08",
+  "sources": [
+   "cmdb_ci",
+   "scan_results"
+  ],
+  "type": "D8"
+ },
+ {
+  "ci_ids": [
+   "h17-labmw-db",
+   "arr-h17-01"
+  ],
+  "description": "h17-labmw-db (PHI) is only protected by snapshots on arr-h17-01 at the same site; CMDB says backup_offsite=true.",
+  "expected_finding": "protection_path_drift",
+  "finding_keys": [
+   [
+    "protection",
+    "h17-labmw-db"
+   ]
+  ],
+  "id": "D9-01",
+  "sources": [
+   "backup_jobs",
+   "replication_status",
+   "cmdb_ci"
+  ],
+  "type": "D9"
+ },
+ {
+  "ci_ids": [
+   "h20-pacs-cache-db",
+   "arr-h20-01"
+  ],
+  "description": "h20-pacs-cache-db (PHI) is only protected by snapshots on arr-h20-01 at the same site; CMDB says backup_offsite=true.",
+  "expected_finding": "protection_path_drift",
+  "finding_keys": [
+   [
+    "protection",
+    "h20-pacs-cache-db"
+   ]
+  ],
+  "id": "D9-02",
+  "sources": [
+   "backup_jobs",
+   "replication_status",
+   "cmdb_ci"
+  ],
+  "type": "D9"
+ },
+ {
+  "ci_ids": [
+   "h11-labmw-db",
+   "arr-h11-01"
+  ],
+  "description": "h11-labmw-db (PHI) is only protected by snapshots on arr-h11-01 at the same site; CMDB says backup_offsite=true.",
+  "expected_finding": "protection_path_drift",
+  "finding_keys": [
+   [
+    "protection",
+    "h11-labmw-db"
+   ]
+  ],
+  "id": "D9-03",
+  "sources": [
+   "backup_jobs",
+   "replication_status",
+   "cmdb_ci"
+  ],
+  "type": "D9"
+ },
+ {
+  "ci_ids": [
+   "h01-labmw-db",
+   "arr-h01-01"
+  ],
+  "description": "h01-labmw-db (PHI) is only protected by snapshots on arr-h01-01 at the same site; CMDB says backup_offsite=true.",
+  "expected_finding": "protection_path_drift",
+  "finding_keys": [
+   [
+    "protection",
+    "h01-labmw-db"
+   ]
+  ],
+  "id": "D9-04",
+  "sources": [
+   "backup_jobs",
+   "replication_status",
+   "cmdb_ci"
+  ],
+  "type": "D9"
+ },
+ {
+  "ci_ids": [
+   "h18-labmw"
+  ],
+  "description": "Backups of h18-labmw have failed every night for more than 7 days.",
+  "expected_finding": "backup_failing",
+  "finding_keys": [
+   [
+    "backup_failing",
+    "h18-labmw"
+   ]
+  ],
+  "id": "D10-01",
+  "sources": [
+   "backup_jobs",
+   "cmdb_ci"
+  ],
+  "type": "D10"
+ },
+ {
+  "ci_ids": [
+   "h15-labmw-db"
+  ],
+  "description": "Backups of h15-labmw-db have failed every night for more than 7 days.",
+  "expected_finding": "backup_failing",
+  "finding_keys": [
+   [
+    "backup_failing",
+    "h15-labmw-db"
+   ]
+  ],
+  "id": "D10-02",
+  "sources": [
+   "backup_jobs",
+   "cmdb_ci"
+  ],
+  "type": "D10"
+ },
+ {
+  "ci_ids": [
+   "h06-fs"
+  ],
+  "description": "Backups of h06-fs have failed every night for more than 7 days.",
+  "expected_finding": "backup_failing",
+  "finding_keys": [
+   [
+    "backup_failing",
+    "h06-fs"
+   ]
+  ],
+  "id": "D10-03",
+  "sources": [
+   "backup_jobs",
+   "cmdb_ci"
+  ],
+  "type": "D10"
+ },
+ {
+  "ci_ids": [
+   "dwh-db-01",
+   "stor-usw-01",
+   "stor-cin-01"
+  ],
+  "description": "An ad-hoc replication copies a PHI analytics volume (dwh-db-01) from stor-usw-01 into stor-cin-01 in cloud-central-india.",
+  "expected_finding": "data_residency_violation",
+  "finding_keys": [
+   [
+    "residency",
+    "stor-usw-01",
+    "stor-cin-01"
+   ]
+  ],
+  "id": "D11-01",
+  "sources": [
+   "replication_status"
+  ],
+  "type": "D11"
+ },
+ {
+  "ci_ids": [
+   "emr-db-01"
+  ],
+  "description": "GCC-HYD clinical-apps support account ran admin queries on EMR production DB outside any approved change window.",
+  "expected_finding": "access_drift",
+  "finding_keys": [
+   [
+    "access",
+    "u-hyd-00090",
+    "emr-db-01"
+   ]
+  ],
+  "id": "D12-01",
+  "sources": [
+   "access_log",
+   "identity",
+   "change_request"
+  ],
+  "type": "D12"
+ },
+ {
+  "ci_ids": [
+   "emr-app"
+  ],
+  "description": "Disabled user (HR status) still logging in to the EMR from an H03 workstation.",
+  "expected_finding": "access_drift",
+  "finding_keys": [
+   [
+    "access",
+    "u-h03-00054",
+    "emr-app"
+   ]
+  ],
+  "id": "D12-02",
+  "sources": [
+   "access_log",
+   "identity",
+   "change_request"
+  ],
+  "type": "D12"
+ },
+ {
+  "ci_ids": [
+   "pharm-app"
+  ],
+  "description": "H17 radiology technologist reading the pharmacy system with no grant.",
+  "expected_finding": "access_drift",
+  "finding_keys": [
+   [
+    "access",
+    "u-h17-00354",
+    "pharm-app"
+   ]
+  ],
+  "id": "D12-03",
+  "sources": [
+   "access_log",
+   "identity",
+   "change_request"
+  ],
+  "type": "D12"
+ },
+ {
+  "ci_ids": [
+   "billing-db-01"
+  ],
+  "description": "GCC-HYD cloud-ops account writing to the billing database with no grant.",
+  "expected_finding": "access_drift",
+  "finding_keys": [
+   [
+    "access",
+    "u-hyd-00160",
+    "billing-db-01"
+   ]
+  ],
+  "id": "D12-04",
+  "sources": [
+   "access_log",
+   "identity",
+   "change_request"
+  ],
+  "type": "D12"
+ },
+ {
+  "ci_ids": [
+   "dc1-vm-lis02"
+  ],
+  "description": "dc1-vm-lis02 appears as LIS-PROD-02.nw.local in discovery; same serial / IP, same CI.",
+  "expected_finding": "resolve_as_same_ci",
+  "finding_keys": [
+   [
+    "LIS-PROD-02.nw.local",
+    "dc1-vm-lis02"
+   ]
+  ],
+  "id": "D13-01",
+  "sources": [
+   "scan_results",
+   "netflow",
+   "cmdb_ci"
+  ],
+  "type": "D13"
+ },
+ {
+  "ci_ids": [
+   "h03-ct-02"
+  ],
+  "description": "h03-ct-02 appears as H03CT2 in netflow; same serial / IP, same CI.",
+  "expected_finding": "resolve_as_same_ci",
+  "finding_keys": [
+   [
+    "H03CT2",
+    "h03-ct-02"
+   ]
+  ],
+  "id": "D13-02",
+  "sources": [
+   "scan_results",
+   "netflow",
+   "cmdb_ci"
+  ],
+  "type": "D13"
+ },
+ {
+  "ci_ids": [
+   "h17-core-01"
+  ],
+  "description": "h17-core-01 appears as H17-CORE-SW01 in discovery; same serial / IP, same CI.",
+  "expected_finding": "resolve_as_same_ci",
+  "finding_keys": [
+   [
+    "H17-CORE-SW01",
+    "h17-core-01"
+   ]
+  ],
+  "id": "D13-03",
+  "sources": [
+   "scan_results",
+   "netflow",
+   "cmdb_ci"
+  ],
+  "type": "D13"
+ },
+ {
+  "ci_ids": [
+   "dc1-host-12"
+  ],
+  "description": "dc1-host-12 appears as DC1ESX12.nw.local in discovery; same serial / IP, same CI.",
+  "expected_finding": "resolve_as_same_ci",
+  "finding_keys": [
+   [
+    "DC1ESX12.nw.local",
+    "dc1-host-12"
+   ]
+  ],
+  "id": "D13-04",
+  "sources": [
+   "scan_results",
+   "netflow",
+   "cmdb_ci"
+  ],
+  "type": "D13"
+ }
+]

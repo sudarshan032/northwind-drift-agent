@@ -1,0 +1,931 @@
+sys_id,name,full_name,type,subtype,city,state,country,beds,utc_offset_hours
+H01,H01,Northwind Everett Medical Center,large_hospital,,Everett,WA,US,735,-7
+H02,H02,Northwind Tacoma Medical Center,large_hospital,,Tacoma,WA,US,676,-7
+H03,H03,Northwind Seattle Medical Center,large_hospital,,Seattle,WA,US,592,-7
+H04,H04,Northwind Spokane Medical Center,large_hospital,,Spokane,WA,US,469,-7
+H05,H05,Northwind Olympia Hospital,community_hospital,,Olympia,WA,US,141,-7
+H06,H06,Northwind Bellingham Hospital,community_hospital,,Bellingham,WA,US,346,-7
+H07,H07,Northwind Yakima Hospital,community_hospital,,Yakima,WA,US,238,-7
+H08,H08,Northwind Vancouver Hospital,community_hospital,,Vancouver,WA,US,133,-7
+H09,H09,Northwind Kennewick Hospital,community_hospital,,Kennewick,WA,US,355,-7
+H10,H10,Northwind Wenatchee Hospital,community_hospital,,Wenatchee,WA,US,249,-7
+H11,H11,Northwind Walla Walla Hospital,community_hospital,,Walla Walla,WA,US,243,-7
+H12,H12,Northwind Colville Hospital,critical_access_hospital,,Colville,WA,US,21,-7
+H13,H13,Northwind Ilwaco Hospital,critical_access_hospital,,Ilwaco,WA,US,24,-7
+H14,H14,Northwind Forks Hospital,critical_access_hospital,,Forks,WA,US,24,-7
+H15,H15,Northwind Portland Medical Center,large_hospital,,Portland,OR,US,477,-7
+H16,H16,Northwind Eugene Hospital,community_hospital,,Eugene,OR,US,369,-7
+H17,H17,Northwind Portland Hospital,community_hospital,,Portland,OR,US,186,-7
+H18,H18,Northwind Medford Hospital,community_hospital,,Medford,OR,US,108,-7
+H19,H19,Northwind Bend Hospital,community_hospital,,Bend,OR,US,251,-7
+H20,H20,Northwind Salem Hospital,community_hospital,,Salem,OR,US,214,-7
+H21,H21,Northwind Newberg Hospital,community_hospital,,Newberg,OR,US,105,-7
+H22,H22,Northwind Seaside Hospital,critical_access_hospital,,Seaside,OR,US,22,-7
+H23,H23,Northwind Hood River Hospital,critical_access_hospital,,Hood River,OR,US,24,-7
+H24,H24,Northwind Burns Hospital,critical_access_hospital,,Burns,OR,US,19,-7
+C0001,C0001,Northwind Bellevue Clinic 0001,clinic,primary_care,Bellevue,WA,US,,-7
+C0002,C0002,Northwind Moses Lake Clinic 0002,clinic,primary_care,Moses Lake,WA,US,,-7
+C0003,C0003,Northwind Seattle Clinic 0003,clinic,imaging_center,Seattle,WA,US,,-7
+C0004,C0004,Northwind Vancouver Clinic 0004,clinic,primary_care,Vancouver,WA,US,,-7
+C0005,C0005,Northwind Federal Way Clinic 0005,clinic,urgent_care,Federal Way,WA,US,,-7
+C0006,C0006,Northwind Moses Lake Clinic 0006,clinic,imaging_center,Moses Lake,WA,US,,-7
+C0007,C0007,Northwind Seattle Clinic 0007,clinic,imaging_center,Seattle,WA,US,,-7
+C0008,C0008,Northwind Moses Lake Clinic 0008,clinic,imaging_center,Moses Lake,WA,US,,-7
+C0009,C0009,Northwind Auburn Clinic 0009,clinic,primary_care,Auburn,WA,US,,-7
+C0010,C0010,Northwind Walla Walla Clinic 0010,clinic,primary_care,Walla Walla,WA,US,,-7
+C0011,C0011,Northwind Bremerton Clinic 0011,clinic,specialty,Bremerton,WA,US,,-7
+C0012,C0012,Northwind Pasco Clinic 0012,clinic,primary_care,Pasco,WA,US,,-7
+C0013,C0013,Northwind Redmond Clinic 0013,clinic,primary_care,Redmond,WA,US,,-7
+C0014,C0014,Northwind Seattle Clinic 0014,clinic,specialty,Seattle,WA,US,,-7
+C0015,C0015,Northwind Lynnwood Clinic 0015,clinic,primary_care,Lynnwood,WA,US,,-7
+C0016,C0016,Northwind Federal Way Clinic 0016,clinic,imaging_center,Federal Way,WA,US,,-7
+C0017,C0017,Northwind Kent Clinic 0017,clinic,specialty,Kent,WA,US,,-7
+C0018,C0018,Northwind Renton Clinic 0018,clinic,specialty,Renton,WA,US,,-7
+C0019,C0019,Northwind Bellevue Clinic 0019,clinic,specialty,Bellevue,WA,US,,-7
+C0020,C0020,Northwind Yakima Clinic 0020,clinic,specialty,Yakima,WA,US,,-7
+C0021,C0021,Northwind Port Angeles Clinic 0021,clinic,primary_care,Port Angeles,WA,US,,-7
+C0022,C0022,Northwind Mount Vernon Clinic 0022,clinic,primary_care,Mount Vernon,WA,US,,-7
+C0023,C0023,Northwind Moses Lake Clinic 0023,clinic,primary_care,Moses Lake,WA,US,,-7
+C0024,C0024,Northwind Federal Way Clinic 0024,clinic,primary_care,Federal Way,WA,US,,-7
+C0025,C0025,Northwind Federal Way Clinic 0025,clinic,specialty,Federal Way,WA,US,,-7
+C0026,C0026,Northwind Everett Clinic 0026,clinic,primary_care,Everett,WA,US,,-7
+C0027,C0027,Northwind Tacoma Clinic 0027,clinic,urgent_care,Tacoma,WA,US,,-7
+C0028,C0028,Northwind Lakewood Clinic 0028,clinic,primary_care,Lakewood,WA,US,,-7
+C0029,C0029,Northwind Spokane Clinic 0029,clinic,primary_care,Spokane,WA,US,,-7
+C0030,C0030,Northwind Lynnwood Clinic 0030,clinic,imaging_center,Lynnwood,WA,US,,-7
+C0031,C0031,Northwind Aberdeen Clinic 0031,clinic,urgent_care,Aberdeen,WA,US,,-7
+C0032,C0032,Northwind Pullman Clinic 0032,clinic,primary_care,Pullman,WA,US,,-7
+C0033,C0033,Northwind Spokane Clinic 0033,clinic,urgent_care,Spokane,WA,US,,-7
+C0034,C0034,Northwind Everett Clinic 0034,clinic,primary_care,Everett,WA,US,,-7
+C0035,C0035,Northwind Federal Way Clinic 0035,clinic,primary_care,Federal Way,WA,US,,-7
+C0036,C0036,Northwind Spokane Clinic 0036,clinic,primary_care,Spokane,WA,US,,-7
+C0037,C0037,Northwind Tacoma Clinic 0037,clinic,primary_care,Tacoma,WA,US,,-7
+C0038,C0038,Northwind Shoreline Clinic 0038,clinic,urgent_care,Shoreline,WA,US,,-7
+C0039,C0039,Northwind Mount Vernon Clinic 0039,clinic,primary_care,Mount Vernon,WA,US,,-7
+C0040,C0040,Northwind Pasco Clinic 0040,clinic,specialty,Pasco,WA,US,,-7
+C0041,C0041,Northwind Renton Clinic 0041,clinic,urgent_care,Renton,WA,US,,-7
+C0042,C0042,Northwind Bellingham Clinic 0042,clinic,primary_care,Bellingham,WA,US,,-7
+C0043,C0043,Northwind Spokane Clinic 0043,clinic,imaging_center,Spokane,WA,US,,-7
+C0044,C0044,Northwind Kirkland Clinic 0044,clinic,primary_care,Kirkland,WA,US,,-7
+C0045,C0045,Northwind Port Angeles Clinic 0045,clinic,imaging_center,Port Angeles,WA,US,,-7
+C0046,C0046,Northwind Seattle Clinic 0046,clinic,specialty,Seattle,WA,US,,-7
+C0047,C0047,Northwind Mount Vernon Clinic 0047,clinic,imaging_center,Mount Vernon,WA,US,,-7
+C0048,C0048,Northwind Edmonds Clinic 0048,clinic,specialty,Edmonds,WA,US,,-7
+C0049,C0049,Northwind Spokane Clinic 0049,clinic,specialty,Spokane,WA,US,,-7
+C0050,C0050,Northwind Vancouver Clinic 0050,clinic,primary_care,Vancouver,WA,US,,-7
+C0051,C0051,Northwind Seattle Clinic 0051,clinic,urgent_care,Seattle,WA,US,,-7
+C0052,C0052,Northwind Bellevue Clinic 0052,clinic,specialty,Bellevue,WA,US,,-7
+C0053,C0053,Northwind Edmonds Clinic 0053,clinic,primary_care,Edmonds,WA,US,,-7
+C0054,C0054,Northwind Federal Way Clinic 0054,clinic,primary_care,Federal Way,WA,US,,-7
+C0055,C0055,Northwind Port Angeles Clinic 0055,clinic,primary_care,Port Angeles,WA,US,,-7
+C0056,C0056,Northwind Shoreline Clinic 0056,clinic,specialty,Shoreline,WA,US,,-7
+C0057,C0057,Northwind Kent Clinic 0057,clinic,primary_care,Kent,WA,US,,-7
+C0058,C0058,Northwind Kennewick Clinic 0058,clinic,imaging_center,Kennewick,WA,US,,-7
+C0059,C0059,Northwind Everett Clinic 0059,clinic,specialty,Everett,WA,US,,-7
+C0060,C0060,Northwind Olympia Clinic 0060,clinic,specialty,Olympia,WA,US,,-7
+C0061,C0061,Northwind Kent Clinic 0061,clinic,specialty,Kent,WA,US,,-7
+C0062,C0062,Northwind Everett Clinic 0062,clinic,primary_care,Everett,WA,US,,-7
+C0063,C0063,Northwind Vancouver Clinic 0063,clinic,urgent_care,Vancouver,WA,US,,-7
+C0064,C0064,Northwind Seattle Clinic 0064,clinic,specialty,Seattle,WA,US,,-7
+C0065,C0065,Northwind Redmond Clinic 0065,clinic,primary_care,Redmond,WA,US,,-7
+C0066,C0066,Northwind Tacoma Clinic 0066,clinic,specialty,Tacoma,WA,US,,-7
+C0067,C0067,Northwind Spokane Clinic 0067,clinic,primary_care,Spokane,WA,US,,-7
+C0068,C0068,Northwind Edmonds Clinic 0068,clinic,primary_care,Edmonds,WA,US,,-7
+C0069,C0069,Northwind Sequim Clinic 0069,clinic,primary_care,Sequim,WA,US,,-7
+C0070,C0070,Northwind Federal Way Clinic 0070,clinic,urgent_care,Federal Way,WA,US,,-7
+C0071,C0071,Northwind Bellevue Clinic 0071,clinic,primary_care,Bellevue,WA,US,,-7
+C0072,C0072,Northwind Bellevue Clinic 0072,clinic,specialty,Bellevue,WA,US,,-7
+C0073,C0073,Northwind Aberdeen Clinic 0073,clinic,specialty,Aberdeen,WA,US,,-7
+C0074,C0074,Northwind Seattle Clinic 0074,clinic,specialty,Seattle,WA,US,,-7
+C0075,C0075,Northwind Vancouver Clinic 0075,clinic,primary_care,Vancouver,WA,US,,-7
+C0076,C0076,Northwind Kennewick Clinic 0076,clinic,specialty,Kennewick,WA,US,,-7
+C0077,C0077,Northwind Bellevue Clinic 0077,clinic,primary_care,Bellevue,WA,US,,-7
+C0078,C0078,Northwind Seattle Clinic 0078,clinic,specialty,Seattle,WA,US,,-7
+C0079,C0079,Northwind Walla Walla Clinic 0079,clinic,urgent_care,Walla Walla,WA,US,,-7
+C0080,C0080,Northwind Olympia Clinic 0080,clinic,primary_care,Olympia,WA,US,,-7
+C0081,C0081,Northwind Yakima Clinic 0081,clinic,primary_care,Yakima,WA,US,,-7
+C0082,C0082,Northwind Bremerton Clinic 0082,clinic,primary_care,Bremerton,WA,US,,-7
+C0083,C0083,Northwind Port Angeles Clinic 0083,clinic,primary_care,Port Angeles,WA,US,,-7
+C0084,C0084,Northwind Auburn Clinic 0084,clinic,primary_care,Auburn,WA,US,,-7
+C0085,C0085,Northwind Burien Clinic 0085,clinic,specialty,Burien,WA,US,,-7
+C0086,C0086,Northwind Spokane Clinic 0086,clinic,primary_care,Spokane,WA,US,,-7
+C0087,C0087,Northwind Bellevue Clinic 0087,clinic,primary_care,Bellevue,WA,US,,-7
+C0088,C0088,Northwind Tacoma Clinic 0088,clinic,primary_care,Tacoma,WA,US,,-7
+C0089,C0089,Northwind Shoreline Clinic 0089,clinic,primary_care,Shoreline,WA,US,,-7
+C0090,C0090,Northwind Lynnwood Clinic 0090,clinic,urgent_care,Lynnwood,WA,US,,-7
+C0091,C0091,Northwind Tacoma Clinic 0091,clinic,specialty,Tacoma,WA,US,,-7
+C0092,C0092,Northwind Spokane Clinic 0092,clinic,primary_care,Spokane,WA,US,,-7
+C0093,C0093,Northwind Bremerton Clinic 0093,clinic,primary_care,Bremerton,WA,US,,-7
+C0094,C0094,Northwind Federal Way Clinic 0094,clinic,primary_care,Federal Way,WA,US,,-7
+C0095,C0095,Northwind Federal Way Clinic 0095,clinic,urgent_care,Federal Way,WA,US,,-7
+C0096,C0096,Northwind Lakewood Clinic 0096,clinic,specialty,Lakewood,WA,US,,-7
+C0097,C0097,Northwind Seattle Clinic 0097,clinic,primary_care,Seattle,WA,US,,-7
+C0098,C0098,Northwind Seattle Clinic 0098,clinic,specialty,Seattle,WA,US,,-7
+C0099,C0099,Northwind Pasco Clinic 0099,clinic,primary_care,Pasco,WA,US,,-7
+C0100,C0100,Northwind Bellingham Clinic 0100,clinic,primary_care,Bellingham,WA,US,,-7
+C0101,C0101,Northwind Vancouver Clinic 0101,clinic,primary_care,Vancouver,WA,US,,-7
+C0102,C0102,Northwind Kirkland Clinic 0102,clinic,primary_care,Kirkland,WA,US,,-7
+C0103,C0103,Northwind Yakima Clinic 0103,clinic,primary_care,Yakima,WA,US,,-7
+C0104,C0104,Northwind Kirkland Clinic 0104,clinic,primary_care,Kirkland,WA,US,,-7
+C0105,C0105,Northwind Vancouver Clinic 0105,clinic,primary_care,Vancouver,WA,US,,-7
+C0106,C0106,Northwind Vancouver Clinic 0106,clinic,specialty,Vancouver,WA,US,,-7
+C0107,C0107,Northwind Kirkland Clinic 0107,clinic,primary_care,Kirkland,WA,US,,-7
+C0108,C0108,Northwind Kennewick Clinic 0108,clinic,primary_care,Kennewick,WA,US,,-7
+C0109,C0109,Northwind Bremerton Clinic 0109,clinic,imaging_center,Bremerton,WA,US,,-7
+C0110,C0110,Northwind Seattle Clinic 0110,clinic,primary_care,Seattle,WA,US,,-7
+C0111,C0111,Northwind Renton Clinic 0111,clinic,primary_care,Renton,WA,US,,-7
+C0112,C0112,Northwind Shoreline Clinic 0112,clinic,primary_care,Shoreline,WA,US,,-7
+C0113,C0113,Northwind Bellingham Clinic 0113,clinic,imaging_center,Bellingham,WA,US,,-7
+C0114,C0114,Northwind Ellensburg Clinic 0114,clinic,specialty,Ellensburg,WA,US,,-7
+C0115,C0115,Northwind Seattle Clinic 0115,clinic,imaging_center,Seattle,WA,US,,-7
+C0116,C0116,Northwind Lynnwood Clinic 0116,clinic,primary_care,Lynnwood,WA,US,,-7
+C0117,C0117,Northwind Lynnwood Clinic 0117,clinic,primary_care,Lynnwood,WA,US,,-7
+C0118,C0118,Northwind Tacoma Clinic 0118,clinic,urgent_care,Tacoma,WA,US,,-7
+C0119,C0119,Northwind Seattle Clinic 0119,clinic,primary_care,Seattle,WA,US,,-7
+C0120,C0120,Northwind Yakima Clinic 0120,clinic,specialty,Yakima,WA,US,,-7
+C0121,C0121,Northwind Pullman Clinic 0121,clinic,primary_care,Pullman,WA,US,,-7
+C0122,C0122,Northwind Sequim Clinic 0122,clinic,primary_care,Sequim,WA,US,,-7
+C0123,C0123,Northwind Centralia Clinic 0123,clinic,primary_care,Centralia,WA,US,,-7
+C0124,C0124,Northwind Auburn Clinic 0124,clinic,specialty,Auburn,WA,US,,-7
+C0125,C0125,Northwind Colville Clinic 0125,clinic,specialty,Colville,WA,US,,-7
+C0126,C0126,Northwind Marysville Clinic 0126,clinic,urgent_care,Marysville,WA,US,,-7
+C0127,C0127,Northwind Vancouver Clinic 0127,clinic,specialty,Vancouver,WA,US,,-7
+C0128,C0128,Northwind Burien Clinic 0128,clinic,primary_care,Burien,WA,US,,-7
+C0129,C0129,Northwind Port Angeles Clinic 0129,clinic,urgent_care,Port Angeles,WA,US,,-7
+C0130,C0130,Northwind Auburn Clinic 0130,clinic,primary_care,Auburn,WA,US,,-7
+C0131,C0131,Northwind Lakewood Clinic 0131,clinic,primary_care,Lakewood,WA,US,,-7
+C0132,C0132,Northwind Renton Clinic 0132,clinic,imaging_center,Renton,WA,US,,-7
+C0133,C0133,Northwind Pullman Clinic 0133,clinic,primary_care,Pullman,WA,US,,-7
+C0134,C0134,Northwind Bothell Clinic 0134,clinic,specialty,Bothell,WA,US,,-7
+C0135,C0135,Northwind Kent Clinic 0135,clinic,specialty,Kent,WA,US,,-7
+C0136,C0136,Northwind Edmonds Clinic 0136,clinic,primary_care,Edmonds,WA,US,,-7
+C0137,C0137,Northwind Tacoma Clinic 0137,clinic,primary_care,Tacoma,WA,US,,-7
+C0138,C0138,Northwind Olympia Clinic 0138,clinic,primary_care,Olympia,WA,US,,-7
+C0139,C0139,Northwind Kent Clinic 0139,clinic,imaging_center,Kent,WA,US,,-7
+C0140,C0140,Northwind Edmonds Clinic 0140,clinic,primary_care,Edmonds,WA,US,,-7
+C0141,C0141,Northwind Everett Clinic 0141,clinic,imaging_center,Everett,WA,US,,-7
+C0142,C0142,Northwind Tacoma Clinic 0142,clinic,specialty,Tacoma,WA,US,,-7
+C0143,C0143,Northwind Puyallup Clinic 0143,clinic,primary_care,Puyallup,WA,US,,-7
+C0144,C0144,Northwind Kirkland Clinic 0144,clinic,primary_care,Kirkland,WA,US,,-7
+C0145,C0145,Northwind Everett Clinic 0145,clinic,specialty,Everett,WA,US,,-7
+C0146,C0146,Northwind Wenatchee Clinic 0146,clinic,specialty,Wenatchee,WA,US,,-7
+C0147,C0147,Northwind Moses Lake Clinic 0147,clinic,specialty,Moses Lake,WA,US,,-7
+C0148,C0148,Northwind Marysville Clinic 0148,clinic,imaging_center,Marysville,WA,US,,-7
+C0149,C0149,Northwind Federal Way Clinic 0149,clinic,specialty,Federal Way,WA,US,,-7
+C0150,C0150,Northwind Tacoma Clinic 0150,clinic,specialty,Tacoma,WA,US,,-7
+C0151,C0151,Northwind Bothell Clinic 0151,clinic,specialty,Bothell,WA,US,,-7
+C0152,C0152,Northwind Vancouver Clinic 0152,clinic,specialty,Vancouver,WA,US,,-7
+C0153,C0153,Northwind Bellevue Clinic 0153,clinic,primary_care,Bellevue,WA,US,,-7
+C0154,C0154,Northwind Tacoma Clinic 0154,clinic,specialty,Tacoma,WA,US,,-7
+C0155,C0155,Northwind Vancouver Clinic 0155,clinic,primary_care,Vancouver,WA,US,,-7
+C0156,C0156,Northwind Spokane Clinic 0156,clinic,primary_care,Spokane,WA,US,,-7
+C0157,C0157,Northwind Auburn Clinic 0157,clinic,primary_care,Auburn,WA,US,,-7
+C0158,C0158,Northwind Marysville Clinic 0158,clinic,primary_care,Marysville,WA,US,,-7
+C0159,C0159,Northwind Bellevue Clinic 0159,clinic,urgent_care,Bellevue,WA,US,,-7
+C0160,C0160,Northwind Vancouver Clinic 0160,clinic,primary_care,Vancouver,WA,US,,-7
+C0161,C0161,Northwind Spokane Clinic 0161,clinic,specialty,Spokane,WA,US,,-7
+C0162,C0162,Northwind Everett Clinic 0162,clinic,urgent_care,Everett,WA,US,,-7
+C0163,C0163,Northwind Tacoma Clinic 0163,clinic,primary_care,Tacoma,WA,US,,-7
+C0164,C0164,Northwind Wenatchee Clinic 0164,clinic,urgent_care,Wenatchee,WA,US,,-7
+C0165,C0165,Northwind Colville Clinic 0165,clinic,urgent_care,Colville,WA,US,,-7
+C0166,C0166,Northwind Kirkland Clinic 0166,clinic,primary_care,Kirkland,WA,US,,-7
+C0167,C0167,Northwind Bellevue Clinic 0167,clinic,primary_care,Bellevue,WA,US,,-7
+C0168,C0168,Northwind Lacey Clinic 0168,clinic,specialty,Lacey,WA,US,,-7
+C0169,C0169,Northwind Wenatchee Clinic 0169,clinic,specialty,Wenatchee,WA,US,,-7
+C0170,C0170,Northwind Marysville Clinic 0170,clinic,specialty,Marysville,WA,US,,-7
+C0171,C0171,Northwind Kirkland Clinic 0171,clinic,primary_care,Kirkland,WA,US,,-7
+C0172,C0172,Northwind Redmond Clinic 0172,clinic,primary_care,Redmond,WA,US,,-7
+C0173,C0173,Northwind Shoreline Clinic 0173,clinic,imaging_center,Shoreline,WA,US,,-7
+C0174,C0174,Northwind Port Angeles Clinic 0174,clinic,primary_care,Port Angeles,WA,US,,-7
+C0175,C0175,Northwind Everett Clinic 0175,clinic,primary_care,Everett,WA,US,,-7
+C0176,C0176,Northwind Federal Way Clinic 0176,clinic,specialty,Federal Way,WA,US,,-7
+C0177,C0177,Northwind Seattle Clinic 0177,clinic,primary_care,Seattle,WA,US,,-7
+C0178,C0178,Northwind Seattle Clinic 0178,clinic,imaging_center,Seattle,WA,US,,-7
+C0179,C0179,Northwind Everett Clinic 0179,clinic,specialty,Everett,WA,US,,-7
+C0180,C0180,Northwind Burien Clinic 0180,clinic,primary_care,Burien,WA,US,,-7
+C0181,C0181,Northwind Tacoma Clinic 0181,clinic,urgent_care,Tacoma,WA,US,,-7
+C0182,C0182,Northwind Longview Clinic 0182,clinic,specialty,Longview,WA,US,,-7
+C0183,C0183,Northwind Bellevue Clinic 0183,clinic,specialty,Bellevue,WA,US,,-7
+C0184,C0184,Northwind Everett Clinic 0184,clinic,specialty,Everett,WA,US,,-7
+C0185,C0185,Northwind Lacey Clinic 0185,clinic,urgent_care,Lacey,WA,US,,-7
+C0186,C0186,Northwind Renton Clinic 0186,clinic,primary_care,Renton,WA,US,,-7
+C0187,C0187,Northwind Puyallup Clinic 0187,clinic,specialty,Puyallup,WA,US,,-7
+C0188,C0188,Northwind Lakewood Clinic 0188,clinic,primary_care,Lakewood,WA,US,,-7
+C0189,C0189,Northwind Federal Way Clinic 0189,clinic,specialty,Federal Way,WA,US,,-7
+C0190,C0190,Northwind Spokane Clinic 0190,clinic,primary_care,Spokane,WA,US,,-7
+C0191,C0191,Northwind Burien Clinic 0191,clinic,primary_care,Burien,WA,US,,-7
+C0192,C0192,Northwind Spokane Clinic 0192,clinic,primary_care,Spokane,WA,US,,-7
+C0193,C0193,Northwind Renton Clinic 0193,clinic,primary_care,Renton,WA,US,,-7
+C0194,C0194,Northwind Puyallup Clinic 0194,clinic,specialty,Puyallup,WA,US,,-7
+C0195,C0195,Northwind Kirkland Clinic 0195,clinic,imaging_center,Kirkland,WA,US,,-7
+C0196,C0196,Northwind Tacoma Clinic 0196,clinic,urgent_care,Tacoma,WA,US,,-7
+C0197,C0197,Northwind Olympia Clinic 0197,clinic,primary_care,Olympia,WA,US,,-7
+C0198,C0198,Northwind Lacey Clinic 0198,clinic,primary_care,Lacey,WA,US,,-7
+C0199,C0199,Northwind Spokane Clinic 0199,clinic,primary_care,Spokane,WA,US,,-7
+C0200,C0200,Northwind Edmonds Clinic 0200,clinic,specialty,Edmonds,WA,US,,-7
+C0201,C0201,Northwind Spokane Clinic 0201,clinic,primary_care,Spokane,WA,US,,-7
+C0202,C0202,Northwind Spokane Clinic 0202,clinic,primary_care,Spokane,WA,US,,-7
+C0203,C0203,Northwind Seattle Clinic 0203,clinic,imaging_center,Seattle,WA,US,,-7
+C0204,C0204,Northwind Spokane Clinic 0204,clinic,primary_care,Spokane,WA,US,,-7
+C0205,C0205,Northwind Vancouver Clinic 0205,clinic,primary_care,Vancouver,WA,US,,-7
+C0206,C0206,Northwind Bothell Clinic 0206,clinic,urgent_care,Bothell,WA,US,,-7
+C0207,C0207,Northwind Everett Clinic 0207,clinic,primary_care,Everett,WA,US,,-7
+C0208,C0208,Northwind Kennewick Clinic 0208,clinic,primary_care,Kennewick,WA,US,,-7
+C0209,C0209,Northwind Puyallup Clinic 0209,clinic,primary_care,Puyallup,WA,US,,-7
+C0210,C0210,Northwind Vancouver Clinic 0210,clinic,primary_care,Vancouver,WA,US,,-7
+C0211,C0211,Northwind Yakima Clinic 0211,clinic,primary_care,Yakima,WA,US,,-7
+C0212,C0212,Northwind Yakima Clinic 0212,clinic,primary_care,Yakima,WA,US,,-7
+C0213,C0213,Northwind Everett Clinic 0213,clinic,urgent_care,Everett,WA,US,,-7
+C0214,C0214,Northwind Bellevue Clinic 0214,clinic,specialty,Bellevue,WA,US,,-7
+C0215,C0215,Northwind Tacoma Clinic 0215,clinic,primary_care,Tacoma,WA,US,,-7
+C0216,C0216,Northwind Burien Clinic 0216,clinic,primary_care,Burien,WA,US,,-7
+C0217,C0217,Northwind Ellensburg Clinic 0217,clinic,specialty,Ellensburg,WA,US,,-7
+C0218,C0218,Northwind Federal Way Clinic 0218,clinic,primary_care,Federal Way,WA,US,,-7
+C0219,C0219,Northwind Centralia Clinic 0219,clinic,urgent_care,Centralia,WA,US,,-7
+C0220,C0220,Northwind Port Angeles Clinic 0220,clinic,primary_care,Port Angeles,WA,US,,-7
+C0221,C0221,Northwind Spokane Clinic 0221,clinic,specialty,Spokane,WA,US,,-7
+C0222,C0222,Northwind Tacoma Clinic 0222,clinic,primary_care,Tacoma,WA,US,,-7
+C0223,C0223,Northwind Kennewick Clinic 0223,clinic,imaging_center,Kennewick,WA,US,,-7
+C0224,C0224,Northwind Ellensburg Clinic 0224,clinic,primary_care,Ellensburg,WA,US,,-7
+C0225,C0225,Northwind Sequim Clinic 0225,clinic,primary_care,Sequim,WA,US,,-7
+C0226,C0226,Northwind Bellevue Clinic 0226,clinic,primary_care,Bellevue,WA,US,,-7
+C0227,C0227,Northwind Tacoma Clinic 0227,clinic,primary_care,Tacoma,WA,US,,-7
+C0228,C0228,Northwind Pullman Clinic 0228,clinic,specialty,Pullman,WA,US,,-7
+C0229,C0229,Northwind Everett Clinic 0229,clinic,specialty,Everett,WA,US,,-7
+C0230,C0230,Northwind Wenatchee Clinic 0230,clinic,primary_care,Wenatchee,WA,US,,-7
+C0231,C0231,Northwind Sequim Clinic 0231,clinic,primary_care,Sequim,WA,US,,-7
+C0232,C0232,Northwind Kirkland Clinic 0232,clinic,specialty,Kirkland,WA,US,,-7
+C0233,C0233,Northwind Mount Vernon Clinic 0233,clinic,primary_care,Mount Vernon,WA,US,,-7
+C0234,C0234,Northwind Kennewick Clinic 0234,clinic,primary_care,Kennewick,WA,US,,-7
+C0235,C0235,Northwind Lacey Clinic 0235,clinic,primary_care,Lacey,WA,US,,-7
+C0236,C0236,Northwind Spokane Clinic 0236,clinic,primary_care,Spokane,WA,US,,-7
+C0237,C0237,Northwind Redmond Clinic 0237,clinic,specialty,Redmond,WA,US,,-7
+C0238,C0238,Northwind Moses Lake Clinic 0238,clinic,primary_care,Moses Lake,WA,US,,-7
+C0239,C0239,Northwind Seattle Clinic 0239,clinic,primary_care,Seattle,WA,US,,-7
+C0240,C0240,Northwind Tacoma Clinic 0240,clinic,primary_care,Tacoma,WA,US,,-7
+C0241,C0241,Northwind Aberdeen Clinic 0241,clinic,urgent_care,Aberdeen,WA,US,,-7
+C0242,C0242,Northwind Yakima Clinic 0242,clinic,primary_care,Yakima,WA,US,,-7
+C0243,C0243,Northwind Spokane Clinic 0243,clinic,specialty,Spokane,WA,US,,-7
+C0244,C0244,Northwind Spokane Clinic 0244,clinic,specialty,Spokane,WA,US,,-7
+C0245,C0245,Northwind Vancouver Clinic 0245,clinic,urgent_care,Vancouver,WA,US,,-7
+C0246,C0246,Northwind Seattle Clinic 0246,clinic,primary_care,Seattle,WA,US,,-7
+C0247,C0247,Northwind Seattle Clinic 0247,clinic,primary_care,Seattle,WA,US,,-7
+C0248,C0248,Northwind Lakewood Clinic 0248,clinic,primary_care,Lakewood,WA,US,,-7
+C0249,C0249,Northwind Kirkland Clinic 0249,clinic,primary_care,Kirkland,WA,US,,-7
+C0250,C0250,Northwind Centralia Clinic 0250,clinic,specialty,Centralia,WA,US,,-7
+C0251,C0251,Northwind Auburn Clinic 0251,clinic,primary_care,Auburn,WA,US,,-7
+C0252,C0252,Northwind Shoreline Clinic 0252,clinic,urgent_care,Shoreline,WA,US,,-7
+C0253,C0253,Northwind Bellevue Clinic 0253,clinic,urgent_care,Bellevue,WA,US,,-7
+C0254,C0254,Northwind Moses Lake Clinic 0254,clinic,primary_care,Moses Lake,WA,US,,-7
+C0255,C0255,Northwind Kirkland Clinic 0255,clinic,urgent_care,Kirkland,WA,US,,-7
+C0256,C0256,Northwind Lakewood Clinic 0256,clinic,primary_care,Lakewood,WA,US,,-7
+C0257,C0257,Northwind Spokane Clinic 0257,clinic,primary_care,Spokane,WA,US,,-7
+C0258,C0258,Northwind Federal Way Clinic 0258,clinic,specialty,Federal Way,WA,US,,-7
+C0259,C0259,Northwind Federal Way Clinic 0259,clinic,specialty,Federal Way,WA,US,,-7
+C0260,C0260,Northwind Spokane Clinic 0260,clinic,specialty,Spokane,WA,US,,-7
+C0261,C0261,Northwind Wenatchee Clinic 0261,clinic,primary_care,Wenatchee,WA,US,,-7
+C0262,C0262,Northwind Port Angeles Clinic 0262,clinic,specialty,Port Angeles,WA,US,,-7
+C0263,C0263,Northwind Kent Clinic 0263,clinic,specialty,Kent,WA,US,,-7
+C0264,C0264,Northwind Yakima Clinic 0264,clinic,primary_care,Yakima,WA,US,,-7
+C0265,C0265,Northwind Spokane Clinic 0265,clinic,urgent_care,Spokane,WA,US,,-7
+C0266,C0266,Northwind Tacoma Clinic 0266,clinic,primary_care,Tacoma,WA,US,,-7
+C0267,C0267,Northwind Aberdeen Clinic 0267,clinic,specialty,Aberdeen,WA,US,,-7
+C0268,C0268,Northwind Kent Clinic 0268,clinic,primary_care,Kent,WA,US,,-7
+C0269,C0269,Northwind Seattle Clinic 0269,clinic,primary_care,Seattle,WA,US,,-7
+C0270,C0270,Northwind Bellevue Clinic 0270,clinic,imaging_center,Bellevue,WA,US,,-7
+C0271,C0271,Northwind Yakima Clinic 0271,clinic,primary_care,Yakima,WA,US,,-7
+C0272,C0272,Northwind Vancouver Clinic 0272,clinic,specialty,Vancouver,WA,US,,-7
+C0273,C0273,Northwind Spokane Clinic 0273,clinic,specialty,Spokane,WA,US,,-7
+C0274,C0274,Northwind Seattle Clinic 0274,clinic,primary_care,Seattle,WA,US,,-7
+C0275,C0275,Northwind Marysville Clinic 0275,clinic,primary_care,Marysville,WA,US,,-7
+C0276,C0276,Northwind Kent Clinic 0276,clinic,primary_care,Kent,WA,US,,-7
+C0277,C0277,Northwind Tacoma Clinic 0277,clinic,primary_care,Tacoma,WA,US,,-7
+C0278,C0278,Northwind Vancouver Clinic 0278,clinic,primary_care,Vancouver,WA,US,,-7
+C0279,C0279,Northwind Spokane Clinic 0279,clinic,specialty,Spokane,WA,US,,-7
+C0280,C0280,Northwind Olympia Clinic 0280,clinic,primary_care,Olympia,WA,US,,-7
+C0281,C0281,Northwind Auburn Clinic 0281,clinic,primary_care,Auburn,WA,US,,-7
+C0282,C0282,Northwind Centralia Clinic 0282,clinic,primary_care,Centralia,WA,US,,-7
+C0283,C0283,Northwind Lakewood Clinic 0283,clinic,primary_care,Lakewood,WA,US,,-7
+C0284,C0284,Northwind Vancouver Clinic 0284,clinic,primary_care,Vancouver,WA,US,,-7
+C0285,C0285,Northwind Vancouver Clinic 0285,clinic,specialty,Vancouver,WA,US,,-7
+C0286,C0286,Northwind Seattle Clinic 0286,clinic,primary_care,Seattle,WA,US,,-7
+C0287,C0287,Northwind Renton Clinic 0287,clinic,primary_care,Renton,WA,US,,-7
+C0288,C0288,Northwind Colville Clinic 0288,clinic,primary_care,Colville,WA,US,,-7
+C0289,C0289,Northwind Tacoma Clinic 0289,clinic,primary_care,Tacoma,WA,US,,-7
+C0290,C0290,Northwind Edmonds Clinic 0290,clinic,specialty,Edmonds,WA,US,,-7
+C0291,C0291,Northwind Bellevue Clinic 0291,clinic,imaging_center,Bellevue,WA,US,,-7
+C0292,C0292,Northwind Seattle Clinic 0292,clinic,primary_care,Seattle,WA,US,,-7
+C0293,C0293,Northwind Wenatchee Clinic 0293,clinic,urgent_care,Wenatchee,WA,US,,-7
+C0294,C0294,Northwind Spokane Clinic 0294,clinic,primary_care,Spokane,WA,US,,-7
+C0295,C0295,Northwind Seattle Clinic 0295,clinic,primary_care,Seattle,WA,US,,-7
+C0296,C0296,Northwind Everett Clinic 0296,clinic,specialty,Everett,WA,US,,-7
+C0297,C0297,Northwind Renton Clinic 0297,clinic,specialty,Renton,WA,US,,-7
+C0298,C0298,Northwind Edmonds Clinic 0298,clinic,primary_care,Edmonds,WA,US,,-7
+C0299,C0299,Northwind Longview Clinic 0299,clinic,primary_care,Longview,WA,US,,-7
+C0300,C0300,Northwind Vancouver Clinic 0300,clinic,primary_care,Vancouver,WA,US,,-7
+C0301,C0301,Northwind Gresham Clinic 0301,clinic,specialty,Gresham,OR,US,,-7
+C0302,C0302,Northwind Portland Clinic 0302,clinic,primary_care,Portland,OR,US,,-7
+C0303,C0303,Northwind Portland Clinic 0303,clinic,primary_care,Portland,OR,US,,-7
+C0304,C0304,Northwind Bend Clinic 0304,clinic,urgent_care,Bend,OR,US,,-7
+C0305,C0305,Northwind Albany Clinic 0305,clinic,urgent_care,Albany,OR,US,,-7
+C0306,C0306,Northwind Beaverton Clinic 0306,clinic,specialty,Beaverton,OR,US,,-7
+C0307,C0307,Northwind McMinnville Clinic 0307,clinic,imaging_center,McMinnville,OR,US,,-7
+C0308,C0308,Northwind Springfield Clinic 0308,clinic,specialty,Springfield,OR,US,,-7
+C0309,C0309,Northwind Portland Clinic 0309,clinic,imaging_center,Portland,OR,US,,-7
+C0310,C0310,Northwind Gresham Clinic 0310,clinic,imaging_center,Gresham,OR,US,,-7
+C0311,C0311,Northwind Beaverton Clinic 0311,clinic,primary_care,Beaverton,OR,US,,-7
+C0312,C0312,Northwind Beaverton Clinic 0312,clinic,primary_care,Beaverton,OR,US,,-7
+C0313,C0313,Northwind Salem Clinic 0313,clinic,urgent_care,Salem,OR,US,,-7
+C0314,C0314,Northwind Gresham Clinic 0314,clinic,primary_care,Gresham,OR,US,,-7
+C0315,C0315,Northwind Medford Clinic 0315,clinic,primary_care,Medford,OR,US,,-7
+C0316,C0316,Northwind Corvallis Clinic 0316,clinic,primary_care,Corvallis,OR,US,,-7
+C0317,C0317,Northwind Springfield Clinic 0317,clinic,primary_care,Springfield,OR,US,,-7
+C0318,C0318,Northwind Tigard Clinic 0318,clinic,specialty,Tigard,OR,US,,-7
+C0319,C0319,Northwind Hood River Clinic 0319,clinic,primary_care,Hood River,OR,US,,-7
+C0320,C0320,Northwind Bend Clinic 0320,clinic,primary_care,Bend,OR,US,,-7
+C0321,C0321,Northwind Pendleton Clinic 0321,clinic,urgent_care,Pendleton,OR,US,,-7
+C0322,C0322,Northwind Gresham Clinic 0322,clinic,primary_care,Gresham,OR,US,,-7
+C0323,C0323,Northwind Gresham Clinic 0323,clinic,primary_care,Gresham,OR,US,,-7
+C0324,C0324,Northwind Salem Clinic 0324,clinic,primary_care,Salem,OR,US,,-7
+C0325,C0325,Northwind Salem Clinic 0325,clinic,specialty,Salem,OR,US,,-7
+C0326,C0326,Northwind Portland Clinic 0326,clinic,primary_care,Portland,OR,US,,-7
+C0327,C0327,Northwind Grants Pass Clinic 0327,clinic,imaging_center,Grants Pass,OR,US,,-7
+C0328,C0328,Northwind Salem Clinic 0328,clinic,primary_care,Salem,OR,US,,-7
+C0329,C0329,Northwind Burns Clinic 0329,clinic,specialty,Burns,OR,US,,-7
+C0330,C0330,Northwind Hillsboro Clinic 0330,clinic,urgent_care,Hillsboro,OR,US,,-7
+C0331,C0331,Northwind Woodburn Clinic 0331,clinic,specialty,Woodburn,OR,US,,-7
+C0332,C0332,Northwind Hood River Clinic 0332,clinic,specialty,Hood River,OR,US,,-7
+C0333,C0333,Northwind Beaverton Clinic 0333,clinic,imaging_center,Beaverton,OR,US,,-7
+C0334,C0334,Northwind Salem Clinic 0334,clinic,primary_care,Salem,OR,US,,-7
+C0335,C0335,Northwind Salem Clinic 0335,clinic,primary_care,Salem,OR,US,,-7
+C0336,C0336,Northwind Salem Clinic 0336,clinic,imaging_center,Salem,OR,US,,-7
+C0337,C0337,Northwind Portland Clinic 0337,clinic,urgent_care,Portland,OR,US,,-7
+C0338,C0338,Northwind McMinnville Clinic 0338,clinic,primary_care,McMinnville,OR,US,,-7
+C0339,C0339,Northwind Portland Clinic 0339,clinic,primary_care,Portland,OR,US,,-7
+C0340,C0340,Northwind Tualatin Clinic 0340,clinic,specialty,Tualatin,OR,US,,-7
+C0341,C0341,Northwind Newberg Clinic 0341,clinic,primary_care,Newberg,OR,US,,-7
+C0342,C0342,Northwind McMinnville Clinic 0342,clinic,urgent_care,McMinnville,OR,US,,-7
+C0343,C0343,Northwind Portland Clinic 0343,clinic,specialty,Portland,OR,US,,-7
+C0344,C0344,Northwind Gresham Clinic 0344,clinic,imaging_center,Gresham,OR,US,,-7
+C0345,C0345,Northwind Portland Clinic 0345,clinic,primary_care,Portland,OR,US,,-7
+C0346,C0346,Northwind The Dalles Clinic 0346,clinic,specialty,The Dalles,OR,US,,-7
+C0347,C0347,Northwind Hood River Clinic 0347,clinic,urgent_care,Hood River,OR,US,,-7
+C0348,C0348,Northwind Beaverton Clinic 0348,clinic,primary_care,Beaverton,OR,US,,-7
+C0349,C0349,Northwind Salem Clinic 0349,clinic,primary_care,Salem,OR,US,,-7
+C0350,C0350,Northwind Hillsboro Clinic 0350,clinic,primary_care,Hillsboro,OR,US,,-7
+C0351,C0351,Northwind Pendleton Clinic 0351,clinic,primary_care,Pendleton,OR,US,,-7
+C0352,C0352,Northwind Portland Clinic 0352,clinic,primary_care,Portland,OR,US,,-7
+C0353,C0353,Northwind Bend Clinic 0353,clinic,primary_care,Bend,OR,US,,-7
+C0354,C0354,Northwind Gresham Clinic 0354,clinic,primary_care,Gresham,OR,US,,-7
+C0355,C0355,Northwind Grants Pass Clinic 0355,clinic,primary_care,Grants Pass,OR,US,,-7
+C0356,C0356,Northwind Beaverton Clinic 0356,clinic,specialty,Beaverton,OR,US,,-7
+C0357,C0357,Northwind Klamath Falls Clinic 0357,clinic,specialty,Klamath Falls,OR,US,,-7
+C0358,C0358,Northwind West Linn Clinic 0358,clinic,primary_care,West Linn,OR,US,,-7
+C0359,C0359,Northwind Portland Clinic 0359,clinic,primary_care,Portland,OR,US,,-7
+C0360,C0360,Northwind Portland Clinic 0360,clinic,primary_care,Portland,OR,US,,-7
+C0361,C0361,Northwind Albany Clinic 0361,clinic,specialty,Albany,OR,US,,-7
+C0362,C0362,Northwind Gresham Clinic 0362,clinic,primary_care,Gresham,OR,US,,-7
+C0363,C0363,Northwind Gresham Clinic 0363,clinic,specialty,Gresham,OR,US,,-7
+C0364,C0364,Northwind Hood River Clinic 0364,clinic,primary_care,Hood River,OR,US,,-7
+C0365,C0365,Northwind Woodburn Clinic 0365,clinic,imaging_center,Woodburn,OR,US,,-7
+C0366,C0366,Northwind Bend Clinic 0366,clinic,specialty,Bend,OR,US,,-7
+C0367,C0367,Northwind Portland Clinic 0367,clinic,urgent_care,Portland,OR,US,,-7
+C0368,C0368,Northwind Tualatin Clinic 0368,clinic,primary_care,Tualatin,OR,US,,-7
+C0369,C0369,Northwind Portland Clinic 0369,clinic,primary_care,Portland,OR,US,,-7
+C0370,C0370,Northwind Coos Bay Clinic 0370,clinic,specialty,Coos Bay,OR,US,,-7
+C0371,C0371,Northwind Grants Pass Clinic 0371,clinic,primary_care,Grants Pass,OR,US,,-7
+C0372,C0372,Northwind Portland Clinic 0372,clinic,urgent_care,Portland,OR,US,,-7
+C0373,C0373,Northwind Beaverton Clinic 0373,clinic,primary_care,Beaverton,OR,US,,-7
+C0374,C0374,Northwind Albany Clinic 0374,clinic,urgent_care,Albany,OR,US,,-7
+C0375,C0375,Northwind Newberg Clinic 0375,clinic,imaging_center,Newberg,OR,US,,-7
+C0376,C0376,Northwind Coos Bay Clinic 0376,clinic,primary_care,Coos Bay,OR,US,,-7
+C0377,C0377,Northwind Eugene Clinic 0377,clinic,urgent_care,Eugene,OR,US,,-7
+C0378,C0378,Northwind Tigard Clinic 0378,clinic,urgent_care,Tigard,OR,US,,-7
+C0379,C0379,Northwind Coos Bay Clinic 0379,clinic,primary_care,Coos Bay,OR,US,,-7
+C0380,C0380,Northwind Roseburg Clinic 0380,clinic,primary_care,Roseburg,OR,US,,-7
+C0381,C0381,Northwind Gresham Clinic 0381,clinic,primary_care,Gresham,OR,US,,-7
+C0382,C0382,Northwind Pendleton Clinic 0382,clinic,imaging_center,Pendleton,OR,US,,-7
+C0383,C0383,Northwind Salem Clinic 0383,clinic,urgent_care,Salem,OR,US,,-7
+C0384,C0384,Northwind Corvallis Clinic 0384,clinic,primary_care,Corvallis,OR,US,,-7
+C0385,C0385,Northwind Medford Clinic 0385,clinic,primary_care,Medford,OR,US,,-7
+C0386,C0386,Northwind Lake Oswego Clinic 0386,clinic,primary_care,Lake Oswego,OR,US,,-7
+C0387,C0387,Northwind Hillsboro Clinic 0387,clinic,primary_care,Hillsboro,OR,US,,-7
+C0388,C0388,Northwind Bend Clinic 0388,clinic,specialty,Bend,OR,US,,-7
+C0389,C0389,Northwind Bend Clinic 0389,clinic,primary_care,Bend,OR,US,,-7
+C0390,C0390,Northwind Beaverton Clinic 0390,clinic,imaging_center,Beaverton,OR,US,,-7
+C0391,C0391,Northwind The Dalles Clinic 0391,clinic,specialty,The Dalles,OR,US,,-7
+C0392,C0392,Northwind Klamath Falls Clinic 0392,clinic,imaging_center,Klamath Falls,OR,US,,-7
+C0393,C0393,Northwind Eugene Clinic 0393,clinic,specialty,Eugene,OR,US,,-7
+C0394,C0394,Northwind Hillsboro Clinic 0394,clinic,primary_care,Hillsboro,OR,US,,-7
+C0395,C0395,Northwind Beaverton Clinic 0395,clinic,primary_care,Beaverton,OR,US,,-7
+C0396,C0396,Northwind Beaverton Clinic 0396,clinic,specialty,Beaverton,OR,US,,-7
+C0397,C0397,Northwind Tigard Clinic 0397,clinic,urgent_care,Tigard,OR,US,,-7
+C0398,C0398,Northwind Portland Clinic 0398,clinic,specialty,Portland,OR,US,,-7
+C0399,C0399,Northwind Coos Bay Clinic 0399,clinic,primary_care,Coos Bay,OR,US,,-7
+C0400,C0400,Northwind Burns Clinic 0400,clinic,primary_care,Burns,OR,US,,-7
+C0401,C0401,Northwind Portland Clinic 0401,clinic,primary_care,Portland,OR,US,,-7
+C0402,C0402,Northwind Tualatin Clinic 0402,clinic,primary_care,Tualatin,OR,US,,-7
+C0403,C0403,Northwind Portland Clinic 0403,clinic,primary_care,Portland,OR,US,,-7
+C0404,C0404,Northwind Tualatin Clinic 0404,clinic,specialty,Tualatin,OR,US,,-7
+C0405,C0405,Northwind Tualatin Clinic 0405,clinic,primary_care,Tualatin,OR,US,,-7
+C0406,C0406,Northwind Portland Clinic 0406,clinic,urgent_care,Portland,OR,US,,-7
+C0407,C0407,Northwind Portland Clinic 0407,clinic,primary_care,Portland,OR,US,,-7
+C0408,C0408,Northwind Eugene Clinic 0408,clinic,primary_care,Eugene,OR,US,,-7
+C0409,C0409,Northwind Salem Clinic 0409,clinic,specialty,Salem,OR,US,,-7
+C0410,C0410,Northwind Albany Clinic 0410,clinic,primary_care,Albany,OR,US,,-7
+C0411,C0411,Northwind Eugene Clinic 0411,clinic,primary_care,Eugene,OR,US,,-7
+C0412,C0412,Northwind The Dalles Clinic 0412,clinic,primary_care,The Dalles,OR,US,,-7
+C0413,C0413,Northwind West Linn Clinic 0413,clinic,primary_care,West Linn,OR,US,,-7
+C0414,C0414,Northwind Bend Clinic 0414,clinic,primary_care,Bend,OR,US,,-7
+C0415,C0415,Northwind Burns Clinic 0415,clinic,imaging_center,Burns,OR,US,,-7
+C0416,C0416,Northwind Beaverton Clinic 0416,clinic,primary_care,Beaverton,OR,US,,-7
+C0417,C0417,Northwind Beaverton Clinic 0417,clinic,specialty,Beaverton,OR,US,,-7
+C0418,C0418,Northwind Portland Clinic 0418,clinic,specialty,Portland,OR,US,,-7
+C0419,C0419,Northwind Oregon City Clinic 0419,clinic,primary_care,Oregon City,OR,US,,-7
+C0420,C0420,Northwind Salem Clinic 0420,clinic,urgent_care,Salem,OR,US,,-7
+C0421,C0421,Northwind Klamath Falls Clinic 0421,clinic,specialty,Klamath Falls,OR,US,,-7
+C0422,C0422,Northwind McMinnville Clinic 0422,clinic,primary_care,McMinnville,OR,US,,-7
+C0423,C0423,Northwind Salem Clinic 0423,clinic,primary_care,Salem,OR,US,,-7
+C0424,C0424,Northwind Tualatin Clinic 0424,clinic,primary_care,Tualatin,OR,US,,-7
+C0425,C0425,Northwind Springfield Clinic 0425,clinic,specialty,Springfield,OR,US,,-7
+C0426,C0426,Northwind Bend Clinic 0426,clinic,primary_care,Bend,OR,US,,-7
+C0427,C0427,Northwind Hillsboro Clinic 0427,clinic,primary_care,Hillsboro,OR,US,,-7
+C0428,C0428,Northwind Seaside Clinic 0428,clinic,primary_care,Seaside,OR,US,,-7
+C0429,C0429,Northwind Pendleton Clinic 0429,clinic,primary_care,Pendleton,OR,US,,-7
+C0430,C0430,Northwind Oregon City Clinic 0430,clinic,specialty,Oregon City,OR,US,,-7
+C0431,C0431,Northwind Salem Clinic 0431,clinic,primary_care,Salem,OR,US,,-7
+C0432,C0432,Northwind Salem Clinic 0432,clinic,primary_care,Salem,OR,US,,-7
+C0433,C0433,Northwind Bend Clinic 0433,clinic,specialty,Bend,OR,US,,-7
+C0434,C0434,Northwind Astoria Clinic 0434,clinic,imaging_center,Astoria,OR,US,,-7
+C0435,C0435,Northwind Lake Oswego Clinic 0435,clinic,primary_care,Lake Oswego,OR,US,,-7
+C0436,C0436,Northwind Portland Clinic 0436,clinic,imaging_center,Portland,OR,US,,-7
+C0437,C0437,Northwind Beaverton Clinic 0437,clinic,imaging_center,Beaverton,OR,US,,-7
+C0438,C0438,Northwind Tigard Clinic 0438,clinic,specialty,Tigard,OR,US,,-7
+C0439,C0439,Northwind Salem Clinic 0439,clinic,imaging_center,Salem,OR,US,,-7
+C0440,C0440,Northwind Bend Clinic 0440,clinic,primary_care,Bend,OR,US,,-7
+C0441,C0441,Northwind Hillsboro Clinic 0441,clinic,primary_care,Hillsboro,OR,US,,-7
+C0442,C0442,Northwind Medford Clinic 0442,clinic,primary_care,Medford,OR,US,,-7
+C0443,C0443,Northwind Seaside Clinic 0443,clinic,primary_care,Seaside,OR,US,,-7
+C0444,C0444,Northwind Portland Clinic 0444,clinic,primary_care,Portland,OR,US,,-7
+C0445,C0445,Northwind Gresham Clinic 0445,clinic,specialty,Gresham,OR,US,,-7
+C0446,C0446,Northwind Woodburn Clinic 0446,clinic,specialty,Woodburn,OR,US,,-7
+C0447,C0447,Northwind Burns Clinic 0447,clinic,primary_care,Burns,OR,US,,-7
+C0448,C0448,Northwind West Linn Clinic 0448,clinic,primary_care,West Linn,OR,US,,-7
+C0449,C0449,Northwind Portland Clinic 0449,clinic,primary_care,Portland,OR,US,,-7
+C0450,C0450,Northwind Medford Clinic 0450,clinic,specialty,Medford,OR,US,,-7
+C0451,C0451,Northwind Klamath Falls Clinic 0451,clinic,primary_care,Klamath Falls,OR,US,,-7
+C0452,C0452,Northwind Corvallis Clinic 0452,clinic,primary_care,Corvallis,OR,US,,-7
+C0453,C0453,Northwind Bend Clinic 0453,clinic,specialty,Bend,OR,US,,-7
+C0454,C0454,Northwind Pendleton Clinic 0454,clinic,primary_care,Pendleton,OR,US,,-7
+C0455,C0455,Northwind The Dalles Clinic 0455,clinic,primary_care,The Dalles,OR,US,,-7
+C0456,C0456,Northwind Gresham Clinic 0456,clinic,primary_care,Gresham,OR,US,,-7
+C0457,C0457,Northwind Burns Clinic 0457,clinic,specialty,Burns,OR,US,,-7
+C0458,C0458,Northwind Salem Clinic 0458,clinic,imaging_center,Salem,OR,US,,-7
+C0459,C0459,Northwind Newberg Clinic 0459,clinic,primary_care,Newberg,OR,US,,-7
+C0460,C0460,Northwind Albany Clinic 0460,clinic,primary_care,Albany,OR,US,,-7
+C0461,C0461,Northwind Salem Clinic 0461,clinic,primary_care,Salem,OR,US,,-7
+C0462,C0462,Northwind Bend Clinic 0462,clinic,primary_care,Bend,OR,US,,-7
+C0463,C0463,Northwind Portland Clinic 0463,clinic,primary_care,Portland,OR,US,,-7
+C0464,C0464,Northwind Salem Clinic 0464,clinic,primary_care,Salem,OR,US,,-7
+C0465,C0465,Northwind Salem Clinic 0465,clinic,urgent_care,Salem,OR,US,,-7
+C0466,C0466,Northwind Tigard Clinic 0466,clinic,urgent_care,Tigard,OR,US,,-7
+C0467,C0467,Northwind Portland Clinic 0467,clinic,imaging_center,Portland,OR,US,,-7
+C0468,C0468,Northwind Eugene Clinic 0468,clinic,urgent_care,Eugene,OR,US,,-7
+C0469,C0469,Northwind Bend Clinic 0469,clinic,primary_care,Bend,OR,US,,-7
+C0470,C0470,Northwind Tigard Clinic 0470,clinic,primary_care,Tigard,OR,US,,-7
+C0471,C0471,Northwind Eugene Clinic 0471,clinic,primary_care,Eugene,OR,US,,-7
+C0472,C0472,Northwind Hillsboro Clinic 0472,clinic,primary_care,Hillsboro,OR,US,,-7
+C0473,C0473,Northwind Coos Bay Clinic 0473,clinic,specialty,Coos Bay,OR,US,,-7
+C0474,C0474,Northwind The Dalles Clinic 0474,clinic,primary_care,The Dalles,OR,US,,-7
+C0475,C0475,Northwind Medford Clinic 0475,clinic,primary_care,Medford,OR,US,,-7
+C0476,C0476,Northwind Gresham Clinic 0476,clinic,specialty,Gresham,OR,US,,-7
+C0477,C0477,Northwind Tigard Clinic 0477,clinic,primary_care,Tigard,OR,US,,-7
+C0478,C0478,Northwind Newberg Clinic 0478,clinic,imaging_center,Newberg,OR,US,,-7
+C0479,C0479,Northwind Oregon City Clinic 0479,clinic,primary_care,Oregon City,OR,US,,-7
+C0480,C0480,Northwind Albany Clinic 0480,clinic,primary_care,Albany,OR,US,,-7
+C0481,C0481,Northwind Portland Clinic 0481,clinic,urgent_care,Portland,OR,US,,-7
+C0482,C0482,Northwind Salem Clinic 0482,clinic,primary_care,Salem,OR,US,,-7
+C0483,C0483,Northwind Lake Oswego Clinic 0483,clinic,primary_care,Lake Oswego,OR,US,,-7
+C0484,C0484,Northwind Salem Clinic 0484,clinic,specialty,Salem,OR,US,,-7
+C0485,C0485,Northwind Salem Clinic 0485,clinic,primary_care,Salem,OR,US,,-7
+C0486,C0486,Northwind Pendleton Clinic 0486,clinic,primary_care,Pendleton,OR,US,,-7
+C0487,C0487,Northwind Gresham Clinic 0487,clinic,primary_care,Gresham,OR,US,,-7
+C0488,C0488,Northwind Eugene Clinic 0488,clinic,primary_care,Eugene,OR,US,,-7
+C0489,C0489,Northwind Corvallis Clinic 0489,clinic,specialty,Corvallis,OR,US,,-7
+C0490,C0490,Northwind Tigard Clinic 0490,clinic,primary_care,Tigard,OR,US,,-7
+C0491,C0491,Northwind Bend Clinic 0491,clinic,urgent_care,Bend,OR,US,,-7
+C0492,C0492,Northwind Salem Clinic 0492,clinic,primary_care,Salem,OR,US,,-7
+C0493,C0493,Northwind Portland Clinic 0493,clinic,primary_care,Portland,OR,US,,-7
+C0494,C0494,Northwind Pendleton Clinic 0494,clinic,primary_care,Pendleton,OR,US,,-7
+C0495,C0495,Northwind Ontario Clinic 0495,clinic,specialty,Ontario,OR,US,,-7
+C0496,C0496,Northwind Coos Bay Clinic 0496,clinic,specialty,Coos Bay,OR,US,,-7
+C0497,C0497,Northwind Portland Clinic 0497,clinic,primary_care,Portland,OR,US,,-7
+C0498,C0498,Northwind Lake Oswego Clinic 0498,clinic,specialty,Lake Oswego,OR,US,,-7
+C0499,C0499,Northwind Pendleton Clinic 0499,clinic,primary_care,Pendleton,OR,US,,-7
+C0500,C0500,Northwind Astoria Clinic 0500,clinic,specialty,Astoria,OR,US,,-7
+N001,N001,Northwind Spokane Hospice 001,non_acute,hospice,Spokane,WA,US,,-7
+N002,N002,Northwind Vancouver Home Health 002,non_acute,home_health,Vancouver,WA,US,,-7
+N003,N003,Northwind Pasco Behavioral Health 003,non_acute,behavioral_health,Pasco,WA,US,,-7
+N004,N004,Northwind Redmond Senior Living 004,non_acute,senior_living,Redmond,WA,US,,-7
+N005,N005,Northwind Everett Senior Living 005,non_acute,senior_living,Everett,WA,US,,-7
+N006,N006,Northwind Centralia Hospice 006,non_acute,hospice,Centralia,WA,US,,-7
+N007,N007,Northwind Richland Home Health 007,non_acute,home_health,Richland,WA,US,,-7
+N008,N008,Northwind Pasco Home Health 008,non_acute,home_health,Pasco,WA,US,,-7
+N009,N009,Northwind Seattle Home Health 009,non_acute,home_health,Seattle,WA,US,,-7
+N010,N010,Northwind Lacey Hospice 010,non_acute,hospice,Lacey,WA,US,,-7
+N011,N011,Northwind Port Angeles Rehab 011,non_acute,rehab,Port Angeles,WA,US,,-7
+N012,N012,Northwind Vancouver Admin Office 012,non_acute,admin_office,Vancouver,WA,US,,-7
+N013,N013,Northwind Vancouver Behavioral Health 013,non_acute,behavioral_health,Vancouver,WA,US,,-7
+N014,N014,Northwind Everett Hospice 014,non_acute,hospice,Everett,WA,US,,-7
+N015,N015,Northwind Wenatchee Skilled Nursing 015,non_acute,skilled_nursing,Wenatchee,WA,US,,-7
+N016,N016,Northwind Seattle Skilled Nursing 016,non_acute,skilled_nursing,Seattle,WA,US,,-7
+N017,N017,Northwind Lynnwood Admin Office 017,non_acute,admin_office,Lynnwood,WA,US,,-7
+N018,N018,Northwind Marysville Home Health 018,non_acute,home_health,Marysville,WA,US,,-7
+N019,N019,Northwind Kent Home Health 019,non_acute,home_health,Kent,WA,US,,-7
+N020,N020,Northwind Pullman Rehab 020,non_acute,rehab,Pullman,WA,US,,-7
+N021,N021,Northwind Burien Admin Office 021,non_acute,admin_office,Burien,WA,US,,-7
+N022,N022,Northwind Tacoma Behavioral Health 022,non_acute,behavioral_health,Tacoma,WA,US,,-7
+N023,N023,Northwind Port Angeles Admin Office 023,non_acute,admin_office,Port Angeles,WA,US,,-7
+N024,N024,Northwind Renton Senior Living 024,non_acute,senior_living,Renton,WA,US,,-7
+N025,N025,Northwind Kent Rehab 025,non_acute,rehab,Kent,WA,US,,-7
+N026,N026,Northwind Kirkland Senior Living 026,non_acute,senior_living,Kirkland,WA,US,,-7
+N027,N027,Northwind Kent Admin Office 027,non_acute,admin_office,Kent,WA,US,,-7
+N028,N028,Northwind Spokane Behavioral Health 028,non_acute,behavioral_health,Spokane,WA,US,,-7
+N029,N029,Northwind Moses Lake Hospice 029,non_acute,hospice,Moses Lake,WA,US,,-7
+N030,N030,Northwind Seattle Hospice 030,non_acute,hospice,Seattle,WA,US,,-7
+N031,N031,Northwind Olympia Hospice 031,non_acute,hospice,Olympia,WA,US,,-7
+N032,N032,Northwind Auburn Senior Living 032,non_acute,senior_living,Auburn,WA,US,,-7
+N033,N033,Northwind Edmonds Rehab 033,non_acute,rehab,Edmonds,WA,US,,-7
+N034,N034,Northwind Ellensburg Behavioral Health 034,non_acute,behavioral_health,Ellensburg,WA,US,,-7
+N035,N035,Northwind Yakima Admin Office 035,non_acute,admin_office,Yakima,WA,US,,-7
+N036,N036,Northwind Yakima Admin Office 036,non_acute,admin_office,Yakima,WA,US,,-7
+N037,N037,Northwind Centralia Skilled Nursing 037,non_acute,skilled_nursing,Centralia,WA,US,,-7
+N038,N038,Northwind Wenatchee Home Health 038,non_acute,home_health,Wenatchee,WA,US,,-7
+N039,N039,Northwind Wenatchee Rehab 039,non_acute,rehab,Wenatchee,WA,US,,-7
+N040,N040,Northwind Vancouver Hospice 040,non_acute,hospice,Vancouver,WA,US,,-7
+N041,N041,Northwind Lakewood Skilled Nursing 041,non_acute,skilled_nursing,Lakewood,WA,US,,-7
+N042,N042,Northwind Burien Senior Living 042,non_acute,senior_living,Burien,WA,US,,-7
+N043,N043,Northwind Spokane Skilled Nursing 043,non_acute,skilled_nursing,Spokane,WA,US,,-7
+N044,N044,Northwind Bothell Senior Living 044,non_acute,senior_living,Bothell,WA,US,,-7
+N045,N045,Northwind Kent Hospice 045,non_acute,hospice,Kent,WA,US,,-7
+N046,N046,Northwind Bellingham Rehab 046,non_acute,rehab,Bellingham,WA,US,,-7
+N047,N047,Northwind Pullman Home Health 047,non_acute,home_health,Pullman,WA,US,,-7
+N048,N048,Northwind Colville Rehab 048,non_acute,rehab,Colville,WA,US,,-7
+N049,N049,Northwind Marysville Senior Living 049,non_acute,senior_living,Marysville,WA,US,,-7
+N050,N050,Northwind Pullman Rehab 050,non_acute,rehab,Pullman,WA,US,,-7
+N051,N051,Northwind Spokane Senior Living 051,non_acute,senior_living,Spokane,WA,US,,-7
+N052,N052,Northwind Federal Way Behavioral Health 052,non_acute,behavioral_health,Federal Way,WA,US,,-7
+N053,N053,Northwind Vancouver Hospice 053,non_acute,hospice,Vancouver,WA,US,,-7
+N054,N054,Northwind Bellingham Behavioral Health 054,non_acute,behavioral_health,Bellingham,WA,US,,-7
+N055,N055,Northwind Puyallup Home Health 055,non_acute,home_health,Puyallup,WA,US,,-7
+N056,N056,Northwind Colville Home Health 056,non_acute,home_health,Colville,WA,US,,-7
+N057,N057,Northwind Kirkland Skilled Nursing 057,non_acute,skilled_nursing,Kirkland,WA,US,,-7
+N058,N058,Northwind Tacoma Behavioral Health 058,non_acute,behavioral_health,Tacoma,WA,US,,-7
+N059,N059,Northwind Tacoma Home Health 059,non_acute,home_health,Tacoma,WA,US,,-7
+N060,N060,Northwind Federal Way Behavioral Health 060,non_acute,behavioral_health,Federal Way,WA,US,,-7
+N061,N061,Northwind Federal Way Hospice 061,non_acute,hospice,Federal Way,WA,US,,-7
+N062,N062,Northwind Richland Behavioral Health 062,non_acute,behavioral_health,Richland,WA,US,,-7
+N063,N063,Northwind Lakewood Senior Living 063,non_acute,senior_living,Lakewood,WA,US,,-7
+N064,N064,Northwind Bellevue Home Health 064,non_acute,home_health,Bellevue,WA,US,,-7
+N065,N065,Northwind Spokane Hospice 065,non_acute,hospice,Spokane,WA,US,,-7
+N066,N066,Northwind Kennewick Hospice 066,non_acute,hospice,Kennewick,WA,US,,-7
+N067,N067,Northwind Vancouver Rehab 067,non_acute,rehab,Vancouver,WA,US,,-7
+N068,N068,Northwind Lacey Senior Living 068,non_acute,senior_living,Lacey,WA,US,,-7
+N069,N069,Northwind Kirkland Rehab 069,non_acute,rehab,Kirkland,WA,US,,-7
+N070,N070,Northwind Seattle Home Health 070,non_acute,home_health,Seattle,WA,US,,-7
+N071,N071,Northwind Marysville Skilled Nursing 071,non_acute,skilled_nursing,Marysville,WA,US,,-7
+N072,N072,Northwind Walla Walla Home Health 072,non_acute,home_health,Walla Walla,WA,US,,-7
+N073,N073,Northwind Olympia Home Health 073,non_acute,home_health,Olympia,WA,US,,-7
+N074,N074,Northwind Everett Home Health 074,non_acute,home_health,Everett,WA,US,,-7
+N075,N075,Northwind Bothell Hospice 075,non_acute,hospice,Bothell,WA,US,,-7
+N076,N076,Northwind Tacoma Behavioral Health 076,non_acute,behavioral_health,Tacoma,WA,US,,-7
+N077,N077,Northwind Federal Way Home Health 077,non_acute,home_health,Federal Way,WA,US,,-7
+N078,N078,Northwind Auburn Skilled Nursing 078,non_acute,skilled_nursing,Auburn,WA,US,,-7
+N079,N079,Northwind Spokane Rehab 079,non_acute,rehab,Spokane,WA,US,,-7
+N080,N080,Northwind Puyallup Behavioral Health 080,non_acute,behavioral_health,Puyallup,WA,US,,-7
+N081,N081,Northwind Vancouver Skilled Nursing 081,non_acute,skilled_nursing,Vancouver,WA,US,,-7
+N082,N082,Northwind Spokane Skilled Nursing 082,non_acute,skilled_nursing,Spokane,WA,US,,-7
+N083,N083,Northwind Marysville Rehab 083,non_acute,rehab,Marysville,WA,US,,-7
+N084,N084,Northwind Colville Skilled Nursing 084,non_acute,skilled_nursing,Colville,WA,US,,-7
+N085,N085,Northwind Everett Skilled Nursing 085,non_acute,skilled_nursing,Everett,WA,US,,-7
+N086,N086,Northwind Shoreline Skilled Nursing 086,non_acute,skilled_nursing,Shoreline,WA,US,,-7
+N087,N087,Northwind Kirkland Hospice 087,non_acute,hospice,Kirkland,WA,US,,-7
+N088,N088,Northwind Shoreline Skilled Nursing 088,non_acute,skilled_nursing,Shoreline,WA,US,,-7
+N089,N089,Northwind Vancouver Hospice 089,non_acute,hospice,Vancouver,WA,US,,-7
+N090,N090,Northwind Edmonds Admin Office 090,non_acute,admin_office,Edmonds,WA,US,,-7
+N091,N091,Northwind Seattle Home Health 091,non_acute,home_health,Seattle,WA,US,,-7
+N092,N092,Northwind Lakewood Senior Living 092,non_acute,senior_living,Lakewood,WA,US,,-7
+N093,N093,Northwind Aberdeen Behavioral Health 093,non_acute,behavioral_health,Aberdeen,WA,US,,-7
+N094,N094,Northwind Seattle Skilled Nursing 094,non_acute,skilled_nursing,Seattle,WA,US,,-7
+N095,N095,Northwind Kent Behavioral Health 095,non_acute,behavioral_health,Kent,WA,US,,-7
+N096,N096,Northwind Kennewick Hospice 096,non_acute,hospice,Kennewick,WA,US,,-7
+N097,N097,Northwind Spokane Rehab 097,non_acute,rehab,Spokane,WA,US,,-7
+N098,N098,Northwind Shoreline Hospice 098,non_acute,hospice,Shoreline,WA,US,,-7
+N099,N099,Northwind Spokane Skilled Nursing 099,non_acute,skilled_nursing,Spokane,WA,US,,-7
+N100,N100,Northwind Lakewood Home Health 100,non_acute,home_health,Lakewood,WA,US,,-7
+N101,N101,Northwind Kent Home Health 101,non_acute,home_health,Kent,WA,US,,-7
+N102,N102,Northwind Lakewood Admin Office 102,non_acute,admin_office,Lakewood,WA,US,,-7
+N103,N103,Northwind Vancouver Senior Living 103,non_acute,senior_living,Vancouver,WA,US,,-7
+N104,N104,Northwind Sequim Skilled Nursing 104,non_acute,skilled_nursing,Sequim,WA,US,,-7
+N105,N105,Northwind Federal Way Skilled Nursing 105,non_acute,skilled_nursing,Federal Way,WA,US,,-7
+N106,N106,Northwind Redmond Hospice 106,non_acute,hospice,Redmond,WA,US,,-7
+N107,N107,Northwind Kirkland Skilled Nursing 107,non_acute,skilled_nursing,Kirkland,WA,US,,-7
+N108,N108,Northwind Moses Lake Skilled Nursing 108,non_acute,skilled_nursing,Moses Lake,WA,US,,-7
+N109,N109,Northwind Seattle Senior Living 109,non_acute,senior_living,Seattle,WA,US,,-7
+N110,N110,Northwind Spokane Senior Living 110,non_acute,senior_living,Spokane,WA,US,,-7
+N111,N111,Northwind Centralia Behavioral Health 111,non_acute,behavioral_health,Centralia,WA,US,,-7
+N112,N112,Northwind Centralia Skilled Nursing 112,non_acute,skilled_nursing,Centralia,WA,US,,-7
+N113,N113,Northwind Edmonds Skilled Nursing 113,non_acute,skilled_nursing,Edmonds,WA,US,,-7
+N114,N114,Northwind Federal Way Hospice 114,non_acute,hospice,Federal Way,WA,US,,-7
+N115,N115,Northwind Tacoma Rehab 115,non_acute,rehab,Tacoma,WA,US,,-7
+N116,N116,Northwind Auburn Admin Office 116,non_acute,admin_office,Auburn,WA,US,,-7
+N117,N117,Northwind Spokane Senior Living 117,non_acute,senior_living,Spokane,WA,US,,-7
+N118,N118,Northwind Shoreline Senior Living 118,non_acute,senior_living,Shoreline,WA,US,,-7
+N119,N119,Northwind Pullman Admin Office 119,non_acute,admin_office,Pullman,WA,US,,-7
+N120,N120,Northwind Renton Hospice 120,non_acute,hospice,Renton,WA,US,,-7
+N121,N121,Northwind Kent Rehab 121,non_acute,rehab,Kent,WA,US,,-7
+N122,N122,Northwind Auburn Home Health 122,non_acute,home_health,Auburn,WA,US,,-7
+N123,N123,Northwind Vancouver Skilled Nursing 123,non_acute,skilled_nursing,Vancouver,WA,US,,-7
+N124,N124,Northwind Marysville Behavioral Health 124,non_acute,behavioral_health,Marysville,WA,US,,-7
+N125,N125,Northwind Renton Skilled Nursing 125,non_acute,skilled_nursing,Renton,WA,US,,-7
+N126,N126,Northwind Vancouver Home Health 126,non_acute,home_health,Vancouver,WA,US,,-7
+N127,N127,Northwind Pullman Skilled Nursing 127,non_acute,skilled_nursing,Pullman,WA,US,,-7
+N128,N128,Northwind Richland Skilled Nursing 128,non_acute,skilled_nursing,Richland,WA,US,,-7
+N129,N129,Northwind Kennewick Behavioral Health 129,non_acute,behavioral_health,Kennewick,WA,US,,-7
+N130,N130,Northwind Renton Home Health 130,non_acute,home_health,Renton,WA,US,,-7
+N131,N131,Northwind Burien Senior Living 131,non_acute,senior_living,Burien,WA,US,,-7
+N132,N132,Northwind Marysville Admin Office 132,non_acute,admin_office,Marysville,WA,US,,-7
+N133,N133,Northwind Moses Lake Home Health 133,non_acute,home_health,Moses Lake,WA,US,,-7
+N134,N134,Northwind Bremerton Admin Office 134,non_acute,admin_office,Bremerton,WA,US,,-7
+N135,N135,Northwind Puyallup Hospice 135,non_acute,hospice,Puyallup,WA,US,,-7
+N136,N136,Northwind Yakima Admin Office 136,non_acute,admin_office,Yakima,WA,US,,-7
+N137,N137,Northwind Spokane Behavioral Health 137,non_acute,behavioral_health,Spokane,WA,US,,-7
+N138,N138,Northwind Spokane Admin Office 138,non_acute,admin_office,Spokane,WA,US,,-7
+N139,N139,Northwind Seattle Admin Office 139,non_acute,admin_office,Seattle,WA,US,,-7
+N140,N140,Northwind Everett Hospice 140,non_acute,hospice,Everett,WA,US,,-7
+N141,N141,Northwind Kent Admin Office 141,non_acute,admin_office,Kent,WA,US,,-7
+N142,N142,Northwind Renton Skilled Nursing 142,non_acute,skilled_nursing,Renton,WA,US,,-7
+N143,N143,Northwind Tacoma Senior Living 143,non_acute,senior_living,Tacoma,WA,US,,-7
+N144,N144,Northwind Bellingham Admin Office 144,non_acute,admin_office,Bellingham,WA,US,,-7
+N145,N145,Northwind Seattle Home Health 145,non_acute,home_health,Seattle,WA,US,,-7
+N146,N146,Northwind Federal Way Hospice 146,non_acute,hospice,Federal Way,WA,US,,-7
+N147,N147,Northwind Lacey Senior Living 147,non_acute,senior_living,Lacey,WA,US,,-7
+N148,N148,Northwind Redmond Admin Office 148,non_acute,admin_office,Redmond,WA,US,,-7
+N149,N149,Northwind Lakewood Skilled Nursing 149,non_acute,skilled_nursing,Lakewood,WA,US,,-7
+N150,N150,Northwind Lynnwood Skilled Nursing 150,non_acute,skilled_nursing,Lynnwood,WA,US,,-7
+N151,N151,Northwind Kent Senior Living 151,non_acute,senior_living,Kent,WA,US,,-7
+N152,N152,Northwind Olympia Behavioral Health 152,non_acute,behavioral_health,Olympia,WA,US,,-7
+N153,N153,Northwind Pasco Hospice 153,non_acute,hospice,Pasco,WA,US,,-7
+N154,N154,Northwind Seattle Admin Office 154,non_acute,admin_office,Seattle,WA,US,,-7
+N155,N155,Northwind Everett Rehab 155,non_acute,rehab,Everett,WA,US,,-7
+N156,N156,Northwind Bellevue Skilled Nursing 156,non_acute,skilled_nursing,Bellevue,WA,US,,-7
+N157,N157,Northwind Tacoma Skilled Nursing 157,non_acute,skilled_nursing,Tacoma,WA,US,,-7
+N158,N158,Northwind Lakewood Admin Office 158,non_acute,admin_office,Lakewood,WA,US,,-7
+N159,N159,Northwind Seattle Senior Living 159,non_acute,senior_living,Seattle,WA,US,,-7
+N160,N160,Northwind Vancouver Behavioral Health 160,non_acute,behavioral_health,Vancouver,WA,US,,-7
+N161,N161,Northwind Seattle Home Health 161,non_acute,home_health,Seattle,WA,US,,-7
+N162,N162,Northwind Spokane Senior Living 162,non_acute,senior_living,Spokane,WA,US,,-7
+N163,N163,Northwind Pasco Behavioral Health 163,non_acute,behavioral_health,Pasco,WA,US,,-7
+N164,N164,Northwind Tacoma Senior Living 164,non_acute,senior_living,Tacoma,WA,US,,-7
+N165,N165,Northwind Renton Home Health 165,non_acute,home_health,Renton,WA,US,,-7
+N166,N166,Northwind Kirkland Senior Living 166,non_acute,senior_living,Kirkland,WA,US,,-7
+N167,N167,Northwind Tacoma Senior Living 167,non_acute,senior_living,Tacoma,WA,US,,-7
+N168,N168,Northwind Tacoma Skilled Nursing 168,non_acute,skilled_nursing,Tacoma,WA,US,,-7
+N169,N169,Northwind Renton Skilled Nursing 169,non_acute,skilled_nursing,Renton,WA,US,,-7
+N170,N170,Northwind Seattle Admin Office 170,non_acute,admin_office,Seattle,WA,US,,-7
+N171,N171,Northwind Aberdeen Skilled Nursing 171,non_acute,skilled_nursing,Aberdeen,WA,US,,-7
+N172,N172,Northwind Everett Behavioral Health 172,non_acute,behavioral_health,Everett,WA,US,,-7
+N173,N173,Northwind Vancouver Hospice 173,non_acute,hospice,Vancouver,WA,US,,-7
+N174,N174,Northwind Kirkland Rehab 174,non_acute,rehab,Kirkland,WA,US,,-7
+N175,N175,Northwind Walla Walla Senior Living 175,non_acute,senior_living,Walla Walla,WA,US,,-7
+N176,N176,Northwind Everett Skilled Nursing 176,non_acute,skilled_nursing,Everett,WA,US,,-7
+N177,N177,Northwind Bremerton Hospice 177,non_acute,hospice,Bremerton,WA,US,,-7
+N178,N178,Northwind Kent Hospice 178,non_acute,hospice,Kent,WA,US,,-7
+N179,N179,Northwind Lakewood Skilled Nursing 179,non_acute,skilled_nursing,Lakewood,WA,US,,-7
+N180,N180,Northwind Seattle Admin Office 180,non_acute,admin_office,Seattle,WA,US,,-7
+N181,N181,Northwind Spokane Home Health 181,non_acute,home_health,Spokane,WA,US,,-7
+N182,N182,Northwind Burien Rehab 182,non_acute,rehab,Burien,WA,US,,-7
+N183,N183,Northwind Bremerton Senior Living 183,non_acute,senior_living,Bremerton,WA,US,,-7
+N184,N184,Northwind Bellevue Home Health 184,non_acute,home_health,Bellevue,WA,US,,-7
+N185,N185,Northwind Marysville Skilled Nursing 185,non_acute,skilled_nursing,Marysville,WA,US,,-7
+N186,N186,Northwind Sequim Admin Office 186,non_acute,admin_office,Sequim,WA,US,,-7
+N187,N187,Northwind Ellensburg Senior Living 187,non_acute,senior_living,Ellensburg,WA,US,,-7
+N188,N188,Northwind Tacoma Home Health 188,non_acute,home_health,Tacoma,WA,US,,-7
+N189,N189,Northwind Seattle Rehab 189,non_acute,rehab,Seattle,WA,US,,-7
+N190,N190,Northwind Seattle Skilled Nursing 190,non_acute,skilled_nursing,Seattle,WA,US,,-7
+N191,N191,Northwind Seattle Skilled Nursing 191,non_acute,skilled_nursing,Seattle,WA,US,,-7
+N192,N192,Northwind Federal Way Skilled Nursing 192,non_acute,skilled_nursing,Federal Way,WA,US,,-7
+N193,N193,Northwind Pasco Skilled Nursing 193,non_acute,skilled_nursing,Pasco,WA,US,,-7
+N194,N194,Northwind Auburn Senior Living 194,non_acute,senior_living,Auburn,WA,US,,-7
+N195,N195,Northwind Bothell Skilled Nursing 195,non_acute,skilled_nursing,Bothell,WA,US,,-7
+N196,N196,Northwind Vancouver Home Health 196,non_acute,home_health,Vancouver,WA,US,,-7
+N197,N197,Northwind Burien Admin Office 197,non_acute,admin_office,Burien,WA,US,,-7
+N198,N198,Northwind Everett Home Health 198,non_acute,home_health,Everett,WA,US,,-7
+N199,N199,Northwind Bellevue Home Health 199,non_acute,home_health,Bellevue,WA,US,,-7
+N200,N200,Northwind Kent Admin Office 200,non_acute,admin_office,Kent,WA,US,,-7
+N201,N201,Northwind Kent Skilled Nursing 201,non_acute,skilled_nursing,Kent,WA,US,,-7
+N202,N202,Northwind Seattle Behavioral Health 202,non_acute,behavioral_health,Seattle,WA,US,,-7
+N203,N203,Northwind Renton Admin Office 203,non_acute,admin_office,Renton,WA,US,,-7
+N204,N204,Northwind Kirkland Behavioral Health 204,non_acute,behavioral_health,Kirkland,WA,US,,-7
+N205,N205,Northwind Bellevue Behavioral Health 205,non_acute,behavioral_health,Bellevue,WA,US,,-7
+N206,N206,Northwind Spokane Hospice 206,non_acute,hospice,Spokane,WA,US,,-7
+N207,N207,Northwind Bellevue Skilled Nursing 207,non_acute,skilled_nursing,Bellevue,WA,US,,-7
+N208,N208,Northwind Lynnwood Behavioral Health 208,non_acute,behavioral_health,Lynnwood,WA,US,,-7
+N209,N209,Northwind Renton Skilled Nursing 209,non_acute,skilled_nursing,Renton,WA,US,,-7
+N210,N210,Northwind Kent Senior Living 210,non_acute,senior_living,Kent,WA,US,,-7
+N211,N211,Northwind Seattle Rehab 211,non_acute,rehab,Seattle,WA,US,,-7
+N212,N212,Northwind Renton Home Health 212,non_acute,home_health,Renton,WA,US,,-7
+N213,N213,Northwind Seattle Behavioral Health 213,non_acute,behavioral_health,Seattle,WA,US,,-7
+N214,N214,Northwind Tacoma Behavioral Health 214,non_acute,behavioral_health,Tacoma,WA,US,,-7
+N215,N215,Northwind Moses Lake Hospice 215,non_acute,hospice,Moses Lake,WA,US,,-7
+N216,N216,Northwind Lynnwood Behavioral Health 216,non_acute,behavioral_health,Lynnwood,WA,US,,-7
+N217,N217,Northwind Spokane Admin Office 217,non_acute,admin_office,Spokane,WA,US,,-7
+N218,N218,Northwind Yakima Home Health 218,non_acute,home_health,Yakima,WA,US,,-7
+N219,N219,Northwind Bellevue Senior Living 219,non_acute,senior_living,Bellevue,WA,US,,-7
+N220,N220,Northwind Tacoma Home Health 220,non_acute,home_health,Tacoma,WA,US,,-7
+N221,N221,Northwind Bothell Home Health 221,non_acute,home_health,Bothell,WA,US,,-7
+N222,N222,Northwind Kirkland Home Health 222,non_acute,home_health,Kirkland,WA,US,,-7
+N223,N223,Northwind Bremerton Senior Living 223,non_acute,senior_living,Bremerton,WA,US,,-7
+N224,N224,Northwind Aberdeen Skilled Nursing 224,non_acute,skilled_nursing,Aberdeen,WA,US,,-7
+N225,N225,Northwind Tacoma Behavioral Health 225,non_acute,behavioral_health,Tacoma,WA,US,,-7
+N226,N226,Northwind Everett Hospice 226,non_acute,hospice,Everett,WA,US,,-7
+N227,N227,Northwind Ellensburg Rehab 227,non_acute,rehab,Ellensburg,WA,US,,-7
+N228,N228,Northwind Port Angeles Senior Living 228,non_acute,senior_living,Port Angeles,WA,US,,-7
+N229,N229,Northwind Ellensburg Admin Office 229,non_acute,admin_office,Ellensburg,WA,US,,-7
+N230,N230,Northwind Lacey Hospice 230,non_acute,hospice,Lacey,WA,US,,-7
+N231,N231,Northwind Ellensburg Rehab 231,non_acute,rehab,Ellensburg,WA,US,,-7
+N232,N232,Northwind Kennewick Home Health 232,non_acute,home_health,Kennewick,WA,US,,-7
+N233,N233,Northwind Wenatchee Behavioral Health 233,non_acute,behavioral_health,Wenatchee,WA,US,,-7
+N234,N234,Northwind Bellevue Hospice 234,non_acute,hospice,Bellevue,WA,US,,-7
+N235,N235,Northwind Everett Senior Living 235,non_acute,senior_living,Everett,WA,US,,-7
+N236,N236,Northwind Spokane Skilled Nursing 236,non_acute,skilled_nursing,Spokane,WA,US,,-7
+N237,N237,Northwind Bothell Skilled Nursing 237,non_acute,skilled_nursing,Bothell,WA,US,,-7
+N238,N238,Northwind Marysville Hospice 238,non_acute,hospice,Marysville,WA,US,,-7
+N239,N239,Northwind Centralia Hospice 239,non_acute,hospice,Centralia,WA,US,,-7
+N240,N240,Northwind Port Angeles Home Health 240,non_acute,home_health,Port Angeles,WA,US,,-7
+N241,N241,Northwind Tigard Admin Office 241,non_acute,admin_office,Tigard,OR,US,,-7
+N242,N242,Northwind Pendleton Hospice 242,non_acute,hospice,Pendleton,OR,US,,-7
+N243,N243,Northwind Beaverton Admin Office 243,non_acute,admin_office,Beaverton,OR,US,,-7
+N244,N244,Northwind Portland Rehab 244,non_acute,rehab,Portland,OR,US,,-7
+N245,N245,Northwind Ontario Rehab 245,non_acute,rehab,Ontario,OR,US,,-7
+N246,N246,Northwind Burns Skilled Nursing 246,non_acute,skilled_nursing,Burns,OR,US,,-7
+N247,N247,Northwind Medford Admin Office 247,non_acute,admin_office,Medford,OR,US,,-7
+N248,N248,Northwind Astoria Senior Living 248,non_acute,senior_living,Astoria,OR,US,,-7
+N249,N249,Northwind Coos Bay Admin Office 249,non_acute,admin_office,Coos Bay,OR,US,,-7
+N250,N250,Northwind Portland Behavioral Health 250,non_acute,behavioral_health,Portland,OR,US,,-7
+N251,N251,Northwind Medford Behavioral Health 251,non_acute,behavioral_health,Medford,OR,US,,-7
+N252,N252,Northwind Gresham Home Health 252,non_acute,home_health,Gresham,OR,US,,-7
+N253,N253,Northwind Eugene Skilled Nursing 253,non_acute,skilled_nursing,Eugene,OR,US,,-7
+N254,N254,Northwind West Linn Skilled Nursing 254,non_acute,skilled_nursing,West Linn,OR,US,,-7
+N255,N255,Northwind Klamath Falls Home Health 255,non_acute,home_health,Klamath Falls,OR,US,,-7
+N256,N256,Northwind Lake Oswego Skilled Nursing 256,non_acute,skilled_nursing,Lake Oswego,OR,US,,-7
+N257,N257,Northwind Klamath Falls Senior Living 257,non_acute,senior_living,Klamath Falls,OR,US,,-7
+N258,N258,Northwind Beaverton Senior Living 258,non_acute,senior_living,Beaverton,OR,US,,-7
+N259,N259,Northwind Eugene Home Health 259,non_acute,home_health,Eugene,OR,US,,-7
+N260,N260,Northwind Springfield Skilled Nursing 260,non_acute,skilled_nursing,Springfield,OR,US,,-7
+N261,N261,Northwind Newberg Behavioral Health 261,non_acute,behavioral_health,Newberg,OR,US,,-7
+N262,N262,Northwind Ontario Behavioral Health 262,non_acute,behavioral_health,Ontario,OR,US,,-7
+N263,N263,Northwind McMinnville Admin Office 263,non_acute,admin_office,McMinnville,OR,US,,-7
+N264,N264,Northwind Springfield Behavioral Health 264,non_acute,behavioral_health,Springfield,OR,US,,-7
+N265,N265,Northwind Grants Pass Behavioral Health 265,non_acute,behavioral_health,Grants Pass,OR,US,,-7
+N266,N266,Northwind Portland Senior Living 266,non_acute,senior_living,Portland,OR,US,,-7
+N267,N267,Northwind Portland Home Health 267,non_acute,home_health,Portland,OR,US,,-7
+N268,N268,Northwind Portland Home Health 268,non_acute,home_health,Portland,OR,US,,-7
+N269,N269,Northwind Corvallis Senior Living 269,non_acute,senior_living,Corvallis,OR,US,,-7
+N270,N270,Northwind Hillsboro Hospice 270,non_acute,hospice,Hillsboro,OR,US,,-7
+N271,N271,Northwind Salem Rehab 271,non_acute,rehab,Salem,OR,US,,-7
+N272,N272,Northwind Beaverton Home Health 272,non_acute,home_health,Beaverton,OR,US,,-7
+N273,N273,Northwind Eugene Rehab 273,non_acute,rehab,Eugene,OR,US,,-7
+N274,N274,Northwind Pendleton Rehab 274,non_acute,rehab,Pendleton,OR,US,,-7
+N275,N275,Northwind The Dalles Behavioral Health 275,non_acute,behavioral_health,The Dalles,OR,US,,-7
+N276,N276,Northwind Lake Oswego Senior Living 276,non_acute,senior_living,Lake Oswego,OR,US,,-7
+N277,N277,Northwind Grants Pass Rehab 277,non_acute,rehab,Grants Pass,OR,US,,-7
+N278,N278,Northwind Tualatin Hospice 278,non_acute,hospice,Tualatin,OR,US,,-7
+N279,N279,Northwind Medford Rehab 279,non_acute,rehab,Medford,OR,US,,-7
+N280,N280,Northwind Bend Admin Office 280,non_acute,admin_office,Bend,OR,US,,-7
+N281,N281,Northwind Ontario Behavioral Health 281,non_acute,behavioral_health,Ontario,OR,US,,-7
+N282,N282,Northwind Salem Rehab 282,non_acute,rehab,Salem,OR,US,,-7
+N283,N283,Northwind West Linn Home Health 283,non_acute,home_health,West Linn,OR,US,,-7
+N284,N284,Northwind Eugene Hospice 284,non_acute,hospice,Eugene,OR,US,,-7
+N285,N285,Northwind Salem Senior Living 285,non_acute,senior_living,Salem,OR,US,,-7
+N286,N286,Northwind Eugene Skilled Nursing 286,non_acute,skilled_nursing,Eugene,OR,US,,-7
+N287,N287,Northwind Beaverton Senior Living 287,non_acute,senior_living,Beaverton,OR,US,,-7
+N288,N288,Northwind Klamath Falls Behavioral Health 288,non_acute,behavioral_health,Klamath Falls,OR,US,,-7
+N289,N289,Northwind Salem Admin Office 289,non_acute,admin_office,Salem,OR,US,,-7
+N290,N290,Northwind Tigard Behavioral Health 290,non_acute,behavioral_health,Tigard,OR,US,,-7
+N291,N291,Northwind Grants Pass Senior Living 291,non_acute,senior_living,Grants Pass,OR,US,,-7
+N292,N292,Northwind Grants Pass Admin Office 292,non_acute,admin_office,Grants Pass,OR,US,,-7
+N293,N293,Northwind Salem Admin Office 293,non_acute,admin_office,Salem,OR,US,,-7
+N294,N294,Northwind Woodburn Hospice 294,non_acute,hospice,Woodburn,OR,US,,-7
+N295,N295,Northwind Portland Hospice 295,non_acute,hospice,Portland,OR,US,,-7
+N296,N296,Northwind Eugene Hospice 296,non_acute,hospice,Eugene,OR,US,,-7
+N297,N297,Northwind Portland Behavioral Health 297,non_acute,behavioral_health,Portland,OR,US,,-7
+N298,N298,Northwind Portland Senior Living 298,non_acute,senior_living,Portland,OR,US,,-7
+N299,N299,Northwind Portland Senior Living 299,non_acute,senior_living,Portland,OR,US,,-7
+N300,N300,Northwind Beaverton Senior Living 300,non_acute,senior_living,Beaverton,OR,US,,-7
+N301,N301,Northwind McMinnville Rehab 301,non_acute,rehab,McMinnville,OR,US,,-7
+N302,N302,Northwind Medford Hospice 302,non_acute,hospice,Medford,OR,US,,-7
+N303,N303,Northwind Portland Behavioral Health 303,non_acute,behavioral_health,Portland,OR,US,,-7
+N304,N304,Northwind West Linn Skilled Nursing 304,non_acute,skilled_nursing,West Linn,OR,US,,-7
+N305,N305,Northwind Salem Rehab 305,non_acute,rehab,Salem,OR,US,,-7
+N306,N306,Northwind Coos Bay Admin Office 306,non_acute,admin_office,Coos Bay,OR,US,,-7
+N307,N307,Northwind McMinnville Admin Office 307,non_acute,admin_office,McMinnville,OR,US,,-7
+N308,N308,Northwind Eugene Behavioral Health 308,non_acute,behavioral_health,Eugene,OR,US,,-7
+N309,N309,Northwind Springfield Senior Living 309,non_acute,senior_living,Springfield,OR,US,,-7
+N310,N310,Northwind Roseburg Hospice 310,non_acute,hospice,Roseburg,OR,US,,-7
+N311,N311,Northwind The Dalles Senior Living 311,non_acute,senior_living,The Dalles,OR,US,,-7
+N312,N312,Northwind Astoria Skilled Nursing 312,non_acute,skilled_nursing,Astoria,OR,US,,-7
+N313,N313,Northwind Tualatin Home Health 313,non_acute,home_health,Tualatin,OR,US,,-7
+N314,N314,Northwind Portland Home Health 314,non_acute,home_health,Portland,OR,US,,-7
+N315,N315,Northwind McMinnville Hospice 315,non_acute,hospice,McMinnville,OR,US,,-7
+N316,N316,Northwind Pendleton Rehab 316,non_acute,rehab,Pendleton,OR,US,,-7
+N317,N317,Northwind Coos Bay Home Health 317,non_acute,home_health,Coos Bay,OR,US,,-7
+N318,N318,Northwind Gresham Skilled Nursing 318,non_acute,skilled_nursing,Gresham,OR,US,,-7
+N319,N319,Northwind Klamath Falls Rehab 319,non_acute,rehab,Klamath Falls,OR,US,,-7
+N320,N320,Northwind Beaverton Behavioral Health 320,non_acute,behavioral_health,Beaverton,OR,US,,-7
+N321,N321,Northwind Portland Admin Office 321,non_acute,admin_office,Portland,OR,US,,-7
+N322,N322,Northwind Salem Rehab 322,non_acute,rehab,Salem,OR,US,,-7
+N323,N323,Northwind Woodburn Admin Office 323,non_acute,admin_office,Woodburn,OR,US,,-7
+N324,N324,Northwind Klamath Falls Skilled Nursing 324,non_acute,skilled_nursing,Klamath Falls,OR,US,,-7
+N325,N325,Northwind Albany Rehab 325,non_acute,rehab,Albany,OR,US,,-7
+N326,N326,Northwind Seaside Hospice 326,non_acute,hospice,Seaside,OR,US,,-7
+N327,N327,Northwind McMinnville Senior Living 327,non_acute,senior_living,McMinnville,OR,US,,-7
+N328,N328,Northwind Grants Pass Behavioral Health 328,non_acute,behavioral_health,Grants Pass,OR,US,,-7
+N329,N329,Northwind Pendleton Admin Office 329,non_acute,admin_office,Pendleton,OR,US,,-7
+N330,N330,Northwind Eugene Skilled Nursing 330,non_acute,skilled_nursing,Eugene,OR,US,,-7
+N331,N331,Northwind Newberg Admin Office 331,non_acute,admin_office,Newberg,OR,US,,-7
+N332,N332,Northwind Gresham Senior Living 332,non_acute,senior_living,Gresham,OR,US,,-7
+N333,N333,Northwind Tualatin Home Health 333,non_acute,home_health,Tualatin,OR,US,,-7
+N334,N334,Northwind Seaside Senior Living 334,non_acute,senior_living,Seaside,OR,US,,-7
+N335,N335,Northwind Klamath Falls Hospice 335,non_acute,hospice,Klamath Falls,OR,US,,-7
+N336,N336,Northwind Medford Behavioral Health 336,non_acute,behavioral_health,Medford,OR,US,,-7
+N337,N337,Northwind Gresham Admin Office 337,non_acute,admin_office,Gresham,OR,US,,-7
+N338,N338,Northwind Eugene Home Health 338,non_acute,home_health,Eugene,OR,US,,-7
+N339,N339,Northwind Ontario Rehab 339,non_acute,rehab,Ontario,OR,US,,-7
+N340,N340,Northwind Grants Pass Behavioral Health 340,non_acute,behavioral_health,Grants Pass,OR,US,,-7
+N341,N341,Northwind Portland Hospice 341,non_acute,hospice,Portland,OR,US,,-7
+N342,N342,Northwind Beaverton Behavioral Health 342,non_acute,behavioral_health,Beaverton,OR,US,,-7
+N343,N343,Northwind Eugene Skilled Nursing 343,non_acute,skilled_nursing,Eugene,OR,US,,-7
+N344,N344,Northwind Beaverton Hospice 344,non_acute,hospice,Beaverton,OR,US,,-7
+N345,N345,Northwind Medford Admin Office 345,non_acute,admin_office,Medford,OR,US,,-7
+N346,N346,Northwind Tigard Senior Living 346,non_acute,senior_living,Tigard,OR,US,,-7
+N347,N347,Northwind Salem Skilled Nursing 347,non_acute,skilled_nursing,Salem,OR,US,,-7
+N348,N348,Northwind Grants Pass Senior Living 348,non_acute,senior_living,Grants Pass,OR,US,,-7
+N349,N349,Northwind West Linn Hospice 349,non_acute,hospice,West Linn,OR,US,,-7
+N350,N350,Northwind Albany Home Health 350,non_acute,home_health,Albany,OR,US,,-7
+N351,N351,Northwind Beaverton Senior Living 351,non_acute,senior_living,Beaverton,OR,US,,-7
+N352,N352,Northwind Gresham Rehab 352,non_acute,rehab,Gresham,OR,US,,-7
+N353,N353,Northwind Medford Senior Living 353,non_acute,senior_living,Medford,OR,US,,-7
+N354,N354,Northwind Salem Home Health 354,non_acute,home_health,Salem,OR,US,,-7
+N355,N355,Northwind Portland Senior Living 355,non_acute,senior_living,Portland,OR,US,,-7
+N356,N356,Northwind Oregon City Hospice 356,non_acute,hospice,Oregon City,OR,US,,-7
+N357,N357,Northwind Tualatin Rehab 357,non_acute,rehab,Tualatin,OR,US,,-7
+N358,N358,Northwind Springfield Admin Office 358,non_acute,admin_office,Springfield,OR,US,,-7
+N359,N359,Northwind Portland Skilled Nursing 359,non_acute,skilled_nursing,Portland,OR,US,,-7
+N360,N360,Northwind Gresham Rehab 360,non_acute,rehab,Gresham,OR,US,,-7
+N361,N361,Northwind Oregon City Admin Office 361,non_acute,admin_office,Oregon City,OR,US,,-7
+N362,N362,Northwind West Linn Senior Living 362,non_acute,senior_living,West Linn,OR,US,,-7
+N363,N363,Northwind Beaverton Behavioral Health 363,non_acute,behavioral_health,Beaverton,OR,US,,-7
+N364,N364,Northwind Corvallis Senior Living 364,non_acute,senior_living,Corvallis,OR,US,,-7
+N365,N365,Northwind Springfield Skilled Nursing 365,non_acute,skilled_nursing,Springfield,OR,US,,-7
+N366,N366,Northwind Hillsboro Hospice 366,non_acute,hospice,Hillsboro,OR,US,,-7
+N367,N367,Northwind Medford Admin Office 367,non_acute,admin_office,Medford,OR,US,,-7
+N368,N368,Northwind Albany Home Health 368,non_acute,home_health,Albany,OR,US,,-7
+N369,N369,Northwind Hillsboro Admin Office 369,non_acute,admin_office,Hillsboro,OR,US,,-7
+N370,N370,Northwind Hillsboro Senior Living 370,non_acute,senior_living,Hillsboro,OR,US,,-7
+N371,N371,Northwind Medford Admin Office 371,non_acute,admin_office,Medford,OR,US,,-7
+N372,N372,Northwind Coos Bay Home Health 372,non_acute,home_health,Coos Bay,OR,US,,-7
+N373,N373,Northwind Woodburn Admin Office 373,non_acute,admin_office,Woodburn,OR,US,,-7
+N374,N374,Northwind Albany Hospice 374,non_acute,hospice,Albany,OR,US,,-7
+N375,N375,Northwind Tualatin Behavioral Health 375,non_acute,behavioral_health,Tualatin,OR,US,,-7
+N376,N376,Northwind Gresham Admin Office 376,non_acute,admin_office,Gresham,OR,US,,-7
+N377,N377,Northwind Lake Oswego Home Health 377,non_acute,home_health,Lake Oswego,OR,US,,-7
+N378,N378,Northwind Gresham Senior Living 378,non_acute,senior_living,Gresham,OR,US,,-7
+N379,N379,Northwind Gresham Admin Office 379,non_acute,admin_office,Gresham,OR,US,,-7
+N380,N380,Northwind Springfield Behavioral Health 380,non_acute,behavioral_health,Springfield,OR,US,,-7
+N381,N381,Northwind Roseburg Rehab 381,non_acute,rehab,Roseburg,OR,US,,-7
+N382,N382,Northwind Gresham Behavioral Health 382,non_acute,behavioral_health,Gresham,OR,US,,-7
+N383,N383,Northwind Hillsboro Admin Office 383,non_acute,admin_office,Hillsboro,OR,US,,-7
+N384,N384,Northwind Bend Home Health 384,non_acute,home_health,Bend,OR,US,,-7
+N385,N385,Northwind Tualatin Senior Living 385,non_acute,senior_living,Tualatin,OR,US,,-7
+N386,N386,Northwind Oregon City Admin Office 386,non_acute,admin_office,Oregon City,OR,US,,-7
+N387,N387,Northwind Corvallis Skilled Nursing 387,non_acute,skilled_nursing,Corvallis,OR,US,,-7
+N388,N388,Northwind West Linn Admin Office 388,non_acute,admin_office,West Linn,OR,US,,-7
+N389,N389,Northwind The Dalles Skilled Nursing 389,non_acute,skilled_nursing,The Dalles,OR,US,,-7
+N390,N390,Northwind Bend Senior Living 390,non_acute,senior_living,Bend,OR,US,,-7
+N391,N391,Northwind Springfield Skilled Nursing 391,non_acute,skilled_nursing,Springfield,OR,US,,-7
+N392,N392,Northwind Eugene Admin Office 392,non_acute,admin_office,Eugene,OR,US,,-7
+N393,N393,Northwind Eugene Home Health 393,non_acute,home_health,Eugene,OR,US,,-7
+N394,N394,Northwind Roseburg Senior Living 394,non_acute,senior_living,Roseburg,OR,US,,-7
+N395,N395,Northwind Gresham Behavioral Health 395,non_acute,behavioral_health,Gresham,OR,US,,-7
+N396,N396,Northwind Portland Home Health 396,non_acute,home_health,Portland,OR,US,,-7
+N397,N397,Northwind Pendleton Senior Living 397,non_acute,senior_living,Pendleton,OR,US,,-7
+N398,N398,Northwind Portland Hospice 398,non_acute,hospice,Portland,OR,US,,-7
+N399,N399,Northwind West Linn Hospice 399,non_acute,hospice,West Linn,OR,US,,-7
+N400,N400,Northwind Portland Home Health 400,non_acute,home_health,Portland,OR,US,,-7
+DC-PRI,DC-PRI,Northwind Primary Data Centre (rooms A/B),data_centre,primary,Quincy,WA,US,,-7
+DC-DR,DC-DR,Northwind DR Data Centre,data_centre,dr,Lubbock,TX,US,,-5
+cloud-us-west,cloud-us-west,"Cloud region us-west (zones a, b, c)",cloud_region,,,,US,,-7
+cloud-central-india,cloud-central-india,Cloud region central-india,cloud_region,,,,IN,,5.5
+GCC-HYD,GCC-HYD,Northwind Global Capability Centre Hyderabad,gcc,,Hyderabad,,IN,,5.5
+EXTERNAL,EXTERNAL,External SaaS / partners,external,,,,,,

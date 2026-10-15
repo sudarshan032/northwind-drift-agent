@@ -1,0 +1,21 @@
+id,name
+role-admin-clerk,Admin Clerk
+role-biomed-tech,Biomed Tech
+role-caregiver,Caregiver
+role-clinical-apps-support,Clinical Apps Support
+role-cloud-ops,Cloud Ops
+role-coder,Coder
+role-dba,Dba
+role-integration-eng,Integration Eng
+role-lab-tech,Lab Tech
+role-nurse,Nurse
+role-pathologist,Pathologist
+role-pharmacist,Pharmacist
+role-pharmacy-tech,Pharmacy Tech
+role-physician,Physician
+role-rad-tech,Rad Tech
+role-radiologist,Radiologist
+role-registrar,Registrar
+role-secops,Secops
+role-therapist,Therapist
+role-unit-clerk,Unit Clerk

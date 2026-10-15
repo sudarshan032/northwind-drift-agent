@@ -116,3 +116,20 @@ def test_size_report(drift_data):
     assert 30_000 <= rep["total_nodes"] <= 300_000, rep["total_nodes"]
     size = sum(os.path.getsize(os.path.join(d, f)) for d, _, fs in os.walk(drift_data) for f in fs)
     assert size < 500 * 1024 * 1024, size
+
+
+def test_demo_subset_reproducible_and_exact(tmp_path):
+    """The committed data_demo/ equals a fresh `--subset demo --gzip` run, and
+    the oracle finds exactly its ground truth."""
+    generate(42, str(tmp_path), inject=True, subset="demo", gz=True)
+    fresh = hashes(str(tmp_path))
+    fresh.pop("README.md")
+    repo = os.path.join(os.path.dirname(__file__), "..", "data_demo")
+    committed = hashes(repo)
+    committed.pop("README.md", None)
+    assert fresh == committed
+    gt, must, must_not, aliases = oracle.expected(str(tmp_path))
+    res = oracle.check(str(tmp_path))
+    assert res["findings"] == must and not (must_not & res["findings"]) and res["aliases"] == aliases
+    assert {k: v for k, v in Counter(e["type"] for e in gt).items() if k != "D13"} == \
+        {k: v for k, v in CATALOGUE.items() if k != "D13"}  # H44 (one D13 case) is outside WA/OR
