@@ -188,3 +188,24 @@ Clarified, not changed:
 
 ## 45. Who to page / protection / access
 - Observed owner = team with the largest incidents + changes in `OBSERVED_OWNER`; flagged when it differs from `MANAGED_BY`. Protection check returns PHI components with no copy at another site, no copy in an immutable vault, or no success in 7 days (= D9 ∪ D10 here). Access check = the D12 detector with reasons (`disabled_user`, `no_grant_path`, `admin_outside_change_window`).
+
+## 46. LLM access
+- Claude is called through the official `anthropic` SDK (`client.beta.messages.create`) behind a two-method interface (`agent/llm.py`): `ClaudeLLM` (model from `NORTHWIND_MODEL`, default `claude-sonnet-5-5` because AGENT_SPEC asks for a current Sonnet; server-side refusal fallback `fallbacks="default"` with beta `server-side-fallback-2026-07-01`; `tool_choice` left at auto because Sonnet 5.5 rejects forced tool use) and `FakeLLM` (scripted replies; items can be callables that read the previous tool result). LangGraph (`langgraph==1.2.14`) runs the flows; it is used for orchestration only, not for model access.
+- No `ANTHROPIC_API_KEY` exists on this machine, so every test and check ran with `FakeLLM`. The live-LLM incident check from AGENT_SPEC 2.3 is still open (REPORT, owner action).
+
+## 47. Triage design
+- Detector rows become findings; D1 rows sharing one callee with ≥ 3 callers are grouped (the 51 ORU-CRIT → lrc-db-01 rows become one finding whose patch adds 51 relationships). Every ground-truth key is covered by exactly one stored finding (test).
+- Severity: failure-type findings (D1, D5, D8, D9, D10) = max patient_safety_impact in the real radius of the primary CI (high 3, medium 2, low 1) + log10(radius size + 1) + type weight (D1 +1, D9/D10 +1.5, grouped +0.5). Exposure findings get fixed weights: D11 and D14 5.0, D12 4.5 (disabled user or admin outside window) or 3.5, D6 2.5, D2/D4/D7 1.5. ≥ 5 critical, ≥ 3.5 high, ≥ 2 medium.
+- All findings get a template explanation built from detector output; the top 10 are rewritten by the LLM from the finding facts only (no tools, so it cannot invent). Stored as `(:Finding)-[:ABOUT]->(:Component)`; status and created_at survive re-scans.
+
+## 48. Proposed patches and approval
+- JSON-Patch-style ops on `/cmdb_rel_ci` and `/cmdb_ci/<name>/<field>` (agent/findings.py docstring). D1 add `Depends on`, D2 remove, D4 remove all CMDB relationships of the retired CI, D5 support_group = observed owner, D7 status = retired, D8 attribute = discovered value, D9 backup_offsite = false (CMDB states the truth; remediation is operational), D6 register the device (owner to confirm), D14 register the app as an external service pending vendor review. D10, D11 and D12 have no CMDB patch: their fix is operational (page owner / security).
+- `approve` applies ops to the CSVs and the declared graph edges, rebuilds the impact layers, re-runs the finding's detector and records `resolved`. `reject` changes only the finding status. Both append to `runtime/audit.jsonl`. After approving the headline finding, the declared radius of dc1-host-07 reaches Emergency care (test).
+
+## 49. Real-impact refinement: telemetry
+- Observed calls over `syslog-tls` (log shipping to the SIEM) no longer carry impact: they are fire-and-forget, and counting them made the SIEM a dependency of every system that logs.
+
+## 50. Incident, ambiguity, chat
+- Incident and chat are a LangGraph tool loop (model ↔ tools, max 8 steps). Incident has a prescribed method in its system prompt (search → shared_dependencies → changes_on → impact_path → who_to_page). New queries `shared_dependencies` (components every given route needs over IMPACTS_REAL), `changes_on`, `search_components`.
+- Ambiguity judgement covers the 6 D13 aliases and the D14 app; the LLM must return JSON with one of the three AGENT_SPEC decisions; anything else becomes "needs human review". The judgement is stored on a Finding (`judgement_json`, `decision`).
+- Tool results are cut at 30,000 characters for the model; empty results are returned as `{"result": "no results"}` so the model can say nothing was found.

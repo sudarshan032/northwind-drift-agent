@@ -5,3 +5,5 @@ __pycache__/
 # full generated data set is ~140 MB: regenerate with `python -m ingest.generate`
 data/*
 !data/README.md
+runtime/
+.env

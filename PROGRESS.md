@@ -35,3 +35,5 @@ Re-read this file, RUN_PROMPT.md and DATA_SPEC.md after any context compaction.
 ## Phase 0 — done (VERIFY.md all PASS, commit d8a7061)
 ## Phase 1 — done: graph/queries.py detectors (exact vs ground truth, full + demo), radius, paths, change review, protection, access, who-to-page, critical nodes; tests/test_queries.py.
 - Next: Phase 2 agent (LangGraph, fake LLM for tests).
+## Phase 2 — done: agent/ (llm, tools, findings, approval, flows); tests/test_agent.py with FakeLLM; 58 tests pass. No API key: live check pending.
+- Next: Phase 3 API (FastAPI).

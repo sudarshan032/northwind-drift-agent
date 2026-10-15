@@ -5,10 +5,14 @@ description = "Synthetic Northwind Health world (fictional) for a CMDB drift age
 requires-python = "==3.11.*"
 dependencies = [
     "falkordb==1.7.1",
+    "anthropic==1.13.0",
+    "langgraph==1.2.14",
+    "fastapi==0.143.0",
+    "uvicorn==0.54.0",
 ]
 
 [dependency-groups]
-dev = ["pytest==9.1.1"]
+dev = ["pytest==9.1.1", "httpx==0.28.1"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

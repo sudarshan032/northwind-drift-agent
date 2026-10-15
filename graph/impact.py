@@ -20,6 +20,7 @@ Rules (direction a -> b):
 | contains    | (b:BusinessService)-[:CONTAINS]->(a)              | both      |
 | depends_on  | (b)-[:DEPENDS_ON {failover:false}]->(a)           | declared  |
 | calls       | (b)-[:OBSERVED_CALLS]->(a), a not an Interface    | real      |
+|             | (excluding health checks and fire-and-forget syslog)|           |
 | feeds_route | (a)-[:OBSERVED_CALLS]->(b:Interface)              | real      |
 | netflow     | (b)-[:OBSERVED_NETFLOW]->(a)                      | real      |
 | consumer    | route -> its target system (terminal)             | both      |
@@ -46,7 +47,8 @@ RULES = {
         ("stores_on", "MATCH (b)-[:STORES_ON]->(a)"),
         ("hosts_route", "MATCH (a:Application)-[:CONTAINS]->(b:Interface)"),
         ("contains", "MATCH (b:BusinessService)-[:CONTAINS]->(a)"),
-        ("calls", "MATCH (b)-[e:OBSERVED_CALLS]->(a) WHERE NOT a:Interface AND NOT coalesce(e.health_check, false)"),
+        ("calls", "MATCH (b)-[e:OBSERVED_CALLS]->(a) WHERE NOT a:Interface AND NOT coalesce(e.health_check, false) "
+                  "AND NOT e.protocol IN ['syslog-tls']"),
         ("feeds_route", "MATCH (a)-[e:OBSERVED_CALLS]->(b:Interface) WHERE NOT coalesce(e.health_check, false)"),
         ("netflow", "MATCH (b)-[:OBSERVED_NETFLOW]->(a)"),
     ],

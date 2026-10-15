@@ -461,3 +461,53 @@ def get_neighbourhood(g, name, depth=1, limit=300, timeout=TIMEOUT_MS):
     """Edges within `depth` (<= 2) hops of a component, for the agent and UI."""
     depth = max(1, min(int(depth), 2))
     return run(g, NEIGHBOURHOOD % {"depth": depth}, {"name": name, "limit": limit}, timeout)
+
+
+# --------------------------------------------------------------------------
+# Incident support: what affected routes share, recent changes, search
+# --------------------------------------------------------------------------
+
+SHARED = """
+MATCH (x)-[:IMPACTS_REAL*1..6]->(r:Interface)
+WHERE r.name IN $routes
+WITH x, collect(DISTINCT r.name) AS hits
+WHERE size(hits) = size($routes)
+RETURN x.name AS component, [l IN labels(x) WHERE l <> 'Component'][0] AS label, x.site AS site,
+       x.patient_safety_impact AS safety
+ORDER BY label, component LIMIT $limit
+"""
+
+
+@guarded
+def shared_dependencies(g, routes, timeout=TIMEOUT_MS, limit=200):
+    """Components every given route needs in the real graph (common upstream
+    causes for a multi-site symptom)."""
+    return run(g, SHARED, {"routes": list(routes), "limit": limit}, timeout)
+
+
+RECENT_CHANGES = """
+MATCH (ch:Change)-[:TARGETS]->(x:Component)
+WHERE x.name IN $names
+RETURN ch.number AS number, ch.short_description AS description, ch.state AS state, ch.approval AS approval,
+       ch.start_date AS start_date, ch.end_date AS end_date, x.name AS target
+ORDER BY start_date DESC LIMIT $limit
+"""
+
+
+@guarded
+def changes_on(g, names, timeout=TIMEOUT_MS, limit=50):
+    """Changes (past and scheduled) targeting any of the components."""
+    return run(g, RECENT_CHANGES, {"names": list(names), "limit": limit}, timeout)
+
+
+SEARCH = """
+MATCH (c:Component) WHERE toLower(c.name) CONTAINS toLower($text) OR toLower(coalesce(c.description, '')) CONTAINS toLower($text)
+RETURN c.name AS name, [l IN labels(c) WHERE l <> 'Component'][0] AS label, c.site AS site,
+       c.description AS description ORDER BY name LIMIT $limit
+"""
+
+
+@guarded
+def search_components(g, text, timeout=TIMEOUT_MS, limit=25):
+    """Find components whose name or description contains `text`."""
+    return run(g, SEARCH, {"text": text, "limit": limit}, timeout)
