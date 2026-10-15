@@ -128,3 +128,20 @@ Independent fresh-context review (DATA_SPEC + RUN_PROMPT + code only) found 20 i
 - Oracle documents why the 48-hour transient rule is subsumed by "no success in 7 days".
 - Group ids follow the spec example (`grp-H03-LAB-tech`, `grp-H17-RAD-tech`).
 Kept, with reasons (also DECISIONS #9, #10, #21, #29, #31): Located at / Managed by as reference columns; app chains at array-less sites end at a physical host (DAS); research-backed imaging ranges and bedside fleets; no separate datastore CI class (DATA_SPEC section 8 has no Datastore label: hosts `STORES_ON` arrays directly, DBs `STORES_ON` the array holding their volume); availability zones labelled Host; Site `CONTAINS` Department; OML^O21 for lab orders and the extra SIU scheduling feed (research R3); portal and RTLS FHIR APIs call the EMR directly (API calls, not engine-hosted HL7 routes); demo subset has 4 D13 cases (H44 is outside WA/OR).
+
+## 34. Review #2 fixes and clarifications
+Second fresh-context review: no high-severity findings. Fixed:
+- `DICOM-MOD-Hxx` routes whose target is a local PACS cache now sit at the hospital (so their records are daily at non-demo sites, per RUN_PROMPT 4.2) and carry the medical-segment gateway (`10.1xx.8.1`) as their IP instead of the PACS cache's (src_ip no longer equals dst_ip).
+- Tier-3 (`bp-tier3-weekly-offsite`) objects get weekly Sunday jobs only; they are excluded from transient-failure noise so a failed weekly job can never cross the 7-day rule.
+- `groups.csv` / `:Group` use `count` (DATA_SPEC 5 wording) instead of `member_count`.
+- Tests: determinism across processes with a different `PYTHONHASHSEED`; D3 pairs have no flow/netflow and the failback replication pair has no replication records; every discoverable CI is discovered without drift (named exemption: `bkp-vault-usw-01`, no IP); no PHI in cloud-central-india on the generated drift files except the single D11 finding; demo subset asserts 24 headline routes and 4 D13 cases (documented in its README).
+- `OML^O21` on `ORM-EMR-LIS` now has an inline rationale.
+Clarified, not changed:
+- Flow/netflow column names are `src_name/src_ip/dst_name/dst_ip` (RUN_PROMPT 4.3 identification keys) rather than DATA_SPEC 6's `source/target`/`src/dst`; duplicating them would only add bytes.
+- No datastore records: DATA_SPEC 8 has no Datastore label; host `STORES_ON` array stands for the datastore mount (#33).
+- Some site traffic is plain app-to-app dependencies, not engine-hosted routes: MWL broker → RIS order pulls, nurse-call → engine ADT feed, RTLS / portal FHIR API calls. Interface CIs are the HL7/DICOM routes DATA_SPEC 4 enumerates.
+- Critical access hospitals have no PACS cache (no `DICOM-FWD`) and use central lab middleware (#33).
+- Applications without their own database: `sso-app` (directory-backed), `siem-app`, `mon-app` (SaaS-style log/metric stores), `bkp-app` (catalogue on the appliance), `gcc-automation-app`, `pacs-vna-01` (image store on arr-pri-a-04), DR standbys. DR standbys (`ie-app-dr`, `pacs-vna-dr`) have no SSO link: a failover link would change the D3 count of exactly 4.
+- The admin-clerk role grants to external SaaS (ERP/HR, email): SaaS records are CIs in the CMDB, so `Role -GRANTS-> ExternalService` follows the same model.
+- DR AD domain controllers carry live traffic: AD is multi-master, so they are not "quiet until failover" like the DR databases; the DR site is otherwise silent.
+- Graph size: ~49k nodes / ~140k edges, below DATA_SPEC 9.6 guidance (and its own 50k fail line); RUN_PROMPT 4.5 (fail only outside 30k–300k, do not pad) governs (#30).

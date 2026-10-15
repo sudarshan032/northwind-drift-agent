@@ -164,7 +164,7 @@ def identity_view(world, plan):
     users = [{k: u[k] for k in ("id", "site", "department", "job_role", "status", "status_source")}
              for u in idn["users"]]
     groups = [{"id": g["id"], "site": g["site"], "department": g["department"], "job_role": g["job_role"],
-               "roles": ";".join(g["roles"]), "member_count": g["member_count"], "scope": g["scope"]}
+               "roles": ";".join(g["roles"]), "count": g["member_count"], "scope": g["scope"]}
               for g in idn["groups"]]
     return {"users": users, "groups": groups, "memberships": idn["memberships"],
             "roles": idn["roles"], "grants": idn["grants"]}
@@ -311,7 +311,7 @@ def backup_jobs(world, plan):
     success the next night (noise); plan overrides inject D9/D10."""
     r = rng_for(world["meta"]["seed"], "backup")
     holders = [c for c in world["cis"] if c["data_holder"]]
-    transient = set(r.sample([c["name"] for c in holders], 5))
+    transient = set(r.sample([c["name"] for c in holders if "weekly" not in c["backup_policy"]], 5))
     jobs = []
     for c in holders:
         tz = world["_site_tz"].get(c["site"], -7)
@@ -324,6 +324,8 @@ def backup_jobs(world, plan):
             start = day + timedelta(hours=hour_local - tz, minutes=r.randint(0, 50))
             if start > END or start < START:
                 continue
+            if "weekly" in c["backup_policy"] and day.weekday() != 6:
+                continue  # tier 3: weekly full only
             full = day.weekday() == 6
             gb = size * (1.0 if full else r.uniform(0.02, 0.06))
             status = "success"

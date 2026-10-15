@@ -1,4 +1,4 @@
-id,site,department,job_role,roles,member_count,scope
+id,site,department,job_role,roles,count,scope
 grp-H01-ED-physician,H01,H01-ED,physician,role-physician,57,site
 grp-H01-ED-nurse,H01,H01-ED,nurse,role-nurse,30,site
 grp-H01-ED-unit-clerk,H01,H01-ED,unit-clerk,role-unit-clerk,85,site

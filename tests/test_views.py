@@ -5,6 +5,8 @@ import csv
 import hashlib
 import json
 import os
+import subprocess
+import sys
 from collections import Counter
 
 from ingest.generate import generate
@@ -30,6 +32,31 @@ def test_determinism(drift_data, tmp_path):
     a, b = hashes(drift_data), hashes(str(tmp_path))
     a.pop("README.md"), b.pop("README.md")  # README embeds the output path
     assert a == b and len(a) >= 20
+
+
+def test_determinism_across_processes(drift_data, tmp_path):
+    """9.1 in a fresh interpreter with a different hash seed."""
+    root = os.path.join(os.path.dirname(__file__), "..")
+    env = dict(os.environ, PYTHONHASHSEED="12345")
+    subprocess.run([sys.executable, "-m", "ingest.generate", "--seed", "42", "--out", str(tmp_path)],
+                   cwd=root, env=env, check=True, capture_output=True)
+    a, b = hashes(drift_data), hashes(str(tmp_path))
+    a.pop("README.md"), b.pop("README.md")
+    assert a == b
+
+
+def test_every_discoverable_ci_discovered_without_drift(clean_data):
+    """9.2 (discovery part), checked directly: every individual discoverable
+    CMDB CI has a scan record (exempt: CIs with no IP, i.e. the cloud vault)."""
+    from ingest.world import DISCOVERABLE_CLASSES
+    cis = _csv(os.path.join(clean_data, "cmdb", "cmdb_ci.csv"))
+    with open(os.path.join(clean_data, "discovery", "scan_results.jsonl")) as f:
+        serials = {json.loads(line)["serial_number"] for line in f}
+    want = [c for c in cis if c["class"] in DISCOVERABLE_CLASSES and not c["count"]]
+    exempt = {c["name"] for c in want if not c["ip_address"]}
+    assert exempt == {"bkp-vault-usw-01"}
+    missing = [c["name"] for c in want if c["name"] not in exempt and c["serial_number"] not in serials]
+    assert missing == [] and len(want) > 10_000
 
 
 def test_views_agree_without_drift(clean_data):
@@ -71,6 +98,17 @@ def test_drift_catalogue_exact(drift_data):
             assert e["expected_finding"] == "none"
         if e["type"] == "D13":
             assert e["expected_finding"] == "resolve_as_same_ci"
+    # D3 pairs really are silent (not just skipped by the failover rule)
+    d3 = {frozenset(e["ci_ids"]) for e in gt if e["type"] == "D3"}
+    for fname in ("flows_hourly.jsonl", "flows_daily.jsonl", "netflow_hourly.jsonl", "netflow_daily.jsonl"):
+        with open(os.path.join(drift_data, "observed", fname)) as f:
+            for line in f:
+                r = json.loads(line)
+                assert frozenset((r["src_name"], r["dst_name"])) not in d3, r
+    with open(os.path.join(drift_data, "observed", "replication_status.jsonl")) as f:
+        for line in f:
+            r = json.loads(line)
+            assert [r["source_array"], r["target_array"]] not in [e["ci_ids"] for e in gt if e["type"] == "D3"], r
     res = oracle.check(drift_data)
     assert res["findings"] - must == set(), "unexpected findings"
     assert must - res["findings"] == set(), "missed drift"
@@ -80,6 +118,17 @@ def test_drift_catalogue_exact(drift_data):
     d13 = {ci for e in gt if e["type"] == "D13" for ci in e["ci_ids"]}
     for f in res["findings"]:
         assert not (set(f[1:]) & d13 and f[0] in ("undocumented", "shadow", "ghost")), f
+
+
+def test_no_phi_in_central_india_except_d11(drift_data):
+    """9.4 on the generated drift-on files: nothing in cloud-central-india
+    holds PHI, and the only PHI movement into it is the D11 entry."""
+    cis = {r["name"]: r for r in _csv(os.path.join(drift_data, "cmdb", "cmdb_ci.csv"))}
+    assert all(r["handles_phi"] == "false" for r in cis.values() if r["site"] == "cloud-central-india")
+    res = oracle.check(drift_data)["findings"]
+    gt = oracle.expected(drift_data)[0]
+    d11 = {tuple(k) for e in gt if e["type"] == "D11" for k in e["finding_keys"]}
+    assert {f for f in res if f[0] == "residency"} == d11 and len(d11) == 1
 
 
 def _csv(path):
@@ -157,3 +206,7 @@ def test_demo_subset_reproducible_and_exact(tmp_path):
     assert res["findings"] == must and not (must_not & res["findings"]) and res["aliases"] == aliases
     assert {k: v for k, v in Counter(e["type"] for e in gt).items() if k != "D13"} == \
         {k: v for k, v in CATALOGUE.items() if k != "D13"}  # H44 (one D13 case) is outside WA/OR
+    assert Counter(e["type"] for e in gt)["D13"] == 4
+    # headline in the subset: one route per WA/OR hospital (24), all staged in lrc-db-01
+    headline = next(e for e in gt if e["id"] == "D1-HEADLINE")
+    assert len(headline["finding_keys"]) == 24

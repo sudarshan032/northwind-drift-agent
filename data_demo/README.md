@@ -23,5 +23,9 @@ python -m ingest.generate --seed 42 --out data_demo --subset demo --gzip
 - Same seed gives byte-identical files.
 - `truth/world.json` is the internal truth model (tests only; never loaded).
 - `ground_truth.json` lists every deliberately injected drift.
+- With `--gzip`, `.jsonl` / `.json` files are written as `.jsonl.gz` / `.json.gz`
+  (same content; loader and checker read both).
+- `--subset demo` (WA + OR, both DCs, clouds, GCC-HYD): the headline covers the 24
+  WA/OR hospitals' ORU-CRIT routes, and H44 (Montana) is absent, so D13 has 4 cases.
 
 See `DATA_SPEC.md` in the repository root for the full model.

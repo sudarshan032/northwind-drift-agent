@@ -850,7 +850,7 @@ def _central(w):
             ("ADT-EMR-PHARM", "ADT^A01/A02/A03/A04/A08", "emr-app", "pharm-app", 900),
             ("ADT-EMR-BILL", "ADT^A01/A03/A04/A08", "emr-app", "billing-app", 600),
             ("ADT-EMR-SCHED", "ADT^A04/A08/A40", "emr-app", "sched-app", 300),
-            ("ORM-EMR-LIS", "OML^O21", "emr-app", "lis-app", 1500),
+            ("ORM-EMR-LIS", "OML^O21", "emr-app", "lis-app", 1500),  # lab orders: OML^O21 replaces ORM (R3)
             ("ORM-EMR-RIS", "ORM^O01", "emr-app", "ris-app", 500),
             ("ORU-LIS-EMR", "ORU^R01", "lis-app", "emr-app", 4000),
             ("ORU-RIS-EMR", "ORU^R01", "ris-app", "emr-app", 450),
@@ -867,14 +867,14 @@ ADT_WEIGHTS = {"A08": 0.40, "A04": 0.20, "A01": 0.12, "A03": 0.12, "A02": 0.08, 
 
 
 def _interface(w, name, mt, protocol, src, dst, rate, profile, crit=1, staging=None, tz=-7,
-               src_leg=True, owner=None, via="ie-app", site_for_flow=None):
+               src_leg=True, owner=None, via="ie-app", site="DC-PRI", ip=None):
     """Interface CI with declared Depends on to source and target; observed
     as route-level legs src -> route -> target emitted by the transport."""
     via_ci = w.by_name.get(via)
-    c = w.ci(name, "u_cmdb_ci_hl7_interface", "DC-PRI", owner or w.owners["integ"], crit=crit, phi=True,
+    c = w.ci(name, "u_cmdb_ci_hl7_interface", site, owner or w.owners["integ"], crit=crit, phi=True,
              safety="high" if crit == 1 else "medium", message_type=mt, protocol=protocol,
              source=src, target=dst, via=via)
-    c["service_ip"] = via_ci.get("service_ip", "") if via_ci else w.service_ip(dst)
+    c["service_ip"] = ip or (via_ci.get("service_ip", "") if via_ci else w.service_ip(dst))
     if via_ci is not None and via_ci["class"] == "cmdb_ci_appl":
         w.rel(via, name, "Contains::Contained by")
     leg = dict(protocol=protocol.lower(), msg_type=mt, rate=rate, profile=profile, tz=tz, route=name)
@@ -1019,7 +1019,9 @@ def _hospital(w, s):
     # DICOM does not traverse the HL7 engine: `via` is the receiving PACS node, and the
     # source of modality traffic is the site's medical-device segment (many modalities).
     _interface(w, f"DICOM-MOD-{sid}", "DICOM C-STORE", "DICOM", medseg, pacs_target, 120 * scale, "24x7", tz=tz,
-               src_leg=False, owner=w.owners["img"], via=pacs_target)
+               src_leg=False, owner=w.owners["img"], via=pacs_target,
+               site=sid if pacs_target != "pacs-app" else "DC-PRI",  # local-only route stays at the hospital
+               ip=f"{base}.8.1")  # medical-segment gateway: the modalities' side of the association
     if "pacs-cache" in apps:
         _interface(w, f"DICOM-FWD-{sid}", "DICOM C-STORE", "DICOM", apps["pacs-cache"], "pacs-app",
                    110 * scale, "24x7", tz=tz, owner=w.owners["img"], via="pacs-app")
