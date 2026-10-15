@@ -402,7 +402,7 @@ Every agent tool query has a 5 s budget, and a test asserts it on the full data.
 
 1. **Run the live-LLM check.** Put `ANTHROPIC_API_KEY` in `.env`, run `docker compose up`, then use the UI's Incident tab with "ED critical results delayed at H03, H17 and H22". Confirm that the real model follows the tool method and names `lrc-db-01` and `CHG-HEADLINE`. Also try the ambiguity judgements and chat. None of this has been run against the real model yet.
 2. **Model choice.** The default is `claude-sonnet-5-5`, because the spec asked for a current Sonnet. `claude-opus-5-5` is stronger and costs about twice as much; switch with `NORTHWIND_MODEL`.
-3. **Severity weights.** The weights in `agent/findings.py` (`IMPACT_TYPES`, `EXPOSURE`) are a judgement call. Today all four ownership (D5) findings rank critical, because their real radius is large.
+3. **Severity weights.** The weights in `agent/findings.py` (`IMPACT_TYPES`, `EXPOSURE`) are a judgement call. Today three of the six ownership (D5) findings rank critical, because the databases they are about have a large real radius; the other three rank low.
 4. **Seeding resets state.** Each `docker compose up` regenerates the data and reloads it fresh, which discards approvals and findings. That suits a repeatable demo. Remove `--fresh` and the generate step from the seed if state should persist.
 5. **Grouping rule.** D1 rows are grouped when three or more callers share one callee. A different grouping, or none, would change how the findings list reads.
 6. **Map.** It is a schematic plot from city coordinates, not a tile map. Leaflet with an OpenStreetMap layer would look better but adds a dependency and an external tile service.
