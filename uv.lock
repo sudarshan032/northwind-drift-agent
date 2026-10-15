@@ -432,6 +432,7 @@ dependencies = [
     { name = "anthropic" },
     { name = "falkordb" },
     { name = "fastapi" },
+    { name = "httpx" },
     { name = "langgraph" },
     { name = "uvicorn" },
 ]
@@ -448,6 +449,7 @@ requires-dist = [
     { name = "anthropic", specifier = "==1.13.0" },
     { name = "falkordb", specifier = "==1.7.1" },
     { name = "fastapi", specifier = "==0.143.0" },
+    { name = "httpx", specifier = "==0.28.1" },
     { name = "langgraph", specifier = "==1.2.14" },
     { name = "uvicorn", specifier = "==0.54.0" },
 ]

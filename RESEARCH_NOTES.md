@@ -325,3 +325,38 @@ IRIS / Oracle / PostgreSQL audit exports are mapped into the same columns.
 **Generator:** RaaS-style CSV with Employee_ID, Worker_Type, Worker_Status, the three flags,
 Hire_Date, Termination_Date, Effective_Date, Supervisory_Organization; no worker names or
 emails (DATA_SPEC privacy rule).
+
+## R19. OpenRouter free models (LLM provider)
+
+Checked 2026-10-16 against the live API and the docs.
+
+- **API.** OpenAI-compatible base URL `https://openrouter.ai/api/v1`, `POST /chat/completions`,
+  `Authorization: Bearer <OPENROUTER_API_KEY>`; optional attribution headers `HTTP-Referer` and
+  `X-OpenRouter-Title`. https://openrouter.ai/docs/quickstart
+- **Models API.** `GET /api/v1/models` (no key needed) returns `data[]` with `id`, `context_length`,
+  `pricing.prompt` / `pricing.completion` as decimal strings (USD per token) and `supported_parameters`, which
+  contains `tools` (and often `tool_choice`) for tool-calling models. Live call on 2026-10-16: 463 models, 14
+  free tool-capable ones (`:free` suffix, both prices `"0"`), contexts 65,536 to 1,048,576.
+  https://openrouter.ai/docs/guides/community/for-providers.md (pricing fields are strings; feature list
+  includes `tools`) and the live response.
+- **Fallbacks.** `models: [...]` is "an array of model IDs in priority order"; by default any error can trigger a
+  fallback, including rate limiting and downtime; the response's `model` field names the model that answered and
+  billing follows it. https://openrouter.ai/docs/guides/routing/model-fallbacks . The page sets no limit for
+  `models`, but the live API answered HTTP 400 "'models' array must have 3 items or fewer." to a five-model
+  list (2026-10-16), so at most 3 are sent.
+- **Free limits.** Free variants (`:free`): 20 requests per minute; 50 per day with less than 10 credits
+  purchased, 1,000 per day with at least 10. https://openrouter.ai/docs/api-reference/limits . The page does not
+  say whether failed requests count; the owner's brief says they do, so the budget counts every attempt.
+- **Key info.** `GET /api/v1/key` returns `data.limit`, `limit_remaining`, `usage`, `usage_daily`,
+  `is_free_tier` and `free_model_daily_requests {used, limit, remaining}` for the current UTC day; the old
+  `rate_limit` object is deprecated. https://openrouter.ai/docs/api-reference/limits . Live call: `is_free_tier:
+  true`, `free_model_daily_requests: {used: 0, limit: 50, remaining: 50}`.
+- **Errors.** Shape `{"error": {"code", "message", "metadata?"}}`; 429 = rate limited; 429 and 503 may carry
+  `Retry-After` (seconds). A non-streaming 200 can contain only an `error` object and no `choices`, so the body
+  must be checked. https://openrouter.ai/docs/api-reference/errors . Observed live: a 429 "Provider returned
+  error" when the upstream free provider was saturated, even with fallbacks.
+- **Privacy.** "If you opt out of training in your account settings, OpenRouter will not route to providers that
+  train", with "separate settings for paid and free models"; OpenRouter works with providers to avoid training
+  "but there are exceptions". https://openrouter.ai/docs/guides/privacy/provider-logging ; OpenRouter does not log
+  prompts by default: https://openrouter.ai/support . Third-party survey of free endpoint retention (unverified,
+  context only): https://www.truefoundry.com/blog/openrouter-free-models-whats-actually-free-and-what-it-costs-you

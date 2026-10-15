@@ -8,7 +8,7 @@ import shutil
 import pytest
 
 from agent import approval, findings as F, flows
-from agent.llm import NO_KEY, FakeLLM
+from agent.llm import JOB_CAPS, NO_KEY, UNAVAILABLE, FakeLLM, LLMUnavailable
 from agent.tools import READ_ONLY, SPECS, Toolbox
 from graph import queries as Q
 from tests import oracle
@@ -38,13 +38,17 @@ def env(drift_data, tmp_path_factory):
 
 def test_triage_findings_and_ranking(env, drift_data):
     g, data, _ = env
-    llm = FakeLLM([{"text": f"Scripted explanation {i}."} for i in range(10)])
+    def batch(system, messages, tools):  # one call explains the whole top 10
+        items = json.loads(messages[0]["content"])
+        return {"text": json.dumps({"explanations": [{"id": f["id"], "text": f"Scripted explanation {i}."}
+                                                     for i, f in enumerate(items)]})}
+    llm = FakeLLM([batch])
     res = flows.triage(g, llm)
     top = res["top"]
     assert len(top) == 10 and top[0]["key"] == ["undocumented_group", "lrc-db-01"]
     assert top[0]["severity"] == "critical" and len(top[0]["keys"]) == 51
     assert all(f["explained_by"] == "llm" for f in top)
-    assert len(llm.calls) == 10
+    assert len(llm.calls) == 1 and res["notice"] is None
     # every ground-truth finding key is covered by exactly the stored findings
     _, must, _, _ = oracle.expected(drift_data)
     stored = F.list_findings(g, limit=1000)
@@ -53,6 +57,27 @@ def test_triage_findings_and_ranking(env, drift_data):
     assert "lrc-db-01" in head["subjects"] and len(head["patch"]) == 51
     # LLM explanations are grounded on the facts it was given
     assert "lrc-db-01" in llm.calls[0]["messages"][0]["content"]
+
+
+def test_llm_unavailable_falls_back_to_templates(env):
+    g, _, _ = env
+    res = flows.triage(g, FakeLLM([LLMUnavailable("429")]), top_n=3)
+    assert res["notice"] == UNAVAILABLE and all(f["explained_by"] == "template" for f in res["top"])
+    out = flows.change_review(g, "CHG-HEADLINE", FakeLLM([LLMUnavailable("budget")]))
+    assert out["notice"] == UNAVAILABLE and "HIGH" in out["explanation"] and out["facts"]["risk"] == "high"
+    out = flows.chat(g, "What is lrc-db-01?", FakeLLM([LLMUnavailable("budget")]))
+    assert out["answer"].startswith(UNAVAILABLE)
+
+
+def test_job_caps(env):
+    g, _, _ = env
+    llm = FakeLLM([{"tool": "search_components", "input": {"text": "lrc"}}] * 10)
+    out = flows.chat(g, "loop forever", llm)
+    assert len(llm.calls) == JOB_CAPS["chat"] == 4 and out["answer"].startswith("(stopped")
+    assert [c["tool_choice"] for c in llm.calls] == [None, None, None, "none"]  # last call must answer
+    llm = FakeLLM([{"tool": "search_components", "input": {"text": "lrc"}}] * 10)
+    flows.incident(g, "loop forever", llm)
+    assert len(llm.calls) == JOB_CAPS["incident"] == 6
 
 
 def test_triage_without_llm_uses_templates(env):

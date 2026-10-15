@@ -53,3 +53,14 @@ def demo_graph(tmp_path_factory):
     ld = _load(str(out), "northwind_test_demo")
     yield ld.g, str(out)
     ld.g.delete()
+
+
+@pytest.fixture(autouse=True)
+def _no_live_llm(monkeypatch):
+    """Tests never use a live provider, whatever the shell or .env says."""
+    from agent import llm
+    for k in ("LLM_PROVIDER", "OPENROUTER_API_KEY", "ANTHROPIC_API_KEY", "NORTHWIND_MODELS"):
+        monkeypatch.delenv(k, raising=False)
+    llm.get_llm.cache_clear()
+    yield
+    llm.get_llm.cache_clear()

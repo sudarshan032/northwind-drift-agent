@@ -27,8 +27,9 @@ open http://localhost:8000    # UI; FalkorDB browser on http://localhost:3000
 ```
 
 Everything works without an API key: detection, blast radius, change review, findings, approvals and the UI.
-For the live agent (LLM explanations, incident investigation, judgement, chat), copy `.env.example` to `.env` and
-set `ANTHROPIC_API_KEY`; the model defaults to `claude-sonnet-5-5` (`NORTHWIND_MODEL`).
+For the live agent (LLM explanations, incident investigation, judgement, chat), copy `.env.example` to `.env`
+and set `OPENROUTER_API_KEY` for free models (see [Using free models](#using-free-models)), or
+`LLM_PROVIDER=anthropic` with `ANTHROPIC_API_KEY` (model `NORTHWIND_MODEL`, default `claude-sonnet-5-5`).
 
 Development:
 
@@ -38,7 +39,7 @@ docker compose up -d falkordb
 uv run python -m ingest.generate --seed 42 --out data/      # raw exports + connectors, ~15 s, ~390 MB
 uv run python -m ingest.connect --data data/                 # re-run the connectors alone
 uv run python -m ingest.load --data data/ --graph northwind --fresh
-uv run python -m pytest -q                                   # 79 tests; agent tests use a scripted fake LLM
+uv run python -m pytest -q                                   # 89 tests; agent tests use a scripted fake LLM
 uv run uvicorn api.main:app --port 8000
 ```
 
@@ -261,14 +262,60 @@ These are LangGraph flows over the Cypher tools:
    or "possible security risk, escalate". The reasons are stored on the finding.
 5. **Chat** answers only through tools, cites paths, and says so when nothing was found.
 
-All tests use a deterministic scripted LLM, so no key is needed. The real model is the official `anthropic`
-SDK with refusal fallback.
+All tests use a deterministic scripted LLM, so no key is needed. Live providers: OpenRouter free models
+(OpenAI-compatible API, `agent/llm.py`) or Claude through the official `anthropic` SDK with refusal fallback.
+Each job has a request cap: triage 1 (the top-10 explanations are one batched call), change review 1,
+incident at most 6, chat at most 4 per message; the last allowed call is made with `tool_choice: none` so it
+must answer.
+
+## Using free models
+
+1. Create an account at [openrouter.ai](https://openrouter.ai), then a key under **Settings → API Keys**
+   (`sk-or-v1-...`). No credit card is needed for `:free` models.
+2. Put it in `.env`: `LLM_PROVIDER=openrouter` and `OPENROUTER_API_KEY=sk-or-v1-...`. The API, the Docker stack
+   (`env_file`) and `python -m agent.prewarm` read it; for a local `uvicorn`, export it first
+   (`set -a; . ./.env; set +a`).
+3. Optional: `NORTHWIND_MODELS`, a comma-separated preference list.
+
+At startup the API calls OpenRouter's models API and keeps only models whose ID ends in `:free`, whose prompt and
+completion prices are zero and whose `supported_parameters` include `tools`, and logs which are available. If
+none of the listed models qualify it picks the free tool-capable model with the largest context. The kept list
+is sent as OpenRouter's `models` fallback array, so a rate-limited or failing model falls through to the next.
+
+![Header with the selected free model and the remaining requests](docs/free-models.png)
+
+**Limits.** Free models allow 20 requests per minute and 50 per day without purchased credits (1,000 per day with
+at least 10 credits bought). Failed requests count. The agent therefore keeps a persistent daily counter
+(`runtime/llm_budget.json`, `NORTHWIND_DAILY_REQUESTS`) and a one-minute window, never sends a request past
+either, retries at most once after a 429 (waiting `Retry-After`, at most 20 s), and shows the remaining requests
+in the UI header, read from OpenRouter's key-info endpoint (`GET /api/v1/key`, `free_model_daily_requests`).
+
+**Saving requests.** Every response is cached on disk (`runtime/llm_cache/`, keyed by model list plus a hash of
+the prompt, messages and tools), so repeating a demo costs zero requests. Fill the cache once before a demo:
+
+```bash
+python -m agent.prewarm                          # local
+docker compose exec api python -m agent.prewarm  # stack
+```
+
+It runs triage, both demo change reviews, the demo incident and the demo chat question, and prints the requests
+used.
+
+**When the budget runs out** or every model fails, the agent shows the rule-based explanation with the notice
+"AI explanation unavailable (free-tier limit), showing rule-based explanation" instead of an error. Detection,
+blast radius and the change review facts and risk never depend on the LLM.
+
+**Privacy.** OpenRouter itself does not log prompts by default, but the providers behind free endpoints may
+retain prompts or train on them; each endpoint has its own data policy, and OpenRouter's privacy settings have a
+separate switch for free endpoints that may train on inputs. That is acceptable here because every prompt holds
+only the synthetic Northwind Health data. Do not send real CMDB or patient data to free models.
 
 ## API
 
 | Method | Endpoint | Purpose |
 |---|---|---|
 | GET | `/health` | Service and graph status |
+| GET | `/llm` | LLM provider, models and remaining free requests today |
 | POST | `/scan` | Run triage |
 | GET | `/findings`, `/findings/{id}` | List findings, or one finding |
 | POST | `/findings/{id}/approve`, `/findings/{id}/reject` | Approve or reject a proposed patch |
@@ -299,8 +346,8 @@ author's specifications (`DATA_SPEC.md`, `RUN_PROMPT.md`, `AGENT_SPEC.md`). Inde
 the result against those specifications. The author designed the scenario, the drift catalogue and the
 specifications, and reviews the output.
 
-Every decision is logged in `DECISIONS.md`. The running agent uses Claude through the Anthropic API when a key
-is configured.
+Every decision is logged in `DECISIONS.md`. The running agent uses OpenRouter free models or Claude through the
+Anthropic API when a key is configured.
 
 ## Known limits
 

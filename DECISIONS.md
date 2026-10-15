@@ -281,3 +281,27 @@ Clarified, not changed:
 
 ## 70. Hidden edges use the 3-day rule
 - Change review's "undocumented edges inside the real radius" now applies the same ≥ 3-day rule as D1, so a one-off ad-hoc flow (noise) no longer shows as a hidden dependency (CHG0031513: 0 hidden edges, low risk).
+
+## 71. OpenRouter free models as the default live provider
+- `LLM_PROVIDER=openrouter|anthropic|fake`; unset picks OpenRouter if `OPENROUTER_API_KEY` is set, then Anthropic, else no LLM. `fake` is the scripted `FakeLLM` (no network). Tests force no provider through an autouse fixture, whatever the shell or `.env` holds.
+- OpenRouter is called with raw `httpx` (already a dependency of the `anthropic` SDK, now declared) against the OpenAI-compatible chat completions API rather than adding the `openai` package; OpenRouter's `models` fallback array is a non-OpenAI field anyway. Conversations stay in Anthropic block form inside the flows; `agent/llm.py` converts to and from OpenAI messages (`tool_calls`, `role: tool`) at the edge, so the flows and the Claude path are unchanged.
+- The provider is built once at API startup (`get_llm` is cached) so model selection runs once and is logged.
+
+## 72. Model selection
+- Keep a model only if its ID ends in `:free`, both prices parse to 0 and `supported_parameters` contains `tools` (R19). Preference order from `NORTHWIND_MODELS`; if none qualify, the largest-context qualifying model plus the next two by context. The kept list is sent as `models` (OpenRouter fallbacks) with the first as `model`. Offline at startup: use the configured list as given.
+- Default preference list has five models from three vendors: free endpoints were seen returning 429 from the upstream provider while others were fine. OpenRouter accepts at most 3 entries in `models` (live 400, R19), so the first 3 qualifying models are sent; the others are spares if a preferred model stops being free or tool-capable.
+
+## 73. Budget guard
+- A persistent per-UTC-day counter plus a one-minute window in `runtime/llm_budget.json`, taken before every HTTP attempt (failed attempts count, per the brief; the docs are silent, R19). Default daily limit 50 (`NORTHWIND_DAILY_REQUESTS`), 20 per minute. Requests past either are never sent.
+- Per-job caps (`JOB_CAPS`): triage 1, change review 1, incident 6, chat 4 per message. Enforced by a `Capped` wrapper and by the tool loop's step limit; the last allowed call is sent with `tool_choice: "none"` and a one-line "answer now" instruction so a capped loop ends in an answer, not "(stopped)".
+- At most one retry, only after a 429, waiting `Retry-After` (default 5 s, capped at 20 s). Every other error fails over to rule-based text immediately. A 200 whose body is an `error` object is treated as an error (R19).
+- The UI header shows remaining free requests from `GET /api/v1/key` `free_model_daily_requests.remaining` (cached 30 s), taking the smaller of that and the local counter.
+
+## 74. Saving requests
+- Triage explains the top 10 in one batched call returning `{"explanations": [{"id", "text"}]}`; findings the reply misses keep their template text. The triage test now scripts one batched reply instead of ten.
+- Every OpenRouter response is cached on disk (`runtime/llm_cache/<sha256>.json`) keyed by the model list plus a hash of system prompt, messages, tools and tool_choice. Tool loops are deterministic given the graph, so each step of a repeated incident or chat hits the cache.
+- `python -m agent.prewarm` runs triage, the two demo change reviews, the demo incident and the demo chat question (the UI defaults) once. The Claude path is not cached: it is not on a free-tier budget and its SDK content blocks are not plain JSON.
+- Ambiguity judgement (no UI or API entry point) keeps one call per case; it is not on the budget-critical path.
+
+## 75. Graceful fallback
+- Budget exhausted, cap reached, or all models failed raise `LLMUnavailable`. Triage and change review keep their template explanation and return `notice` = "AI explanation unavailable (free-tier limit), showing rule-based explanation"; incident and chat return that notice as the answer with whatever tool steps ran; ambiguity stores no decision with the notice as reason. Detection, radius, change review facts and risk are computed before and without the LLM.

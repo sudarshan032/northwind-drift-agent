@@ -99,6 +99,7 @@ code { font-size: 12px; }
   <h1>Northwind drift agent</h1>
   <span class="badge">Fictional data · Northwind Health</span>
   <span class="badge" id="llm">…</span>
+  <span class="badge hide" id="quota" title="Free-model requests left today (OpenRouter key info)"></span>
   <span class="spacer"></span>
   <nav>
     <button data-tab="change" class="on">Change review</button>
@@ -345,7 +346,8 @@ async function review() {
   $("#changeinfo").textContent = `${f.description} · ${f.start_date}`;
   $("#declared").innerHTML = nums(f.declared);
   $("#real").innerHTML = nums(f.real);
-  $("#explain").textContent = r.explanation;
+  $("#explain").textContent = (r.notice ? r.notice + "\n\n" : "") + r.explanation;
+  quota();
   const g = r.graph, pos = layout(g.nodes, g.edges);
   window.cy = cytoscape({
     container: $("#cy"),
@@ -427,7 +429,8 @@ $("#fstatus").onchange = loadFindings;
 $("#scan").onclick = async () => {
   $("#scaninfo").textContent = "Scanning…";
   const r = await api("/scan", { method: "POST" });
-  $("#scaninfo").textContent = `${r.total} findings · ${Object.entries(r.by_type).filter(([, v]) => v).map(([k, v]) => `${k}:${v}`).join(" ")}`;
+  $("#scaninfo").textContent = `${r.total} findings · ${Object.entries(r.by_type).filter(([, v]) => v).map(([k, v]) => `${k}:${v}`).join(" ")}` + (r.notice ? ` · ${r.notice}` : "");
+  quota();
   loadFindings();
 };
 
@@ -452,6 +455,14 @@ function showSample(i) {
 }
 $("#sources").onclick = (e) => { if (e.target.dataset.i) showSample(Number(e.target.dataset.i)); };
 
+// ---- free-tier quota in the header
+async function quota() {
+  const s = await api("/llm");
+  if (s.remaining == null) return;
+  $("#quota").classList.remove("hide");
+  $("#quota").textContent = `${s.remaining}/${s.limit} requests left today`;
+}
+
 // ---- incident + chat
 function renderSteps(el, steps) {
   el.innerHTML = steps.map((s) => `<li><code>${esc(s.tool)}</code> ${esc(JSON.stringify(s.input))}</li>`).join("");
@@ -461,12 +472,14 @@ $("#investigate").onclick = async () => {
   const r = await api("/incident", { method: "POST", body: JSON.stringify({ symptom: $("#symptom").value }) });
   renderSteps($("#steps"), r.steps);
   $("#incident").textContent = r.answer + (r.paths.length ? `\n\nPaths:\n${r.paths.join("\n")}` : "");
+  quota();
 };
 $("#ask").onclick = async () => {
   $("#answer").textContent = "Thinking…";
   const r = await api("/chat", { method: "POST", body: JSON.stringify({ message: $("#question").value }) });
   $("#answer").textContent = r.answer;
   $("#cites").innerHTML = r.paths.map((p) => `<li>${esc(p)}</li>`).join("");
+  quota();
 };
 
 async function sideCards() {
@@ -478,7 +491,10 @@ async function sideCards() {
 
 (async () => {
   const h = await api("/health");
-  $("#llm").textContent = h.llm ? "Live agent" : "Detection only · add ANTHROPIC_API_KEY for live agent";
+  const s = await api("/llm");
+  $("#llm").textContent = !h.llm ? "Detection only · set LLM_PROVIDER for the live agent"
+    : s.provider === "openrouter" ? `OpenRouter free · ${s.models[0] || "no model"}` : `Live agent · ${s.provider}`;
+  quota();
   drawShapes();
   await loadChanges();
   $("#review").onclick = review;

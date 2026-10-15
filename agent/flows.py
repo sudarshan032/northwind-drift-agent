@@ -6,9 +6,13 @@
 4. ambiguity       evidence -> LLM judgement per D13 alias / D14 app -> stored on a Finding
 5. chat            tool-using agent loop over read-only tools
 
-Every flow takes an LLM (agent.llm.ClaudeLLM or FakeLLM). Without one,
-triage and change review fall back to template text; the open-ended jobs
-return agent.llm.NO_KEY. The LLM never writes CMDB files or declared edges.
+Every flow takes an LLM (agent.llm OpenRouterLLM, ClaudeLLM or FakeLLM) and
+wraps it in a per-job call cap (agent.llm.JOB_CAPS). Without an LLM, or when
+the budget is exhausted or every model fails (LLMUnavailable), triage and
+change review fall back to template text with agent.llm.UNAVAILABLE as the
+notice; the open-ended jobs return NO_KEY or the notice. Detection, radius
+and the change review facts never depend on the LLM. The LLM never writes
+CMDB files or declared edges.
 """
 
 import json
@@ -18,7 +22,7 @@ from typing import TypedDict
 from langgraph.graph import END, StateGraph
 
 from agent import findings as F
-from agent.llm import NO_KEY
+from agent.llm import JOB_CAPS, NO_KEY, UNAVAILABLE, LLMUnavailable, capped
 from agent.tools import READ_ONLY, Toolbox
 from graph import queries as Q
 
@@ -41,7 +45,15 @@ def tool_loop(llm, box, system, tool_names, max_steps=8):
     specs = box.specs(tool_names)
 
     def model(state):
-        reply = llm.respond(system, state["messages"], specs)
+        last = state["steps"] == max_steps - 1  # job cap: the final call must answer
+        sys_ = system + (" You have no tool calls left: give your final answer now from the results so far."
+                         if last and max_steps > 1 else "")
+        try:
+            reply = llm.respond(sys_, state["messages"], specs, **({"tool_choice": "none"} if last else {}))
+        except LLMUnavailable:
+            return {"steps": state["steps"] + 1, "answer": UNAVAILABLE + "."}
+        if last and "<tool_call>" in reply.text:  # a model that writes a tool call as text: no answer
+            reply.text = ""
         msgs = state["messages"] + [{"role": "assistant", "content": reply.content}]
         return {"messages": msgs, "steps": state["steps"] + 1,
                 "answer": reply.text if not reply.tool_calls else state["answer"]}
@@ -58,6 +70,8 @@ def tool_loop(llm, box, system, tool_names, max_steps=8):
         return {"messages": state["messages"] + [{"role": "user", "content": results}]}
 
     def route(state):
+        if state["messages"][-1]["role"] != "assistant":  # model call was unavailable
+            return END
         last = state["messages"][-1]["content"]
         has_calls = any((b.get("type") if isinstance(b, dict) else b.type) == "tool_use" for b in last)
         if has_calls and state["steps"] < max_steps:
@@ -99,17 +113,30 @@ def cited_paths(trace):
 # 1. Drift triage
 # --------------------------------------------------------------------------
 
-EXPLAIN = ("You explain CMDB drift findings for a hospital IT team in 2-4 plain sentences: what is wrong, why it "
-           "matters for patients or data, and what the proposed fix does. " + GROUNDING)
+EXPLAIN = ("You explain CMDB drift findings for a hospital IT team. For each finding in the JSON list write 2-4 "
+           "plain sentences: what is wrong, why it matters for patients or data, and what the proposed fix does. "
+           'Reply with JSON only: {"explanations": [{"id": "<finding id>", "text": "..."}]}. ' + GROUNDING)
+
+
+def parse_explanations(text):
+    m = re.search(r"\{.*\}", text or "", re.S)
+    try:
+        items = json.loads(m.group(0)).get("explanations", []) if m else []
+    except (json.JSONDecodeError, AttributeError):
+        items = []
+    return {str(x["id"]): str(x["text"]) for x in items if isinstance(x, dict) and x.get("id") and x.get("text")}
 
 
 class TriageState(TypedDict, total=False):
     detections: dict
     findings: list
     top: list
+    notice: str
 
 
 def triage(g, llm=None, top_n=10):
+    job = capped(llm, "triage")
+
     def detect(s):
         return {"detections": Q.detect_all(g)}
 
@@ -117,14 +144,22 @@ def triage(g, llm=None, top_n=10):
         return {"findings": F.build(g, s["detections"])}
 
     def explain(s):
-        fs = s["findings"]
-        if llm is not None:
+        fs, notice = s["findings"], None
+        if job is not None:  # one batched call for the top N (free-tier budget)
+            facts = [{"id": f["id"], **{k: f[k] for k in ("kind", "key", "severity", "path")},
+                      "evidence": json.dumps(f["evidence"], default=str)[:1500], "patch_ops": len(f["patch"])}
+                     for f in fs[:top_n]]
+            try:
+                got = parse_explanations(job.respond(EXPLAIN, [{"role": "user", "content": json.dumps(
+                    facts, default=str)}]).text)
+            except LLMUnavailable:
+                got, notice = {}, UNAVAILABLE
             for f in fs[:top_n]:
-                facts = {k: f[k] for k in ("kind", "key", "severity", "evidence", "path", "patch")}
-                reply = llm.respond(EXPLAIN, [{"role": "user", "content": json.dumps(facts, default=str)[:12000]}])
-                if reply.text:
-                    f["explanation"], f["explained_by"] = reply.text, "llm"
-        return {"findings": fs}
+                if got.get(f["id"]):
+                    f["explanation"], f["explained_by"] = got[f["id"]], "llm"
+            if not got and notice is None:
+                notice = "AI explanation unavailable (model reply not usable), showing rule-based explanation"
+        return {"findings": fs, "notice": notice}
 
     def store(s):
         F.store(g, s["findings"])
@@ -139,7 +174,7 @@ def triage(g, llm=None, top_n=10):
     sg.add_edge("explain", "store")
     sg.add_edge("store", END)
     out = sg.compile().invoke({})
-    return {"total": len(out["findings"]), "top": out["top"],
+    return {"total": len(out["findings"]), "top": out["top"], "notice": out.get("notice"),
             "by_type": {t: sum(1 for f in out["findings"] if f["type"] == t) for t in sorted(F.KIND)}}
 
 
@@ -157,9 +192,12 @@ class ChangeState(TypedDict, total=False):
     review: dict
     owners: list
     explanation: str
+    notice: str
 
 
 def change_review(g, change_id, llm=None):
+    job = capped(llm, "change_review")
+
     def review(s):
         return {"review": Q.change_review(g, change_id)}
 
@@ -178,9 +216,12 @@ def change_review(g, change_id, llm=None):
         if not r.get("found"):
             return {"explanation": f"No change {change_id} found."}
         facts = summarise_review(r, s["owners"])
-        if llm is None:
+        if job is None:
             return {"explanation": template_review(facts)}
-        reply = llm.respond(CHANGE, [{"role": "user", "content": json.dumps(facts, default=str)[:12000]}])
+        try:
+            reply = job.respond(CHANGE, [{"role": "user", "content": json.dumps(facts, default=str)[:12000]}])
+        except LLMUnavailable:
+            return {"explanation": template_review(facts), "notice": UNAVAILABLE}
         return {"explanation": reply.text or template_review(facts)}
 
     sg = StateGraph(ChangeState)
@@ -193,7 +234,7 @@ def change_review(g, change_id, llm=None):
     sg.add_edge("explain", END)
     out = sg.compile().invoke({})
     return {"change": change_id, "facts": summarise_review(out["review"], out["owners"])
-            if out["review"].get("found") else None, "explanation": out["explanation"]}
+            if out["review"].get("found") else None, "explanation": out["explanation"], "notice": out.get("notice")}
 
 
 def summarise_review(r, owners):
@@ -240,7 +281,8 @@ INCIDENT_TOOLS = ["search_components", "shared_dependencies", "changes_on", "rad
 def incident(g, symptom, llm=None):
     if llm is None:
         return {"answer": NO_KEY, "steps": [], "paths": []}
-    return run_loop(llm, Toolbox(g), INCIDENT, symptom, INCIDENT_TOOLS)
+    return run_loop(capped(llm, "incident"), Toolbox(g), INCIDENT, symptom, INCIDENT_TOOLS,
+                    max_steps=JOB_CAPS["incident"])
 
 
 # --------------------------------------------------------------------------
@@ -269,8 +311,11 @@ def ambiguity(g, llm=None):
         if llm is None:
             j = {"decision": None, "reasons": [NO_KEY], "by": "none"}
         else:
-            reply = llm.respond(JUDGE, [{"role": "user", "content": json.dumps(c, default=str)[:12000]}])
-            j = parse_judgement(reply.text)
+            try:
+                reply = llm.respond(JUDGE, [{"role": "user", "content": json.dumps(c, default=str)[:12000]}])
+                j = parse_judgement(reply.text)
+            except LLMUnavailable:
+                j = {"decision": None, "reasons": [UNAVAILABLE], "by": "none"}
         fid = F.finding_id(c["kind"], c["key"])
         if F.get_finding(g, fid) is None:
             F.store(g, [{"id": fid, "type": c["kind"], "kind": "naming mismatch" if c["kind"] == "D13" else
@@ -305,5 +350,5 @@ CHAT = ("You answer questions about Northwind Health's IT estate using only the 
 def chat(g, message, llm=None):
     if llm is None:
         return {"answer": NO_KEY, "steps": [], "paths": []}
-    return run_loop(llm, Toolbox(g), CHAT, message, READ_ONLY)
+    return run_loop(capped(llm, "chat"), Toolbox(g), CHAT, message, READ_ONLY, max_steps=JOB_CAPS["chat"])
 

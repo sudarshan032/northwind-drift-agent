@@ -1,12 +1,14 @@
 """FastAPI service (AGENT_SPEC phase 3). Run: uvicorn api.main:app
 
 Config (env): FALKORDB_HOST, FALKORDB_PORT, NORTHWIND_GRAPH (northwind),
-NORTHWIND_DATA (data), NORTHWIND_RUNTIME (runtime), ANTHROPIC_API_KEY.
+NORTHWIND_DATA (data), NORTHWIND_RUNTIME (runtime), LLM_PROVIDER, OPENROUTER_API_KEY,
+NORTHWIND_MODELS, ANTHROPIC_API_KEY.
 The UI is served from ui/ at /.
 """
 
 import json
 import os
+from contextlib import asynccontextmanager
 
 from falkordb import FalkorDB
 from fastapi import FastAPI, HTTPException, Query
@@ -24,7 +26,15 @@ DATA = os.environ.get("NORTHWIND_DATA", "data")
 RUNTIME = os.environ.get("NORTHWIND_RUNTIME", "runtime")
 UI = os.path.join(os.path.dirname(__file__), "..", "ui")
 
-app = FastAPI(title="Northwind drift agent", version="0.1.0",
+
+
+@asynccontextmanager
+async def lifespan(app):
+    get_llm()  # provider + model selection at startup (logged)
+    yield
+
+
+app = FastAPI(title="Northwind drift agent", version="0.1.0", lifespan=lifespan,
               description="CMDB drift detection on FalkorDB (fictional Northwind Health data)")
 _db = None
 
@@ -68,10 +78,18 @@ def health():
             "llm_message": None if llm() else NO_KEY}
 
 
+@app.get("/llm")
+def llm_status():
+    """Provider, models and remaining free-model requests today (UI header)."""
+    m = llm()
+    return m.status() if m is not None and hasattr(m, "status") else {"provider": "none", "models": [],
+                                                                       "remaining": None}
+
+
 @app.post("/scan")
 def scan():
     res = flows.triage(graph(), llm())
-    return {"total": res["total"], "by_type": res["by_type"], "top": res["top"],
+    return {"total": res["total"], "by_type": res["by_type"], "top": res["top"], "notice": res["notice"],
             "llm": llm() is not None}
 
 
