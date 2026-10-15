@@ -1,6 +1,9 @@
 services:
   falkordb:
     image: falkordb/falkordb:v4.22.0
+    environment:
+      # default query timeout 10 s (agent tools pass 5 s per query); hard cap 60 s
+      FALKORDB_ARGS: "TIMEOUT_MAX 60000 TIMEOUT_DEFAULT 10000 MAX_QUEUED_QUERIES 25"
     ports:
       - "6379:6379"   # Redis protocol / Cypher
       - "3000:3000"   # FalkorDB browser UI

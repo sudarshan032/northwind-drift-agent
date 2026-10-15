@@ -168,6 +168,29 @@ For 9.2 and 9.3, the reference checker `tests/oracle.py` (the RUN_PROMPT 4.1 rul
 - The site footprint, the equipment at each site, and the user counts at demo sites are realistic: H03 has 2,696 users, H17 1,115, H44 150 and GCC-HYD 300.
 - The graph is smaller than the DATA_SPEC 9.6 guidance (80–150k nodes, 300–700k edges) and just under DATA_SPEC's own 50k fail line. It is within the RUN_PROMPT 4.5 bound of 30k–300k nodes, and I did not pad it, as RUN_PROMPT says. The size comes from the inventory table: outside the demo sites, endpoints, access points and bedside fleets are single group nodes with a `count`.
 
+## Findings by drift type (updated for AGENT_SPEC Phase 0)
+
+Full data, drift on. Every count below is both the `ground_truth.json` expectation and what the oracle finds (exact match; VERIFY.md has the current run).
+
+| Type | Entries | Finding keys | What |
+|---|---|---|---|
+| D1 | 8 | 58 | undocumented dependencies (headline = 51 ORU-CRIT → lrc-db-01 keys, plus 7 single ones) |
+| D2 | 6 | 6 | stale CMDB relationships |
+| D3 | 4 | 0 (must stay silent) | failover relationships, not stale |
+| D4 | 3 | 3 | retired CIs still linked |
+| D5 | 6 | 6 | owner drift |
+| D6 | 10 | 10 | shadow IT (discovered, not in CMDB) |
+| D7 | 5 | 5 | ghost CIs |
+| D8 | 8 | 8 | attribute drift |
+| D9 | 4 | 4 | protection-path drift |
+| D10 | 3 | 3 | backups failing > 7 days |
+| D11 | 1 | 1 | PHI replicated into cloud-central-india |
+| D12 | 4 | 4 | access drift |
+| D13 | 5 | 6 aliases resolved | naming mismatches (not findings) |
+| D14 | 1 | 1 | unregistered SMART on FHIR app (new in AGENT_SPEC 0.1f) |
+
+Total: 109 findings, 0 unexpected.
+
 ## Sanity queries (clean-room run 2; identical in run 1)
 
 **1. Node counts per label**
@@ -221,12 +244,12 @@ Checked with no change needed: DICOM flows (worklist, C-STORE, port 104, study s
 
 **For the owner to decide later:**
 
-1. **Relationship type strings.** DATA_SPEC's `Stores on::Stores`, `Backed up by::Backs up`, `Replicates to::Replica of` and `Connects through::Connects` would be custom types in a real ServiceNow instance. The standard ones are `Provides storage for::Stored on` and `Connects to::Connected by`. I kept the spec strings.
+1. **Relationship type strings.** Resolved in AGENT_SPEC Phase 0: storage and connects now use the ServiceNow standard `Provides storage for::Stored on` and `Connects to::Connected by`; `Backed up by` and `Replicates to` stay documented custom types.
 2. **AD group names.** These follow the spec (`grp-H17-ED-nurse`). Real AGDLP naming would be `GG_<site>_<dept>_<role>` nested into `DL_<resource>_<RO|RW>`.
 3. **Graph size.** About 49k nodes and 140k edges, below the DATA_SPEC guidance. To grow it realistically, expand endpoints into individual nodes at more sites rather than padding.
 4. **Located at / Managed by.** These are columns, not `cmdb_rel_ci` rows. If the agent should read them from the relationship table, emit the rows and exclude them from the D4 "retired still linked" rule.
-5. **Demo subset.** The WA and OR region has 24 headline routes (not ≥40) and 4 D13 cases, because H44 is in Montana. Including H44, or all 51 routes, would make the live demo match the full data.
-6. **Imaging ranges.** These deviate from the DATA_SPEC section 2 table on purpose, so the spec table should be updated if the research ranges are accepted.
+5. **Demo subset.** Resolved in AGENT_SPEC Phase 0: the subset is now all 51 hospitals plus DCs, clouds and GCC-HYD, with the full catalogue and headline.
+6. **Imaging ranges.** Resolved: DATA_SPEC section 2 now carries the research ranges.
 
 **Limitations:**
 - Workstations and printers per bed at the largest hospitals are below the research estimates; the spec table ranges were kept.

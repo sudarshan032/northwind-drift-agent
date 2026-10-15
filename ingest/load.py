@@ -27,21 +27,24 @@ from collections import Counter
 
 from falkordb import FalkorDB
 
+from graph import impact
 from ingest.views import open_in
 from ingest.world import CLASS_LABEL
 
 BATCH = 2000
 INT_FIELDS = {"count", "rpo_minutes", "rto_hours", "capacity_tb", "member_count", "beds"}
 BOOL_FIELDS = {"handles_phi", "backup_offsite", "patchable", "encrypted", "immutable", "failover", "scanned"}
+# ServiceNow type -> graph edge. Graph edge names are the DATA_SPEC section 8 names.
 REL_TYPES = {
     "Contains::Contained by": "CONTAINS", "Depends on::Used by": "DEPENDS_ON", "Runs on::Runs": "RUNS_ON",
-    "Stores on::Stores": "STORES_ON", "Replicates to::Replica of": "REPLICATES_TO",
-    "Backed up by::Backs up": "BACKED_UP_BY", "Connects through::Connects": "CONNECTS_THROUGH",
+    "Provides storage for::Stored on": "STORES_ON", "Replicates to::Replica of": "REPLICATES_TO",
+    "Backed up by::Backs up": "BACKED_UP_BY", "Connects to::Connected by": "CONNECTS_THROUGH",
     "Located at": "LOCATED_AT", "Managed by": "MANAGED_BY",
 }
 INDEXES = [("Component", "name"), ("Component", "sys_id"), ("Component", "ip_address"),
            ("Discovered", "serial_number"), ("Discovered", "key"), ("Site", "id"), ("Department", "id"),
-           ("SupportGroup", "name"), ("User", "id"), ("Group", "id"), ("Role", "id"), ("Change", "number")]
+           ("SupportGroup", "name"), ("User", "id"), ("Group", "id"), ("Role", "id"), ("Change", "number"),
+           ("UnregisteredEndpoint", "name")]
 
 
 def typed(row, skip=()):
@@ -136,7 +139,10 @@ class Loader:
             props = {"failover": r["failover"] == "true"}
             if et == "REPLICATES_TO":
                 props["mode"] = r["mode"]
-            by_type.setdefault(et, []).append({"a": r["parent"], "b": r["child"], "p": props})
+            a, b = r["parent"], r["child"]
+            if et == "STORES_ON":  # CMDB parent = storage provider; graph edge points consumer -> storage
+                a, b = b, a
+            by_type.setdefault(et, []).append({"a": a, "b": b, "p": props})
         for et, rows in sorted(by_type.items()):
             self.run(f"UNWIND $rows AS r MATCH (a:Component {{name: r.a}}) MATCH (b:Component {{name: r.b}}) "
                      f"MERGE (a)-[e:{et}]->(b) SET e += r.p", rows)
@@ -204,6 +210,7 @@ class Loader:
             self.alias(self.by_ip[ip], name)
             return self.by_ip[ip]
         self.unresolved[name] += 1
+        self.unregistered[name] = ip
         return None
 
     def flows(self):
@@ -211,6 +218,8 @@ class Loader:
         for fname in ("flows_hourly.jsonl", "flows_daily.jsonl"):
             for rec in read_jsonl(self.path("observed", fname)):
                 a, b = self.resolve(rec["src_name"], rec["src_ip"]), self.resolve(rec["dst_name"], rec["dst_ip"])
+                a, b = a or (rec["src_name"] if rec["src_name"] in self.unregistered else None), \
+                    b or (rec["dst_name"] if rec["dst_name"] in self.unregistered else None)
                 if not (a and b):
                     continue
                 t = rec.get("hour") or rec["day"] + "T00:00:00Z"
@@ -238,7 +247,15 @@ class Loader:
         def props(e):  # distinct days with traffic, kept for the ">= 3 days" rule
             return {**{k: v for k, v in e.items() if k != "days"}, "days_seen": len(e["days"])}
 
+        # Endpoints with no CMDB record become :UnregisteredEndpoint nodes so their traffic stays visible.
+        self.run("UNWIND $rows AS r MERGE (x:UnregisteredEndpoint {name: r.n}) SET x.ip_address = r.ip",
+                 [{"n": n, "ip": ip} for n, ip in sorted(self.unregistered.items())])
         rows = [{"a": a, "b": b, "m": m, "pr": pr, "p": props(e)} for (a, b, m, pr), e in sorted(calls.items())]
+        self.run("UNWIND $rows AS r MATCH (a {name: r.a}) WHERE a:Component OR a:UnregisteredEndpoint "
+                 "MATCH (b {name: r.b}) WHERE b:Component OR b:UnregisteredEndpoint "
+                 "MERGE (a)-[e:OBSERVED_CALLS {msg_type: r.m, protocol: r.pr}]->(b) SET e += r.p",
+                 [x for x in rows if x["a"] in self.unregistered or x["b"] in self.unregistered])
+        rows = [x for x in rows if x["a"] not in self.unregistered and x["b"] not in self.unregistered]
         self.run("UNWIND $rows AS r MATCH (a:Component {name: r.a}) MATCH (b:Component {name: r.b}) "
                  "MERGE (a)-[e:OBSERVED_CALLS {msg_type: r.m, protocol: r.pr}]->(b) SET e += r.p", rows)
         rows = [{"a": a, "b": b, "port": port, "p": props(e)} for (a, b, port), e in sorted(net.items())]
@@ -288,7 +305,11 @@ class Loader:
         rows = [{"u": u, "c": c, "a": a, "p": dict(x, workstations=sorted(x["workstations"]))}
                 for (u, c, a), x in sorted(agg.items())]
         self.run("UNWIND $rows AS r MATCH (u:User {id: r.u}) MATCH (c:Component {name: r.c}) "
-                 "MERGE (u)-[e:OBSERVED_ACCESS {action: r.a}]->(c) SET e += r.p", rows)
+                 "MERGE (u)-[e:OBSERVED_ACCESS {action: r.a}]->(c) SET e += r.p",
+                 [x for x in rows if x["c"] in self.cis])
+        self.run("UNWIND $rows AS r MATCH (u:User {id: r.u}) MERGE (c:UnregisteredEndpoint {name: r.c}) "
+                 "MERGE (u)-[e:OBSERVED_ACCESS {action: r.a}]->(c) SET e += r.p",
+                 [x for x in rows if x["c"] not in self.cis])
 
     def evidence(self):
         rows = [{"g": r["team"], "c": r["ci"],
@@ -298,6 +319,10 @@ class Loader:
         self.run("UNWIND $rows AS r MATCH (g:SupportGroup {name: r.g}) MATCH (c:Component {name: r.c}) "
                  "MERGE (g)-[e:OBSERVED_OWNER]->(c) SET e += r.p", rows)
 
+    def impact_layers(self):
+        """Derived IMPACTS_*/AFFECTS_* edges (graph/impact.py), rebuilt on every load."""
+        impact.build(self.g)
+
     def write_aliases(self):
         rows = [{"c": c, "a": sorted(a)} for c, a in sorted(self.aliases.items())]
         self.run("UNWIND $rows AS r MATCH (c:Component {name: r.c}) SET c.aliases = r.a", rows)
@@ -306,11 +331,11 @@ class Loader:
 
     def load(self):
         t0 = time.time()
-        self.aliases = {}
+        self.aliases, self.unregistered = {}, {}
         self.indexes()
         for step in (self.reference, self.components, self.relationships, self.changes, self.identity,
                      self.discovery, self.flows, self.replication, self.backups, self.access, self.evidence,
-                     self.write_aliases):
+                     self.write_aliases, self.impact_layers):
             step()
         return round(time.time() - t0, 1)
 

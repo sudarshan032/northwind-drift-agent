@@ -44,7 +44,8 @@ def test_load_is_idempotent(loaded, drift_data):
 def test_graph_matches_files(loaded, drift_data):
     _, counts = loaded
     rep = size_report(drift_data)
-    assert counts["total_nodes"] == rep["total_nodes"]
+    assert counts["total_nodes"] == rep["total_nodes"] + counts["nodes_by_label"]["UnregisteredEndpoint"]
+    assert counts["nodes_by_label"]["UnregisteredEndpoint"] == 1  # D14
     assert counts["nodes_by_label"]["Discovered"] == rep["discovered"]
     assert counts["nodes_by_label"]["Component"] == sum(rep["by_class"].values())
 
@@ -64,7 +65,7 @@ def test_d13_aliases_resolved(loaded, drift_data):
     for alias, ci in pairs:
         res = ld.g.query("MATCH (c:Component {name: $n}) RETURN c.aliases", {"n": ci}).result_set
         assert res and alias in (res[0][0] or []), (alias, ci)
-    assert ld.unresolved == {}
+    assert set(ld.unresolved) == {"cardiorisk.example.com"}  # D14 only
 
 
 def test_headline_path_in_graph(loaded):
@@ -75,3 +76,26 @@ def test_headline_path_in_graph(loaded):
     declared = ld.g.query("MATCH (x:Component)-[:DEPENDS_ON]->(:Component {name: 'lrc-db-01'}) "
                           "RETURN collect(x.name)").result_set[0][0]
     assert declared == ["lis-reporting"]
+
+
+def test_headline_radius(loaded):
+    """AGENT_SPEC 0.1d: full upstream path dc1-host-07 -> each hospital's ED
+    and Emergency care (real), lab reporting only (declared)."""
+    from graph import queries as Q
+    ld, _ = loaded
+    dec, real = Q.radius(ld.g, "dc1-host-07", "declared"), Q.radius(ld.g, "dc1-host-07", "real")
+    assert dec["business_services"] == ["svc-lab-results"] and dec["by_label"]["Application"] == ["lis-reporting"]
+    assert dec["counts"]["departments"] == dec["counts"]["hospitals"] == dec["counts"]["routes"] == 0
+    assert real["counts"]["routes"] == 51 and real["counts"]["hospitals"] == 51
+    assert "svc-emergency-care" in real["business_services"]
+    assert {f"H{i:02d}-ED" for i in range(1, 52)} <= set(real["departments"])
+    p = Q.impact_path(ld.g, "dc1-host-07", "H17-ED", via_routes=real["by_label"]["Interface"])
+    assert p["nodes"] == ["dc1-host-07", "dc1-vm-lrc01", "lrc-db-01", "ORU-CRIT-H17", "H17-ED"]
+
+
+def test_d14_path(loaded):
+    from graph import queries as Q
+    ld, _ = loaded
+    rows = Q.unregistered_app_path(ld.g, "cardiorisk.example.com")
+    assert rows and rows[0]["grp"] == "grp-H17-CARD-physician" and rows[0]["api"] == "emr-fhir-api"
+    assert rows[0]["days_seen"] >= 3 and "emr-db-01" in rows[0]["data"]

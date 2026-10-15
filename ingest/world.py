@@ -28,6 +28,10 @@ SEED = 42
 SNAPSHOT_END = "2026-10-14T23:59:59Z"
 WINDOW_DAYS = 14
 DEMO_SITES = ("H03", "H17", "H44", "GCC-HYD")
+# ServiceNow standard relationship types (parent descriptor::child descriptor).
+# Storage: the array is the parent ("Provides storage for"), the consumer the child.
+STORAGE = "Provides storage for::Stored on"
+CONNECTS = "Connects to::Connected by"
 CENTRAL_SITES = ("DC-PRI", "DC-DR", "cloud-us-west", "cloud-central-india")
 
 # --------------------------------------------------------------------------
@@ -381,6 +385,10 @@ class World:
         self.rels.append(r)
         return r
 
+    def stores(self, consumer, array):
+        """`consumer` (host, DB, app) is stored on `array`."""
+        return self.rel(array, consumer, STORAGE)
+
     def dep(self, parent, child, failover=False, **leg):
         """`parent` Depends on `child`. Unless failover, one observed leg
         (default direction parent -> child) is attached; override with
@@ -516,8 +524,8 @@ def _central(w):
                  vendor_model=MODELS["core"], ip=pool["mgmt"].take())
         cores = [c["name"] for c in w.cis if c["name"].startswith(f"{pre}-core-")]
         for i in (1, 2):
-            w.rel(f"{pre}-fw-0{i}", f"{pre}-wan-0{i}", "Connects through::Connects")
-            w.rel(cores[i - 1], f"{pre}-fw-0{i}", "Connects through::Connects")
+            w.rel(f"{pre}-fw-0{i}", f"{pre}-wan-0{i}", CONNECTS)
+            w.rel(cores[i - 1], f"{pre}-fw-0{i}", CONNECTS)
         w.dc_cores = getattr(w, "dc_cores", {})
         w.dc_cores[site] = cores
 
@@ -560,12 +568,12 @@ def _central(w):
             if site == "DC-PRI":
                 room = "a" if i <= n // 2 else "b"
                 k = (i - 1) % 3 + 1
-                w.rel(h["name"], f"arr-pri-{room}-0{k}", "Stores on::Stores")
+                w.stores(h["name"], f"arr-pri-{room}-0{k}")
             else:
-                w.rel(h["name"], f"arr-dr-0{(i - 1) % 3 + 1}", "Stores on::Stores")
+                w.stores(h["name"], f"arr-dr-0{(i - 1) % 3 + 1}")
                 if i <= 2:
-                    w.rel(h["name"], "arr-dr-06", "Stores on::Stores")
-            w.rel(h["name"], w.dc_cores[site][(i - 1) % len(w.dc_cores[site])], "Connects through::Connects")
+                    w.stores(h["name"], "arr-dr-06")
+            w.rel(h["name"], w.dc_cores[site][(i - 1) % len(w.dc_cores[site])], CONNECTS)
     # Cloud availability zones act as the "host" layer for cloud VMs.
     w.zones = {}
     for site, zones in (("cloud-us-west", ["usw-az-a", "usw-az-b", "usw-az-c"]),
@@ -575,7 +583,7 @@ def _central(w):
             w.ci(z, "cmdb_ci_availability_zone", site, cloud, crit=2,
                  vendor_model=("Cloud", "Availability zone", "", ""),
                  residency="IN" if site == "cloud-central-india" else "US")
-            w.rel(z, "stor-usw-01" if site == "cloud-us-west" else "stor-cin-01", "Stores on::Stores")
+            w.stores(z, "stor-usw-01" if site == "cloud-us-west" else "stor-cin-01")
 
     w.vm_counter = {}
 
@@ -619,7 +627,7 @@ def _central(w):
                  safety="high" if crit == 1 and phi else "low", size_gb=gb, **extra)
         c["service_ip"] = w.by_name[vm_name]["ip_address"]
         w.rel(name, vm_name, "Runs on::Runs")
-        w.rel(name, array, "Stores on::Stores")
+        w.stores(name, array)
         return name
 
     w.app, w.db = app, db
@@ -675,6 +683,12 @@ def _central(w):
     w.dep("emr-app", "emr-db-dr", failover=True)                           # D3 failover trap
     w.dep("emr-app", "sso-app", protocol="saml", rate=1800, profile="24x7")
     w.dep("emr-app", "ext-email-saas", protocol="smtp", port=587, rate=120, profile="24x7")
+    # EMR FHIR R4 API (SMART on FHIR, Bulk Data): portal, analytics and site apps use it.
+    app("emr-fhir-api", "DC-PRI", emr, [vm("DC-PRI", "emrfhir01", "vm_lin", owner=emr),
+                                        vm("DC-PRI", "emrfhir02", "vm_lin", owner=emr)],
+        tier=0, desc="EMR FHIR R4 API (SMART on FHIR authorisation, Bulk Data $export)")
+    w.dep("emr-fhir-api", "emr-db-01", protocol="tcp-superserver", port=1972, rate=4000, profile="24x7")
+    w.dep("emr-fhir-api", "sso-app", protocol="oidc", rate=600, profile="24x7")
 
     # --- interface engine (2-node cluster) and its message store
     ie_vms = [vm("DC-PRI", "ie01", "vm_lin", owner=integ), vm("DC-PRI", "ie02", "vm_lin", owner=integ)]
@@ -725,7 +739,7 @@ def _central(w):
                safety="medium", description="Vendor neutral archive (images)", size_gb=900000)
     vna["service_ip"] = w.by_name[vm("DC-PRI", "vna01", "vm_lin", owner=img)]["ip_address"]
     w.rel("pacs-vna-01", "dc1-vm-vna01", "Runs on::Runs")
-    w.rel("pacs-vna-01", "arr-pri-a-04", "Stores on::Stores")
+    w.stores("pacs-vna-01", "arr-pri-a-04")
     w.dep("pacs-app", "pacs-db-01", protocol="tds", port=1433, rate=8000, profile="24x7")
     w.dep("pacs-app", "pacs-vna-01", protocol="dicom", port=104, rate=3000, profile="24x7")
     w.dep("pacs-vna-01", "sso-app", protocol="saml", rate=5, profile="24x7")
@@ -734,7 +748,7 @@ def _central(w):
                   safety="medium", description="VNA DR instance (standby)")
     vna_dr["service_ip"] = w.by_name[vm("DC-DR", "vna01", "vm_lin", owner=img)]["ip_address"]
     w.rel("pacs-vna-dr", "dc2-vm-vna01", "Runs on::Runs")
-    w.rel("pacs-vna-dr", "arr-dr-04", "Stores on::Stores")
+    w.stores("pacs-vna-dr", "arr-dr-04")
     w.dep("pacs-app", "pacs-vna-dr", failover=True)                        # D3 failover trap
 
     # --- pharmacy, billing, scheduling
@@ -767,7 +781,7 @@ def _central(w):
     db("portal-db-01", "cloud-us-west", dba, vm("cloud-us-west", "portaldb01", host="usw-az-a"),
        "stor-usw-01", cls="cmdb_ci_db_postgresql_instance", crit=2, tier=2, model="PostgreSQL 15", gb=300)
     w.dep("portal-app", "portal-db-01", protocol="postgres", port=5432, rate=2500, profile="24x7")
-    w.dep("portal-app", "emr-app", protocol="https", msg_type="FHIR R4", rate=900, profile="24x7")
+    w.dep("portal-app", "emr-fhir-api", protocol="https", msg_type="FHIR R4", rate=900, profile="24x7")
     w.dep("portal-app", "sso-app", protocol="oidc", rate=500, profile="24x7")
     w.dep("portal-app", "sched-app", protocol="https", msg_type="REST", rate=120,
           profile="24x7")                                                    # D1 candidate
@@ -776,6 +790,8 @@ def _central(w):
     db("dwh-db-01", "cloud-us-west", dba, vm("cloud-us-west", "dwhdb01", host="usw-az-b"),
        "stor-usw-01", cls="cmdb_ci_db_postgresql_instance", crit=3, tier=3, model="PostgreSQL 15",
        gb=18000)
+    w.dep("dwh-etl-app", "emr-fhir-api", protocol="https", msg_type="FHIR Bulk $export", rate=40,
+          profile="nightly", tz=-7)
     w.dep("dwh-etl-app", "emr-db-01", protocol="tcp-superserver", port=1972, msg_type="extract",
           rate=8000, profile="nightly", tz=-7)
     w.dep("dwh-etl-app", "dwh-db-01", protocol="postgres", port=5432, rate=8000, profile="nightly", tz=-7)
@@ -808,10 +824,10 @@ def _central(w):
     w.dep("bkp-app", "sso-app", protocol="saml", rate=2, profile="24x7")
     w.rel("bkp-appl-pri-01", "bkp-appl-dr-01", "Replicates to::Replica of", mode="async")
     w.rel("bkp-appl-pri-01", "bkp-vault-usw-01", "Replicates to::Replica of", mode="async")
-    w.rel("bkp-appl-pri-01", w.dc_cores["DC-PRI"][0], "Connects through::Connects")
-    w.rel("bkp-appl-dr-01", w.dc_cores["DC-DR"][0], "Connects through::Connects")
+    w.rel("bkp-appl-pri-01", w.dc_cores["DC-PRI"][0], CONNECTS)
+    w.rel("bkp-appl-dr-01", w.dc_cores["DC-DR"][0], CONNECTS)
     for a in arrays.values():
-        w.rel(a["name"], w.dc_cores[a["site"]][0], "Connects through::Connects")
+        w.rel(a["name"], w.dc_cores[a["site"]][0], CONNECTS)
 
     # --- GCC tooling in cloud-central-india (never holds patient data)
     app("gcc-automation-app", "cloud-central-india", hyd_dev,
@@ -832,7 +848,7 @@ def _central(w):
 
     # --- business services: logical groupings (Contains, not traffic-observable)
     w.business = {}
-    for svc, apps_ in (("svc-clinical-documentation", ["emr-app"]), ("svc-lab-results", ["lis-app", "lis-reporting"]),
+    for svc, apps_ in (("svc-clinical-documentation", ["emr-app", "emr-fhir-api"]), ("svc-lab-results", ["lis-app", "lis-reporting"]),
                        ("svc-imaging", ["pacs-app", "ris-app"]), ("svc-medication", ["pharm-app"]),
                        ("svc-revenue-cycle", ["billing-app"]), ("svc-scheduling", ["sched-app"]),
                        ("svc-patient-portal", ["portal-app"]), ("svc-analytics", ["dwh-etl-app"]),
@@ -841,6 +857,8 @@ def _central(w):
              phi=False)
         for a in apps_:
             w.rel(svc, a, "Contains::Contained by")
+    w.ci("svc-emergency-care", "cmdb_ci_service_business", "DC-PRI", w.owners["emr"], crit=1, safety="high",
+         description="Emergency care (all hospital Emergency departments)")
 
     # --- enterprise HL7 interfaces (EMR <-> central systems)
     w.interfaces = []
@@ -867,11 +885,12 @@ ADT_WEIGHTS = {"A08": 0.40, "A04": 0.20, "A01": 0.12, "A03": 0.12, "A02": 0.08, 
 
 
 def _interface(w, name, mt, protocol, src, dst, rate, profile, crit=1, staging=None, tz=-7,
-               src_leg=True, owner=None, via="ie-app", site="DC-PRI", ip=None):
+               src_leg=True, owner=None, via="ie-app", site="DC-PRI", ip=None, dept=""):
     """Interface CI with declared Depends on to source and target; observed
     as route-level legs src -> route -> target emitted by the transport."""
     via_ci = w.by_name.get(via)
-    c = w.ci(name, "u_cmdb_ci_hl7_interface", site, owner or w.owners["integ"], crit=crit, phi=True,
+    # `dept`: the hospital department the route serves (routes live in the DC but serve a site).
+    c = w.ci(name, "u_cmdb_ci_hl7_interface", site, owner or w.owners["integ"], dept=dept, crit=crit, phi=True,
              safety="high" if crit == 1 else "medium", message_type=mt, protocol=protocol,
              source=src, target=dst, via=via)
     c["service_ip"] = ip or (via_ci.get("service_ip", "") if via_ci else w.service_ip(dst))
@@ -920,6 +939,8 @@ def _hospital(w, s):
     core, pool, (dlo, dhi) = HOSPITAL_DEPTS[tier]
     k = r.randint(dlo, dhi) - len(core)
     codes = core + r.sample(pool, min(k, len(pool)))
+    if sid == "H17" and "CARD" not in codes:  # H17 cardiology uses the D14 SMART app
+        codes[-1] = "CARD"
     depts = {c: w.add_dept(sid, c) for c in codes}
 
     # network
@@ -934,21 +955,21 @@ def _hospital(w, s):
                   vendor_model=MODELS["core"], ip=mgmt.take())["name"]
              for i in range(1, w.rand(inv["core"], r) + 1)]
     for i, f in enumerate(fws):
-        w.rel(f, wans[i % len(wans)], "Connects through::Connects")
+        w.rel(f, wans[i % len(wans)], CONNECTS)
     for i, c in enumerate(cores):
-        w.rel(c, fws[i % len(fws)], "Connects through::Connects")
+        w.rel(c, fws[i % len(fws)], CONNECTS)
     acc = []
     for i in range(1, w.rand(inv["access"], r) + 1):
         a = w.ci(f"{lo}-acc-{i:03d}", "cmdb_ci_ip_switch", sid, net, crit=3,
                  vendor_model=MODELS["access"], ip=mgmt.take())["name"]
-        w.rel(a, cores[(i - 1) % len(cores)], "Connects through::Connects")
+        w.rel(a, cores[(i - 1) % len(cores)], CONNECTS)
         acc.append(a)
     aps = w.ci(f"{lo}-ap-grp", "cmdb_ci_wap_network", sid, net, crit=3, count=max(20, s["beds"] // 3),
                vendor_model=("Cisco", "Catalyst 9136I", "IOS-XE", "17.9.4a"))
-    w.rel(aps["name"], cores[0], "Connects through::Connects")
+    w.rel(aps["name"], cores[0], CONNECTS)
     medseg = w.ci(f"{lo}-medseg", "cmdb_ci_ip_network", sid, biomed, crit=1, ip="",
                   description=f"Medical-device segment {base}.8.0/21")["name"]
-    w.rel(medseg, cores[0], "Connects through::Connects")
+    w.rel(medseg, cores[0], CONNECTS)
 
     # local storage and servers
     has_array = w.rand(inv["array"], r) == 1 or sid == "H17"
@@ -958,13 +979,13 @@ def _hospital(w, s):
         array = w.ci(f"arr-{lo}-01", "cmdb_ci_storage_server", sid, site_it, crit=2,
                      vendor_model=MODELS["array_l"], ip=srv.take(), raid_level="RAID6",
                      capacity_tb=60 if tier == "L" else 30, encrypted=True)["name"]
-        w.rel(array, cores[0], "Connects through::Connects")
+        w.rel(array, cores[0], CONNECTS)
         esx = []
         for i in range(1, (3 if tier == "L" else 2) + 1):
             h = w.ci(f"{lo}-esx-{i:02d}", "cmdb_ci_esx_server", sid, site_it, crit=2,
                      vendor_model=MODELS["esx"], ip=srv.take())["name"]
-            w.rel(h, array, "Stores on::Stores")
-            w.rel(h, cores[i % len(cores)], "Connects through::Connects")
+            w.stores(h, array)
+            w.rel(h, cores[i % len(cores)], CONNECTS)
             esx.append(h)
     roles_order = {"L": LARGE_ROLES, "C": COMMUNITY_ROLES, "A": CAH_ROLES}[tier]
     roles = roles_order[:min(nservers, len(roles_order))]
@@ -985,7 +1006,7 @@ def _hospital(w, s):
             name = f"{lo}-srv-{i:02d}"
             w.ci(name, "cmdb_ci_win_server", sid, site_it, crit=2, vendor_model=MODELS["phys_win"],
                  ip=srv.take(), role=ROLE_INFO[role][0])
-            w.rel(name, cores[(i - 1) % len(cores)], "Connects through::Connects")
+            w.rel(name, cores[(i - 1) % len(cores)], CONNECTS)
         role_servers.setdefault(role, []).append(name)
 
     owners = {"IMG": w.owners["img"], "LABSYS": w.owners["labs"], "EMR": w.owners["emr"], "SITE": site_it}
@@ -1014,31 +1035,36 @@ def _hospital(w, s):
     tz = s["tz"]
     scale = {"L": 1.0, "C": 0.4, "A": 0.06}[tier]
     labmw = apps.get("labmw", "labmw-central")
-    _interface(w, f"LAB-RES-{sid}", "ORU^R01", "MLLP", labmw, "lis-app", 1500 * scale, "24x7", tz=tz)
+    _interface(w, f"LAB-RES-{sid}", "ORU^R01", "MLLP", labmw, "lis-app", 1500 * scale, "24x7", tz=tz,
+               dept=depts["LAB"])
     pacs_target = apps.get("pacs-cache", "pacs-app")
     # DICOM does not traverse the HL7 engine: `via` is the receiving PACS node, and the
     # source of modality traffic is the site's medical-device segment (many modalities).
     _interface(w, f"DICOM-MOD-{sid}", "DICOM C-STORE", "DICOM", medseg, pacs_target, 120 * scale, "24x7", tz=tz,
-               src_leg=False, owner=w.owners["img"], via=pacs_target,
+               src_leg=False, owner=w.owners["img"], via=pacs_target, dept=depts["RAD"],
                site=sid if pacs_target != "pacs-app" else "DC-PRI",  # local-only route stays at the hospital
                ip=f"{base}.8.1")  # medical-segment gateway: the modalities' side of the association
     if "pacs-cache" in apps:
         _interface(w, f"DICOM-FWD-{sid}", "DICOM C-STORE", "DICOM", apps["pacs-cache"], "pacs-app",
-                   110 * scale, "24x7", tz=tz, owner=w.owners["img"], via="pacs-app")
+                   110 * scale, "24x7", tz=tz, owner=w.owners["img"], via="pacs-app", dept=depts["RAD"])
     vitals_routes = []
     monitor_src = apps.get("monitor-gw")
     if monitor_src:
-        _interface(w, f"VITALS-{sid}", "ORU^R01", "MLLP", monitor_src, "emr-app", 6000 * scale, "24x7", tz=tz)
+        _interface(w, f"VITALS-{sid}", "ORU^R01", "MLLP", monitor_src, "emr-app", 6000 * scale, "24x7", tz=tz,
+                   dept=depts.get("ICU") or depts["ED"])
     else:  # no gateway server: the monitor gateway device sends HL7 to the engine itself
         vitals_routes.append(f"VITALS-{sid}")
     # Headline route: critical lab results to the ED worklist, staged in lrc-db-01.
     _interface(w, f"ORU-CRIT-{sid}", "ORU^R01", "MLLP", "lis-app", "emr-app",
                {"L": 18, "C": 6, "A": 0.8}[tier], "24x7", tz=tz, staging="lrc-db-01",
-               crit=1)
+               crit=1, dept=depts["ED"])
     w.by_name[f"ORU-CRIT-{sid}"]["description"] = f"Critical lab results to the {sid} Emergency department (ED worklist)"
+    # Declared by the service owner (truth and CMDB): Emergency care -> per-site ED critical results -> route.
     svc = w.ci(f"svc-{lo}-ed-critical-results", "cmdb_ci_service_business", sid, w.owners["labs"], crit=1,
+               safety="high",
                dept=depts["ED"], description=f"ED critical lab results, {sid}")
     w.rel(svc["name"], f"ORU-CRIT-{sid}", "Contains::Contained by")
+    w.rel("svc-emergency-care", svc["name"], "Contains::Contained by")
     for role in ("emr-edge", "print", "rtls", "mwl", "nursecall"):
         if role not in apps:
             continue
@@ -1048,7 +1074,7 @@ def _hospital(w, s):
         elif role == "print":
             w.dep("emr-app", a, protocol="ipp", port=631, rate=200 * scale, profile="24x7", tz=tz)
         elif role == "rtls":
-            w.dep(a, "emr-app", protocol="https", msg_type="FHIR R4", rate=150, profile="24x7", tz=tz)
+            w.dep(a, "emr-fhir-api", protocol="https", msg_type="FHIR R4", rate=150, profile="24x7", tz=tz)
         elif role == "mwl":
             w.dep(a, "ris-app", protocol="mllp", msg_type="ORM^O01", rate=60 * scale, profile="24x7", tz=tz)
         elif role == "nursecall":
@@ -1066,7 +1092,7 @@ def _hospital(w, s):
         name = f"{lo}-{kind}-{idx:02d}"
         w.ci(name, cls, sid, biomed, dept=dept, crit=1 if safety == "high" else 2, phi=True,
              vendor_model=vm_, ip=med.take(), patchable=r.random() >= 0.4, safety=safety)
-        w.rel(name, medseg, "Connects through::Connects")
+        w.rel(name, medseg, CONNECTS)
         w.dep(name, target, channel="netflow", port=port, rate=rate, profile=profile, tz=tz, bytes_per=bytes_per)
         return name
 
@@ -1086,7 +1112,8 @@ def _hospital(w, s):
         d = device("mon", "cmdb_ci_med_patient_monitoring", i, dept, "high", port=2575, rate=600,
                    target=monitor_target, bytes_per=2e3)
         if vitals_routes and i == 1:
-            _interface(w, vitals_routes[0], "ORU^R01", "MLLP", d, "emr-app", 6000 * scale, "24x7", tz=tz)
+            _interface(w, vitals_routes[0], "ORU^R01", "MLLP", d, "emr-app", 6000 * scale, "24x7", tz=tz,
+                       dept=depts.get("ICU") or depts["ED"])
     for i in range(1, w.rand(inv["pump"], r) + 1):
         device("pump", "cmdb_ci_med_therapeutic_device", i, depts["PHARM"], "high", port=443, rate=200,
                target="emr-app", bytes_per=4e3)
@@ -1104,7 +1131,7 @@ def _hospital(w, s):
         w.ci(name, cls, sid, biomed, dept=inpatient, crit=1, phi=True, vendor_model=model,
              count=max(4, round(s["beds"] * r.uniform(*per_bed))), patchable=r.random() >= 0.4,
              safety="high", description="Bedside device fleet (group)")
-        w.rel(name, medseg, "Connects through::Connects")
+        w.rel(name, medseg, CONNECTS)
 
     _endpoints(w, s, depts, acc, usr, field, r, inv["ws"], inv["prn"])
     w.site_apps = getattr(w, "site_apps", {})
@@ -1150,7 +1177,7 @@ def _endpoints(w, s, depts, access_switches, usr_pool, owner, r, ws_range, prn_r
                 w.ci(name, "cmdb_ci_computer", sid, owner, dept=depts[c], crit=3,
                      vendor_model=MODELS[ws_model], ip=usr_pool.take())
                 if sw:
-                    w.rel(name, sw, "Connects through::Connects")
+                    w.rel(name, sw, CONNECTS)
                 names.append(name)
             w.ws_by_dept.setdefault(sid, {})[c] = names
             for _ in range(palloc[c]):
@@ -1159,17 +1186,17 @@ def _endpoints(w, s, depts, access_switches, usr_pool, owner, r, ws_range, prn_r
                 w.ci(name, "cmdb_ci_printer", sid, owner, dept=depts[c], crit=4,
                      vendor_model=MODELS["prn"], ip=usr_pool.take())
                 if sw:
-                    w.rel(name, sw, "Connects through::Connects")
+                    w.rel(name, sw, CONNECTS)
         else:
             g = w.ci(f"{lo}-{c}-ws", "u_cmdb_ci_endpoint_group", sid, owner, dept=depts[c], crit=3,
                      count=alloc[c], vendor_model=MODELS[ws_model], description="Workstation group")
             if sw:
-                w.rel(g["name"], sw, "Connects through::Connects")
+                w.rel(g["name"], sw, CONNECTS)
             if palloc[c]:
                 p = w.ci(f"{lo}-{c}-prn", "u_cmdb_ci_endpoint_group", sid, owner, dept=depts[c], crit=4,
                          count=palloc[c], vendor_model=MODELS["prn"], description="Printer group")
                 if sw:
-                    w.rel(p["name"], sw, "Connects through::Connects")
+                    w.rel(p["name"], sw, CONNECTS)
     w.endpoint_counts = getattr(w, "endpoint_counts", {})
     w.endpoint_counts[sid] = sum(alloc.values()) + sum(palloc.values())
 
@@ -1217,17 +1244,17 @@ def _clinic(w, s):
               ip=mgmt.take())["name"]
     core = w.ci(f"{lo}-core-01", "cmdb_ci_ip_switch", sid, net, crit=2, vendor_model=MODELS["access_s"],
                 ip=mgmt.take())["name"]
-    w.rel(fw, wan, "Connects through::Connects")
-    w.rel(core, fw, "Connects through::Connects")
+    w.rel(fw, wan, CONNECTS)
+    w.rel(core, fw, CONNECTS)
     acc = []
     for i in range(1, r.randint(1, 2) + 1):
         a = w.ci(f"{lo}-acc-{i:02d}", "cmdb_ci_ip_switch", sid, net, crit=3, vendor_model=MODELS["access_s"],
                  ip=mgmt.take())["name"]
-        w.rel(a, core, "Connects through::Connects")
+        w.rel(a, core, CONNECTS)
         acc.append(a)
     ap = w.ci(f"{lo}-ap-grp", "cmdb_ci_wap_network", sid, net, crit=3, count=r.randint(2, 6),
               vendor_model=("Cisco", "Catalyst 9120AXI", "IOS-XE", "17.9.4a"))["name"]
-    w.rel(ap, core, "Connects through::Connects")
+    w.rel(ap, core, CONNECTS)
     # medical devices (no servers at clinics: devices talk to central systems)
     devices = []
     img_dept = next((depts[c] for c in ("IMG", "UC", "ORTHO") if c in depts), None)
@@ -1243,7 +1270,7 @@ def _clinic(w, s):
         med = w.add_subnet(f"{base}.64/27", sid, "medical", method="passive")
         seg = w.ci(f"{lo}-medseg", "cmdb_ci_ip_network", sid, biomed, crit=2,
                    description=f"Medical-device segment {base}.64/27")["name"]
-        w.rel(seg, core, "Connects through::Connects")
+        w.rel(seg, core, CONNECTS)
         counter = {}
         for kind, cls, dept, target, port, rate, bpm in devices:
             counter[kind] = counter.get(kind, 0) + 1
@@ -1251,7 +1278,7 @@ def _clinic(w, s):
             vm_ = r.choice(MODELS[kind])
             w.ci(name, cls, sid, biomed, dept=dept, crit=2, phi=True, vendor_model=vm_, ip=med.take(),
                  patchable=r.random() >= 0.4, safety="medium" if kind != "lab" else "high")
-            w.rel(name, seg, "Connects through::Connects")
+            w.rel(name, seg, CONNECTS)
             w.dep(name, target, channel="netflow", port=port, rate=rate, profile="clinic", tz=s["tz"],
                   bytes_per=bpm)
     _endpoints(w, s, depts, acc, usr, field, r, (10, 30), (2, 5))
@@ -1276,17 +1303,17 @@ def _nonacute(w, s):
     if r.random() < 0.6:
         fw = w.ci(f"{lo}-fw-01", "cmdb_ci_ip_firewall", sid, net, crit=3, vendor_model=MODELS["fw_s"],
                   ip=mgmt.take())["name"]
-        w.rel(fw, wan, "Connects through::Connects")
+        w.rel(fw, wan, CONNECTS)
         up = fw
     acc = []
     if r.random() < 0.5:
         a = w.ci(f"{lo}-acc-01", "cmdb_ci_ip_switch", sid, net, crit=4, vendor_model=MODELS["access_s"],
                  ip=mgmt.take())["name"]
-        w.rel(a, up, "Connects through::Connects")
+        w.rel(a, up, CONNECTS)
         acc.append(a)
     ap = w.ci(f"{lo}-ap-grp", "cmdb_ci_wap_network", sid, net, crit=4, count=r.randint(1, 4),
               vendor_model=("Cisco", "Catalyst 9105AXI", "IOS-XE", "17.9.4a"))["name"]
-    w.rel(ap, acc[0] if acc else up, "Connects through::Connects")
+    w.rel(ap, acc[0] if acc else up, CONNECTS)
     _endpoints(w, s, depts, acc or [ap], usr, field, r, (3, 15), (1, 3), ws_model="tablet")
 
 
@@ -1307,17 +1334,17 @@ def _gcc_site(w):
     cores = [w.ci(f"hyd-core-0{i}", "cmdb_ci_ip_switch", sid, net, crit=2, vendor_model=MODELS["core"],
                   ip=mgmt.take())["name"] for i in (1, 2)]
     for i in range(2):
-        w.rel(fws[i], wans[i], "Connects through::Connects")
-        w.rel(cores[i], fws[i], "Connects through::Connects")
+        w.rel(fws[i], wans[i], CONNECTS)
+        w.rel(cores[i], fws[i], CONNECTS)
     acc = []
     for i in range(1, 11):
         a = w.ci(f"hyd-acc-{i:02d}", "cmdb_ci_ip_switch", sid, net, crit=3, vendor_model=MODELS["access"],
                  ip=mgmt.take())["name"]
-        w.rel(a, cores[i % 2], "Connects through::Connects")
+        w.rel(a, cores[i % 2], CONNECTS)
         acc.append(a)
     ap = w.ci("hyd-ap-grp", "cmdb_ci_wap_network", sid, net, crit=3, count=40,
               vendor_model=("Cisco", "Catalyst 9136I", "IOS-XE", "17.9.4a"))["name"]
-    w.rel(ap, cores[0], "Connects through::Connects")
+    w.rel(ap, cores[0], CONNECTS)
     sizes = {"CLINAPPS": 90, "CLOUD": 70, "INTEG": 60, "CYBER": 50, "DBA": 30}
     w.ws_by_dept = getattr(w, "ws_by_dept", {})
     k = 0
@@ -1328,14 +1355,14 @@ def _gcc_site(w):
             name = f"hyd-lt-{k:04d}"
             w.ci(name, "cmdb_ci_computer", sid, field, dept=depts[c], crit=3, vendor_model=MODELS["laptop"],
                  ip=usr.take(), residency="IN")
-            w.rel(name, acc[j % len(acc)], "Connects through::Connects")
+            w.rel(name, acc[j % len(acc)], CONNECTS)
             names.append(name)
         w.ws_by_dept.setdefault(sid, {})[c] = names
     for i in range(1, 9):  # shared floor printers (individual CIs at a demo site)
         name = f"hyd-prn-{i:04d}"
         w.ci(name, "cmdb_ci_printer", sid, field, dept=depts[sorted(sizes)[(i - 1) % len(sizes)]], crit=4,
              vendor_model=MODELS["prn"], ip=usr.take(), residency="IN")
-        w.rel(name, acc[i % len(acc)], "Connects through::Connects")
+        w.rel(name, acc[i % len(acc)], CONNECTS)
     w.gcc_sizes = sizes
 
 

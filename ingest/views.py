@@ -15,7 +15,7 @@ import math
 import os
 from datetime import datetime, timedelta, timezone
 
-from ingest.world import CENTRAL_SITES, DEMO_SITES, WINDOW_DAYS, rng_for
+from ingest.world import CENTRAL_SITES, DEMO_SITES, STORAGE, WINDOW_DAYS, rng_for
 
 END = datetime(2026, 10, 14, 23, 59, 59, tzinfo=timezone.utc)
 START = END - timedelta(days=WINDOW_DAYS) + timedelta(seconds=1)  # 2026-10-01T00:00:00Z
@@ -350,8 +350,8 @@ def replication_pairs(world):
     Volumes are the data holders stored on the source array."""
     stores = {}
     for rel in world["rels"]:
-        if rel["type"] == "Stores on::Stores" and world["_by_name"][rel["parent"]]["data_holder"]:
-            stores.setdefault(rel["child"], []).append(rel["parent"])
+        if rel["type"] == STORAGE and world["_by_name"][rel["child"]]["data_holder"]:
+            stores.setdefault(rel["parent"], []).append(rel["child"])
     pairs = []
     for rel in world["rels"]:
         if rel["type"] != "Replicates to::Replica of" or rel["failover"]:
@@ -552,7 +552,7 @@ def write_observed(world, plan, out, gz=False):
             for rec in leg_records(world, leg, hourly, alias):
                 handles[key].write(json.dumps(rec, separators=(",", ":")) + "\n")
                 counts[files[key]] = counts.get(files[key], 0) + 1
-        for rec in noise_flows(world):
+        for rec in noise_flows(world) + plan["flows_add"]:
             handles[("flows", True)].write(json.dumps(rec, separators=(",", ":")) + "\n")
             counts["flows_hourly.jsonl"] = counts.get("flows_hourly.jsonl", 0) + 1
     finally:

@@ -40,7 +40,7 @@ At demo sites every workstation, printer and user account is an individual CI or
 
 ## 2. Inventory per site type (the truth model)
 
-Ranges are inclusive; pick deterministically from the seed. "Group" means one group CI with `count`, except at demo sites where it expands into individual CIs.
+Ranges are inclusive; pick deterministically from the seed. Imaging rows (CT, MRI, X-ray, ultrasound) were updated to research-backed ranges (RESEARCH_NOTES R2). "Group" means one group CI with `count`, except at demo sites where it expands into individual CIs.
 
 | CI | Large | Community | Critical access | Clinic | Non-acute |
 |---|---|---|---|---|---|
@@ -53,10 +53,10 @@ Ranges are inclusive; pick deterministically from the seed. "Group" means one gr
 | Medical-device network segment | 1 | 1 | 1 | 0–1 | 0 |
 | Local servers | 10–14 | 4–7 | 1–2 | 0 | 0 |
 | Local storage array | 1 | 0–1 | 0 | 0 | 0 |
-| CT | 2–4 | 1–2 | 0–1 | 0 | 0 |
-| MRI | 1–3 | 0–1 | 0 | 0 | 0 |
-| X-ray | 5–8 | 2–4 | 1–2 | 0–1 (30% of clinics) | 0 |
-| Ultrasound | 8–12 | 3–6 | 1–2 | 0–1 | 0 |
+| CT | 3–5 | 1–2 | 0–1 | 0 | 0 |
+| MRI | 2–4 | 1 | 0 | 0 | 0 |
+| X-ray | 8–15 | 3–6 | 1–2 | 0–1 (30% of clinics) | 0 |
+| Ultrasound | 10–20 | 4–8 | 1 | 0–1 | 0 |
 | Patient monitor gateways | 6–10 | 2–4 | 1 | 0 | 0 |
 | Infusion pump server | 1 | 1 | 0–1 | 0 | 0 |
 | Lab analysers | 12–20 | 4–8 | 1–3 | 0–2 | 0 |
@@ -146,7 +146,7 @@ data/
 
 CMDB CSV columns must include at least:
 - `cmdb_ci.csv`: `sys_id, name, class, site, department, environment, status (operational|retired), support_group, criticality, handles_phi, data_residency, serial_number, os, os_version, model, ip_address, rpo_minutes, rto_hours, backup_policy, backup_offsite (true|false), patchable, patient_safety_impact`
-- `cmdb_rel_ci.csv`: `parent, child, type, failover (true|false)` with types: `Contains::Contained by`, `Depends on::Used by`, `Runs on::Runs`, `Stores on::Stores`, `Replicates to::Replica of`, `Backed up by::Backs up`, `Connects through::Connects`, `Located at`, `Managed by`
+- `cmdb_rel_ci.csv`: `parent, child, type, failover (true|false)` with types: `Contains::Contained by`, `Depends on::Used by`, `Runs on::Runs`, `Provides storage for::Stored on` (ServiceNow standard; parent = storage provider), `Replicates to::Replica of` (custom), `Backed up by::Backs up` (custom), `Connects to::Connected by` (ServiceNow standard), `Located at`, `Managed by` (the last two as `cmdb_ci` reference columns, see DECISIONS #9)
 
 ## 7. Drift catalogue (inject exactly these; record each in ground_truth.json)
 
@@ -165,6 +165,7 @@ CMDB CSV columns must include at least:
 | D10 | Backups failing | 3 | CMDB says backed up; last successful job > 7 days before SNAPSHOT_END | backup_jobs |
 | D11 | Data residency | 1 | A replication or extract copies a PHI dataset into `cloud-central-india` | replication / flows |
 | D12 | Access drift | 4 | Observed access with no declared grant path, incl. (a) a GCC-HYD support account running admin queries on EMR prod DB outside any approved change window, (b) a disabled user's account still logging in at H03 | access_log vs identity |
+| D14 | Unregistered SMART on FHIR app (AGENT_SPEC 0.1f) | 1 | Third-party app used by H17 cardiology: real traffic to the EMR FHIR API and user launches via a cardiology group, no CMDB record | flows + access_log vs CMDB |
 | D13 | Naming mismatch (not a real problem) | 5 | Same CI with different names across CMDB / discovery / flows, e.g. `LIS-HYD...` vs `lis-prod-02`; serial number matches | must be resolved, not reported as D1/D6/D7 |
 
 Also add **realistic noise that must not produce findings**: hourly traffic variation, a few transient failed backup jobs that later succeed, weekend dips, one-off health-check flows.

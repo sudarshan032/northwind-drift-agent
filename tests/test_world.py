@@ -4,14 +4,17 @@ footprint and hygiene checks."""
 import re
 from collections import Counter
 
-from ingest.world import CLASS_LABEL
+from ingest.world import CLASS_LABEL, STORAGE
 
 
 def _idx(world):
     by = {c["name"]: c for c in world["cis"]}
     out = {}
     for r in world["rels"]:
-        out.setdefault((r["parent"], r["type"]), []).append(r["child"])
+        if r["type"] == STORAGE:  # index storage as consumer -> array
+            out.setdefault((r["child"], "stored-on"), []).append(r["parent"])
+        else:
+            out.setdefault((r["parent"], r["type"]), []).append(r["child"])
     return by, out
 
 
@@ -30,6 +33,12 @@ def test_every_hospital_has_emergency(world):
     hospitals = {s["id"] for s in world["sites"] if s["type"].endswith("hospital")}
     with_ed = {d["site"] for d in world["departments"] if d["code"] == "ED"}
     assert hospitals <= with_ed
+    by, out = _idx(world)
+    services = out[("svc-emergency-care", "Contains::Contained by")]
+    assert len(services) == len(hospitals) == 51
+    for sid in hospitals:  # Emergency care -> site service -> ORU-CRIT route -> that hospital's ED
+        assert f"svc-{sid.lower()}-ed-critical-results" in services
+        assert by[f"ORU-CRIT-{sid}"]["department"] == f"{sid}-ED"
 
 
 def test_department_counts_by_tier(world):
@@ -47,7 +56,8 @@ def test_devices_only_in_existing_departments(world):
     for c in world["cis"]:
         if c["department"]:
             assert c["department"] in depts, c["name"]
-            assert depts[c["department"]]["site"] == c["site"], c["name"]
+            if c["label"] != "Interface":  # routes run in the DC but serve a hospital department
+                assert depts[c["department"]]["site"] == c["site"], c["name"]
         if c["label"] == "MedicalDevice":
             assert c["department"], c["name"]
 
@@ -63,7 +73,7 @@ def test_medical_devices_on_medical_segment(world):
     by, out = _idx(world)
     devices = [c for c in world["cis"] if c["label"] == "MedicalDevice"]
     for c in devices:
-        segs = out[(c["name"], "Connects through::Connects")]
+        segs = out[(c["name"], "Connects to::Connected by")]
         assert any(by[s]["class"] == "cmdb_ci_ip_network" and by[s]["site"] == c["site"] for s in segs), c["name"]
     share = sum(not c["patchable"] for c in devices) / len(devices)
     assert 0.35 <= share <= 0.45, share
@@ -121,7 +131,7 @@ def _reaches(start, out, by, label):
     todo, seen = [start], set()
     while todo:
         x = todo.pop()
-        for t in ("Runs on::Runs", "Stores on::Stores"):
+        for t in ("Runs on::Runs", "stored-on"):
             for y in out.get((x, t), []):
                 if by[y]["label"] == label:
                     return True

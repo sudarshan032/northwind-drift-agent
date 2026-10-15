@@ -29,3 +29,6 @@ Re-read this file, RUN_PROMPT.md and DATA_SPEC.md after any context compaction.
 
 ## M8 Report — done
 - REPORT.md written. All milestones complete.
+
+# AGENT_SPEC run
+## Phase 0 — data follow-ups (a)-(f) done; impact layer (graph/impact.py), radius/path queries (graph/queries.py); VERIFY.md via tests/verify_report.py after a clean-room run.

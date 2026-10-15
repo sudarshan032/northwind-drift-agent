@@ -28,9 +28,36 @@
    "ORU-CRIT-H21",
    "ORU-CRIT-H22",
    "ORU-CRIT-H23",
-   "ORU-CRIT-H24"
+   "ORU-CRIT-H24",
+   "ORU-CRIT-H25",
+   "ORU-CRIT-H26",
+   "ORU-CRIT-H27",
+   "ORU-CRIT-H28",
+   "ORU-CRIT-H29",
+   "ORU-CRIT-H30",
+   "ORU-CRIT-H31",
+   "ORU-CRIT-H32",
+   "ORU-CRIT-H33",
+   "ORU-CRIT-H34",
+   "ORU-CRIT-H35",
+   "ORU-CRIT-H36",
+   "ORU-CRIT-H37",
+   "ORU-CRIT-H38",
+   "ORU-CRIT-H39",
+   "ORU-CRIT-H40",
+   "ORU-CRIT-H41",
+   "ORU-CRIT-H42",
+   "ORU-CRIT-H43",
+   "ORU-CRIT-H44",
+   "ORU-CRIT-H45",
+   "ORU-CRIT-H46",
+   "ORU-CRIT-H47",
+   "ORU-CRIT-H48",
+   "ORU-CRIT-H49",
+   "ORU-CRIT-H50",
+   "ORU-CRIT-H51"
   ],
-  "description": "All 24 ORU-CRIT-* critical-result routes stage messages in lrc-db-01 (VM dc1-vm-lrc01 on host dc1-host-07). CMDB links lrc-db-01 only to lis-reporting. CHG-HEADLINE patches dc1-host-07.",
+  "description": "All 51 ORU-CRIT-* critical-result routes stage messages in lrc-db-01 (VM dc1-vm-lrc01 on host dc1-host-07). CMDB links lrc-db-01 only to lis-reporting. CHG-HEADLINE patches dc1-host-07.",
   "expected_finding": "undocumented_dependency",
   "finding_keys": [
    [
@@ -152,6 +179,141 @@
     "undocumented",
     "ORU-CRIT-H24",
     "lrc-db-01"
+   ],
+   [
+    "undocumented",
+    "ORU-CRIT-H25",
+    "lrc-db-01"
+   ],
+   [
+    "undocumented",
+    "ORU-CRIT-H26",
+    "lrc-db-01"
+   ],
+   [
+    "undocumented",
+    "ORU-CRIT-H27",
+    "lrc-db-01"
+   ],
+   [
+    "undocumented",
+    "ORU-CRIT-H28",
+    "lrc-db-01"
+   ],
+   [
+    "undocumented",
+    "ORU-CRIT-H29",
+    "lrc-db-01"
+   ],
+   [
+    "undocumented",
+    "ORU-CRIT-H30",
+    "lrc-db-01"
+   ],
+   [
+    "undocumented",
+    "ORU-CRIT-H31",
+    "lrc-db-01"
+   ],
+   [
+    "undocumented",
+    "ORU-CRIT-H32",
+    "lrc-db-01"
+   ],
+   [
+    "undocumented",
+    "ORU-CRIT-H33",
+    "lrc-db-01"
+   ],
+   [
+    "undocumented",
+    "ORU-CRIT-H34",
+    "lrc-db-01"
+   ],
+   [
+    "undocumented",
+    "ORU-CRIT-H35",
+    "lrc-db-01"
+   ],
+   [
+    "undocumented",
+    "ORU-CRIT-H36",
+    "lrc-db-01"
+   ],
+   [
+    "undocumented",
+    "ORU-CRIT-H37",
+    "lrc-db-01"
+   ],
+   [
+    "undocumented",
+    "ORU-CRIT-H38",
+    "lrc-db-01"
+   ],
+   [
+    "undocumented",
+    "ORU-CRIT-H39",
+    "lrc-db-01"
+   ],
+   [
+    "undocumented",
+    "ORU-CRIT-H40",
+    "lrc-db-01"
+   ],
+   [
+    "undocumented",
+    "ORU-CRIT-H41",
+    "lrc-db-01"
+   ],
+   [
+    "undocumented",
+    "ORU-CRIT-H42",
+    "lrc-db-01"
+   ],
+   [
+    "undocumented",
+    "ORU-CRIT-H43",
+    "lrc-db-01"
+   ],
+   [
+    "undocumented",
+    "ORU-CRIT-H44",
+    "lrc-db-01"
+   ],
+   [
+    "undocumented",
+    "ORU-CRIT-H45",
+    "lrc-db-01"
+   ],
+   [
+    "undocumented",
+    "ORU-CRIT-H46",
+    "lrc-db-01"
+   ],
+   [
+    "undocumented",
+    "ORU-CRIT-H47",
+    "lrc-db-01"
+   ],
+   [
+    "undocumented",
+    "ORU-CRIT-H48",
+    "lrc-db-01"
+   ],
+   [
+    "undocumented",
+    "ORU-CRIT-H49",
+    "lrc-db-01"
+   ],
+   [
+    "undocumented",
+    "ORU-CRIT-H50",
+    "lrc-db-01"
+   ],
+   [
+    "undocumented",
+    "ORU-CRIT-H51",
+    "lrc-db-01"
    ]
   ],
   "id": "D1-HEADLINE",
@@ -249,15 +411,15 @@
  {
   "ci_ids": [
    "h03-rtls",
-   "emr-app"
+   "emr-fhir-api"
   ],
-  "description": "h03-rtls depends on emr-app (flows); no CMDB relationship.",
+  "description": "h03-rtls depends on emr-fhir-api (flows); no CMDB relationship.",
   "expected_finding": "undocumented_dependency",
   "finding_keys": [
    [
     "undocumented",
     "h03-rtls",
-    "emr-app"
+    "emr-fhir-api"
    ]
   ],
   "id": "D1-05",
@@ -703,13 +865,13 @@
   "ci_ids": [
    "WIN-FILESRV01"
   ],
-  "description": "Scanner found WIN-FILESRV01 (OptiPlex 9020 (repurposed)) at C0108 172.16.107.40; no CMDB record.",
+  "description": "Scanner found WIN-FILESRV01 (OptiPlex 9020 (repurposed)) at H11 10.111.0.200; no CMDB record.",
   "expected_finding": "shadow_it",
   "finding_keys": [
    [
     "shadow",
     "WIN-FILESRV01",
-    "172.16.107.40"
+    "10.111.0.200"
    ]
   ],
   "id": "D6-01",
@@ -723,13 +885,13 @@
   "ci_ids": [
    "NAS-BACKUP"
   ],
-  "description": "Scanner found NAS-BACKUP (DiskStation DS920+) at C0266 172.17.9.41; no CMDB record.",
+  "description": "Scanner found NAS-BACKUP (DiskStation DS920+) at H32 10.132.0.201; no CMDB record.",
   "expected_finding": "shadow_it",
   "finding_keys": [
    [
     "shadow",
     "NAS-BACKUP",
-    "172.17.9.41"
+    "10.132.0.201"
    ]
   ],
   "id": "D6-02",
@@ -783,13 +945,13 @@
   "ci_ids": [
    "SW-UNMANAGED"
   ],
-  "description": "Scanner found SW-UNMANAGED (TL-SG108) at C0078 172.16.77.42; no CMDB record.",
+  "description": "Scanner found SW-UNMANAGED (TL-SG108) at H09 10.109.0.202; no CMDB record.",
   "expected_finding": "shadow_it",
   "finding_keys": [
    [
     "shadow",
     "SW-UNMANAGED",
-    "172.16.77.42"
+    "10.109.0.202"
    ]
   ],
   "id": "D6-05",
@@ -803,13 +965,13 @@
   "ci_ids": [
    "US-PORTABLE-02"
   ],
-  "description": "Scanner found US-PORTABLE-02 (Vscan Air) at C0068 172.16.67.70; no CMDB record.",
+  "description": "Scanner found US-PORTABLE-02 (Vscan Air) at H07 10.107.8.220; no CMDB record.",
   "expected_finding": "shadow_it",
   "finding_keys": [
    [
     "shadow",
     "US-PORTABLE-02",
-    "172.16.67.70"
+    "10.107.8.220"
    ]
   ],
   "id": "D6-06",
@@ -941,14 +1103,14 @@
  },
  {
   "ci_ids": [
-   "c0078-acc-03"
+   "h09-acc-099"
   ],
-  "description": "c0078-acc-03 is operational in the CMDB at C0078 172.16.77.50 (scanned subnet) but never discovered and has no traffic.",
+  "description": "h09-acc-099 is operational in the CMDB at H09 10.109.0.210 (scanned subnet) but never discovered and has no traffic.",
   "expected_finding": "ghost_ci",
   "finding_keys": [
    [
     "ghost",
-    "c0078-acc-03"
+    "h09-acc-099"
    ]
   ],
   "id": "D7-03",
@@ -1001,14 +1163,14 @@
  },
  {
   "ci_ids": [
-   "h07-acc-003"
+   "h27-acc-020"
   ],
-  "description": "CMDB os_version of h07-acc-003 is 16.12.4; discovery reports 17.9.4a.",
+  "description": "CMDB os_version of h27-acc-020 is 16.12.4; discovery reports 17.9.4a.",
   "expected_finding": "attribute_drift",
   "finding_keys": [
    [
     "attribute",
-    "h07-acc-003",
+    "h27-acc-020",
     "os_version"
    ]
   ],
@@ -1021,14 +1183,14 @@
  },
  {
   "ci_ids": [
-   "c0337-wan-01"
+   "h12-acc-002"
   ],
-  "description": "CMDB os_version of c0337-wan-01 is 16.12.4; discovery reports 17.9.4a.",
+  "description": "CMDB os_version of h12-acc-002 is 16.12.4; discovery reports 17.9.4a.",
   "expected_finding": "attribute_drift",
   "finding_keys": [
    [
     "attribute",
-    "c0337-wan-01",
+    "h12-acc-002",
     "os_version"
    ]
   ],
@@ -1041,14 +1203,14 @@
  },
  {
   "ci_ids": [
-   "h02-lab-12"
+   "h25-mon-05"
   ],
-  "description": "CMDB os_version of h02-lab-12 is 1.0; discovery reports LTSC 2019.",
+  "description": "CMDB os_version of h25-mon-05 is 2016-old; discovery reports 2016.",
   "expected_finding": "attribute_drift",
   "finding_keys": [
    [
     "attribute",
-    "h02-lab-12",
+    "h25-mon-05",
     "os_version"
    ]
   ],
@@ -1061,14 +1223,14 @@
  },
  {
   "ci_ids": [
-   "n058-wan-01"
+   "h34-us-04"
   ],
-  "description": "CMDB ip_address of n058-wan-01 is 172.20.57.230; discovery reports 172.20.57.1.",
+  "description": "CMDB ip_address of h34-us-04 is 10.134.8.230; discovery reports 10.134.8.20.",
   "expected_finding": "attribute_drift",
   "finding_keys": [
    [
     "attribute",
-    "n058-wan-01",
+    "h34-us-04",
     "ip_address"
    ]
   ],
@@ -1081,14 +1243,14 @@
  },
  {
   "ci_ids": [
-   "n319-wan-01"
+   "h38-us-03"
   ],
-  "description": "CMDB ip_address of n319-wan-01 is 172.21.62.230; discovery reports 172.21.62.1.",
+  "description": "CMDB ip_address of h38-us-03 is 10.138.8.230; discovery reports 10.138.8.19.",
   "expected_finding": "attribute_drift",
   "finding_keys": [
    [
     "attribute",
-    "n319-wan-01",
+    "h38-us-03",
     "ip_address"
    ]
   ],
@@ -1101,14 +1263,14 @@
  },
  {
   "ci_ids": [
-   "n226-fw-01"
+   "h37-lab-05"
   ],
-  "description": "CMDB ip_address of n226-fw-01 is 172.20.225.230; discovery reports 172.20.225.2.",
+  "description": "CMDB ip_address of h37-lab-05 is 10.137.8.230; discovery reports 10.137.8.51.",
   "expected_finding": "attribute_drift",
   "finding_keys": [
    [
     "attribute",
-    "n226-fw-01",
+    "h37-lab-05",
     "ip_address"
    ]
   ],
@@ -1121,14 +1283,14 @@
  },
  {
   "ci_ids": [
-   "c0085-acc-01"
+   "h02-acc-026"
   ],
-  "description": "CMDB serial_number of c0085-acc-01 is FOCMSG23253; discovery reports FOCMSG235JG.",
+  "description": "CMDB serial_number of h02-acc-026 is FOCU9DSN253; discovery reports FOCU9DSNTPD.",
   "expected_finding": "attribute_drift",
   "finding_keys": [
    [
     "attribute",
-    "c0085-acc-01",
+    "h02-acc-026",
     "serial_number"
    ]
   ],
@@ -1141,14 +1303,14 @@
  },
  {
   "ci_ids": [
-   "c0079-acc-01"
+   "h02-acc-009"
   ],
-  "description": "CMDB serial_number of c0079-acc-01 is FOC2KWB8426; discovery reports FOC2KWB8254.",
+  "description": "CMDB serial_number of h02-acc-009 is FOC5Z2FC426; discovery reports FOC5Z2FCC4C.",
   "expected_finding": "attribute_drift",
   "finding_keys": [
    [
     "attribute",
-    "c0079-acc-01",
+    "h02-acc-009",
     "serial_number"
    ]
   ],
@@ -1182,15 +1344,15 @@
  },
  {
   "ci_ids": [
-   "h20-pacs-cache-db",
-   "arr-h20-01"
+   "h38-pacs-cache-db",
+   "arr-h38-01"
   ],
-  "description": "h20-pacs-cache-db (PHI) is only protected by snapshots on arr-h20-01 at the same site; CMDB says backup_offsite=true.",
+  "description": "h38-pacs-cache-db (PHI) is only protected by snapshots on arr-h38-01 at the same site; CMDB says backup_offsite=true.",
   "expected_finding": "protection_path_drift",
   "finding_keys": [
    [
     "protection",
-    "h20-pacs-cache-db"
+    "h38-pacs-cache-db"
    ]
   ],
   "id": "D9-02",
@@ -1203,15 +1365,15 @@
  },
  {
   "ci_ids": [
-   "h11-labmw-db",
-   "arr-h11-01"
+   "h42-pacs-cache-db",
+   "arr-h42-01"
   ],
-  "description": "h11-labmw-db (PHI) is only protected by snapshots on arr-h11-01 at the same site; CMDB says backup_offsite=true.",
+  "description": "h42-pacs-cache-db (PHI) is only protected by snapshots on arr-h42-01 at the same site; CMDB says backup_offsite=true.",
   "expected_finding": "protection_path_drift",
   "finding_keys": [
    [
     "protection",
-    "h11-labmw-db"
+    "h42-pacs-cache-db"
    ]
   ],
   "id": "D9-03",
@@ -1224,15 +1386,15 @@
  },
  {
   "ci_ids": [
-   "h01-labmw-db",
-   "arr-h01-01"
+   "h26-emr-edge-db",
+   "arr-h26-01"
   ],
-  "description": "h01-labmw-db (PHI) is only protected by snapshots on arr-h01-01 at the same site; CMDB says backup_offsite=true.",
+  "description": "h26-emr-edge-db (PHI) is only protected by snapshots on arr-h26-01 at the same site; CMDB says backup_offsite=true.",
   "expected_finding": "protection_path_drift",
   "finding_keys": [
    [
     "protection",
-    "h01-labmw-db"
+    "h26-emr-edge-db"
    ]
   ],
   "id": "D9-04",
@@ -1245,14 +1407,14 @@
  },
  {
   "ci_ids": [
-   "h18-labmw"
+   "h02-pacs-cache-db"
   ],
-  "description": "Backups of h18-labmw have failed every night for more than 7 days.",
+  "description": "Backups of h02-pacs-cache-db have failed every night for more than 7 days.",
   "expected_finding": "backup_failing",
   "finding_keys": [
    [
     "backup_failing",
-    "h18-labmw"
+    "h02-pacs-cache-db"
    ]
   ],
   "id": "D10-01",
@@ -1264,14 +1426,14 @@
  },
  {
   "ci_ids": [
-   "h15-labmw-db"
+   "h35-labmw-db"
   ],
-  "description": "Backups of h15-labmw-db have failed every night for more than 7 days.",
+  "description": "Backups of h35-labmw-db have failed every night for more than 7 days.",
   "expected_finding": "backup_failing",
   "finding_keys": [
    [
     "backup_failing",
-    "h15-labmw-db"
+    "h35-labmw-db"
    ]
   ],
   "id": "D10-02",
@@ -1283,14 +1445,14 @@
  },
  {
   "ci_ids": [
-   "h06-fs"
+   "h31-emr-edge"
   ],
-  "description": "Backups of h06-fs have failed every night for more than 7 days.",
+  "description": "Backups of h31-emr-edge have failed every night for more than 7 days.",
   "expected_finding": "backup_failing",
   "finding_keys": [
    [
     "backup_failing",
-    "h06-fs"
+    "h31-emr-edge"
    ]
   ],
   "id": "D10-03",
@@ -1480,5 +1642,51 @@
    "cmdb_ci"
   ],
   "type": "D13"
+ },
+ {
+  "ci_ids": [
+   "h44-xray-01"
+  ],
+  "description": "h44-xray-01 appears as H44-DR-ROOM1, H44XR1 in scan_results and netflow_hourly; same serial / IP, same CI.",
+  "expected_finding": "resolve_as_same_ci",
+  "finding_keys": [
+   [
+    "H44-DR-ROOM1",
+    "h44-xray-01"
+   ],
+   [
+    "H44XR1",
+    "h44-xray-01"
+   ]
+  ],
+  "id": "D13-05",
+  "sources": [
+   "scan_results",
+   "netflow_hourly",
+   "cmdb_ci"
+  ],
+  "type": "D13"
+ },
+ {
+  "ci_ids": [
+   "emr-fhir-api",
+   "sso-app"
+  ],
+  "description": "Unregistered third-party SMART on FHIR app (cardiorisk.example.com) launched by H17 cardiology physicians (grp-H17-CARD-physician) reads EMR data through emr-fhir-api; it has no CMDB record and no vendor review.",
+  "expected_finding": "unregistered_app",
+  "finding_keys": [
+   [
+    "unregistered_app",
+    "cardiorisk.example.com"
+   ]
+  ],
+  "id": "D14-01",
+  "sources": [
+   "flows_hourly",
+   "access_log",
+   "identity",
+   "cmdb_ci"
+  ],
+  "type": "D14"
  }
 ]

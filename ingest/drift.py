@@ -12,7 +12,7 @@ reference checker (`tests/oracle.py`) must report for it. Key shapes:
     ["shadow", hostname, ip]       ["ghost", ci]
     ["attribute", ci, field]       ["protection", ci]
     ["backup_failing", ci]         ["residency", source, target]
-    ["access", user, target]
+    ["access", user, target]       ["unregistered_app", name]
 D3 entries list the failover relationships that must NOT be flagged; D13
 entries list `[alias, ci]` pairs that must resolve to the same CI.
 """
@@ -20,12 +20,12 @@ entries list `[alias, ci]` pairs that must resolve to the same CI.
 import copy
 import ipaddress
 
-from ingest.world import make_sys_id, rng_for
+from ingest.world import STORAGE, make_sys_id, rng_for
 
 NO_DRIFT = {
     "cmdb_remove_rels": [], "cmdb_add_rels": [], "cmdb_add_cis": [], "cmdb_attr": {},
     "discovery_add": [], "discovery_hostname": {}, "flow_alias": {}, "backup_override": {},
-    "replication_add": [], "access_add": [], "ground_truth": [],
+    "replication_add": [], "access_add": [], "flows_add": [], "ground_truth": [],
 }
 DEP = "Depends on::Used by"
 
@@ -76,7 +76,7 @@ def plan_drift(world):
 
     # ---- D1: 7 more real dependencies missing from the CMDB
     d1 = [("pharm-app", "lis-db-01"), ("billing-app", "emr-db-01"), ("portal-app", "sched-app"),
-          ("dwh-etl-app", "pacs-db-01"), ("h03-rtls", "emr-app"), ("h03-mri-01", "h03-pacs-cache"),
+          ("dwh-etl-app", "pacs-db-01"), ("h03-rtls", "emr-fhir-api"), ("h03-mri-01", "h03-pacs-cache"),
           ("h17-lab-01", "h17-labmw")]
     deps = {(rel["parent"], rel["child"]): rel for rel in world["rels"] if rel["type"] == DEP and rel["obs"]}
     d1 = [x for x in d1 if x in deps]
@@ -119,7 +119,7 @@ def plan_drift(world):
     retired = [
         ("ris-app-legacy", "cmdb_ci_appl", "DC-PRI", "NW-Imaging-Systems", "ris-db-01", DEP),
         ("lab-interface-legacy", "u_cmdb_ci_hl7_interface", "DC-PRI", "NW-Integration", "lis-app", DEP),
-        ("dc1-host-25", "cmdb_ci_esx_server", "DC-PRI", "NW-Datacenter-Infra", "arr-pri-b-03", "Stores on::Stores"),
+        ("dc1-host-25", "cmdb_ci_esx_server", "DC-PRI", "NW-Datacenter-Infra", "arr-pri-b-03", STORAGE),
     ]
     for i, (name, cls, site, owner, target, rtype) in enumerate(retired, 1):
         ci = _cmdb_only_ci(world, seed, name, cls, site, owner, status="retired")
@@ -127,7 +127,8 @@ def plan_drift(world):
             ci.update(ip_address=_free_ip(world, "10.10.1", 200, used_ips), os="VMware ESXi", os_version="6.7 U3",
                       model="PowerEdge R740", manufacturer="Dell", serial_number="9XK2LM3")
         p["cmdb_add_cis"].append(ci)
-        p["cmdb_add_rels"].append({"parent": name, "child": target, "type": rtype, "failover": False, "mode": ""})
+        a, b = (target, name) if rtype == STORAGE else (name, target)  # storage: array is the parent
+        p["cmdb_add_rels"].append({"parent": a, "child": b, "type": rtype, "failover": False, "mode": ""})
         entry(f"D4-{i:02d}", "D4", f"{name} is retired but still linked to {target}.", [name, target],
               ["cmdb_ci", "cmdb_rel_ci"], "retired_still_linked", [["retired_linked", name]])
 
@@ -142,22 +143,32 @@ def plan_drift(world):
               [["owner", name]])
 
     # ---- D6: discovered devices with no CMDB record (shadow IT)
-    clinics = sorted(s["id"] for s in world["sites"] if s["type"] == "clinic")
-    med_clinics = sorted({sn["site"] for sn in world["subnets"] if sn["kind"] == "medical"} & set(clinics))
+    # Small sites for shadow devices: clinics; the demo subset has none, so community hospitals.
+    clinics = sorted(s["id"] for s in world["sites"] if s["type"] == "clinic") or \
+        sorted(s["id"] for s in world["sites"] if s["type"] == "community_hospital" and s["id"] != "H17")
+    med_sites = sorted({sn["site"] for sn in world["subnets"] if sn["kind"] == "medical"} & set(clinics))
     c1, c2, c3 = r.sample(clinics, 3)
-    c4 = r.choice([c for c in med_clinics if c not in (c1, c2, c3)])
+    c4 = r.choice([c for c in med_sites if c not in (c1, c2, c3)])
 
-    def cbase(cid):
-        j = int(cid[1:]) - 1
-        return f"172.{16 + j // 256}.{j % 256}"
+    def mgmt(cid, clinic_start, hosp_start):
+        """(prefix, first host) in the site's management subnet."""
+        if cid.startswith("C"):
+            j = int(cid[1:]) - 1
+            return f"172.{16 + j // 256}.{j % 256}", clinic_start
+        return f"10.{100 + int(cid[1:])}.0", hosp_start
+
+    def med(cid):
+        if cid.startswith("C"):
+            return mgmt(cid, 70, 0)
+        return f"10.{100 + int(cid[1:])}.8", 220
 
     shadow = [
-        (c1, f"{cbase(c1)}", 40, "WIN-FILESRV01", "Windows Server", "2012 R2", "OptiPlex 9020 (repurposed)", "Dell"),
-        (c2, f"{cbase(c2)}", 41, "NAS-BACKUP", "DSM", "7.1", "DiskStation DS920+", "Synology"),
+        (c1, *mgmt(c1, 40, 200), "WIN-FILESRV01", "Windows Server", "2012 R2", "OptiPlex 9020 (repurposed)", "Dell"),
+        (c2, *mgmt(c2, 41, 201), "NAS-BACKUP", "DSM", "7.1", "DiskStation DS920+", "Synology"),
         ("H03", "10.103.8", 240, "RADWS-3D-07", "Windows 10 Enterprise", "21H2", "Precision 7920 (3D imaging workstation)", "Dell"),
         ("H03", "10.103.0", 240, "AP-ROGUE-4F", "", "", "Archer AX55", "TP-Link"),
-        (c3, f"{cbase(c3)}", 42, "SW-UNMANAGED", "", "", "TL-SG108", "TP-Link"),
-        (c4, f"{cbase(c4)}", 70, "US-PORTABLE-02", "Windows 10 IoT Enterprise", "LTSC 2019", "Vscan Air", "GE HealthCare"),
+        (c3, *mgmt(c3, 42, 202), "SW-UNMANAGED", "", "", "TL-SG108", "TP-Link"),
+        (c4, *med(c4), "US-PORTABLE-02", "Windows 10 IoT Enterprise", "LTSC 2019", "Vscan Air", "GE HealthCare"),
         ("H17", "10.117.1", 240, "h17-nas-radiology", "DSM", "7.2", "DiskStation DS1522+", "Synology"),
         ("DC-PRI", "10.10.4", 250, "raspberrypi", "Raspbian", "11", "Raspberry Pi 4 Model B", "Raspberry Pi"),
         ("DC-PRI", "10.10.7", 240, "dc1-vm-poc-ai01", "Ubuntu", "22.04", "VMware Virtual Platform", "VMware"),
@@ -180,7 +191,8 @@ def plan_drift(world):
     ghosts = [
         ("h05-srv-old-07", "cmdb_ci_win_server", "H05", "10.105.1", 200, "NW-Regional-Infra-WA", ""),
         ("dc1-host-26", "cmdb_ci_esx_server", "DC-PRI", "10.10.1", 210, "NW-Datacenter-Infra", ""),
-        (f"{c3.lower()}-acc-03", "cmdb_ci_ip_switch", c3, cbase(c3), 50, f"NW-Network-{_state(world, c3)}", ""),
+        (f"{c3.lower()}-acc-{'03' if c3.startswith('C') else '099'}", "cmdb_ci_ip_switch", c3, *mgmt(c3, 50, 210),
+         f"NW-Network-{_state(world, c3)}", ""),
         ("h22-xray-03", "cmdb_ci_med_diagnostic_imaging", "H22", "10.122.8", 200,
          "NW-Clinical-Engineering-OR", "H22-RAD"),
         ("h03-prn-9001", "cmdb_ci_printer", "H03", "10.103.31", 200, "NW-Field-Services-WA", "H03-RAD"),
@@ -298,6 +310,37 @@ def plan_drift(world):
     for i, (name, sources, pairs) in enumerate(d13_entries, 1):
         entry(f"D13-{i:02d}", "D13", f"{name} appears as {', '.join(a for a, _ in pairs)} in "
               f"{' and '.join(sources[:-1])}; same serial / IP, same CI.", [name], sources, "resolve_as_same_ci", pairs)
+    # ---- D14: unregistered third-party SMART on FHIR app used by H17 cardiology
+    app, app_ip = "cardiorisk.example.com", "203.0.113.250"
+    card = act("grp-H17-CARD-physician")
+    if card and "emr-fhir-api" in by:
+        fhir_ip = by["emr-fhir-api"].get("service_ip", "")
+        sso_ip = by["sso-app"].get("service_ip", "")
+        from datetime import datetime, timedelta, timezone
+        start = datetime(2026, 10, 5, tzinfo=timezone.utc)
+        for d in range(10):
+            day = start + timedelta(days=d)
+            if day.weekday() >= 5:
+                continue
+            for h in range(15, 24):  # 08:00-17:00 Pacific clinic hours
+                t = (day + timedelta(hours=h)).strftime("%Y-%m-%dT%H:%M:%SZ")
+                n = r.randint(5, 40)
+                p["flows_add"].append({"src_name": app, "src_ip": app_ip, "dst_name": "emr-fhir-api",
+                                       "dst_ip": fhir_ip, "hour": t, "protocol": "https",
+                                       "msg_type": "FHIR R4 Observation/Condition read", "count": n,
+                                       "errors": 0, "p95_ms": round(r.uniform(150, 400), 1)})
+                p["flows_add"].append({"src_name": app, "src_ip": app_ip, "dst_name": "sso-app", "dst_ip": sso_ip,
+                                       "hour": t, "protocol": "oidc", "msg_type": "SMART launch token",
+                                       "count": max(1, n // 8), "errors": 0, "p95_ms": 90.0})
+            for uid in sorted(r.sample(card, min(4, len(card)))):
+                t = (day + timedelta(hours=16, minutes=r.randint(0, 300))).strftime("%Y-%m-%dT%H:%M:%SZ")
+                p["access_add"].append({"ts": t, "user": uid, "workstation": ubyid[uid]["workstation"],
+                                        "target": app, "action": "launch"})
+        entry("D14-01", "D14", "Unregistered third-party SMART on FHIR app (cardiorisk.example.com) launched by "
+              "H17 cardiology physicians (grp-H17-CARD-physician) reads EMR data through emr-fhir-api; it has "
+              "no CMDB record and no vendor review.", ["emr-fhir-api", "sso-app"],
+              ["flows_hourly", "access_log", "identity", "cmdb_ci"], "unregistered_app",
+              [["unregistered_app", app]])
     return p
 
 

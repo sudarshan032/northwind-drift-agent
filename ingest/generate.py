@@ -17,7 +17,6 @@ import time
 from ingest import drift, views
 from ingest.world import SEED, build_world
 
-DEMO_STATES = {"WA", "OR"}
 README = """# Northwind Health synthetic data (FICTIONAL)
 
 **Everything in this directory is synthetic.** "Northwind Health" is a fictional
@@ -45,8 +44,9 @@ places used only as locations; vendor product names are used only as models.
 - `ground_truth.json` lists every deliberately injected drift.
 - With `--gzip`, `.jsonl` / `.json` files are written as `.jsonl.gz` / `.json.gz`
   (same content; loader and checker read both).
-- `--subset demo` (WA + OR, both DCs, clouds, GCC-HYD): the headline covers the 24
-  WA/OR hospitals' ORU-CRIT routes, and H44 (Montana) is absent, so D13 has 4 cases.
+- `--subset demo`: all 51 hospitals, both DCs, both cloud regions, GCC-HYD; no clinics
+  or non-acute sites (shadow-IT and ghost cases that sit at clinics in the full world
+  move to community hospitals). Same drift catalogue and headline as the full data.
 
 See `DATA_SPEC.md` in the repository root for the full model.
 """
@@ -61,13 +61,11 @@ def write_csv(path, rows, columns=None):
             w.writerow({k: views.fmt_value(row.get(k, "")) for k in columns})
 
 
-def subset_world(world, states=DEMO_STATES):
-    """Demo region: WA + OR sites, both data centres, both cloud regions,
-    GCC-HYD and external SaaS. Site-specific interfaces and groups follow
-    their site."""
-    keep_sites = {s["id"] for s in world["sites"]
-                  if s["state"] in states and s["type"] not in ("data_centre",)} | \
-        {"DC-PRI", "DC-DR", "cloud-us-west", "cloud-central-india", "GCC-HYD", "EXTERNAL"}
+def subset_world(world):
+    """Demo subset (AGENT_SPEC 0.1b): all 51 hospitals, both data centres,
+    both cloud regions, GCC-HYD and external SaaS; no clinics or non-acute
+    sites. Site-specific interfaces and groups follow their site."""
+    keep_sites = {s["id"] for s in world["sites"] if s["type"] not in ("clinic", "non_acute")} | {"EXTERNAL"}
     dropped = {s["id"] for s in world["sites"]} - keep_sites
 
     def keep_ci(c):
@@ -145,7 +143,7 @@ def main():
     ap.add_argument("--seed", type=int, default=SEED)
     ap.add_argument("--out", default="data")
     ap.add_argument("--no-drift", action="store_true", help="disable drift injection (views agree)")
-    ap.add_argument("--subset", choices=["demo"], help="demo region: WA + OR, both DCs, clouds, GCC-HYD")
+    ap.add_argument("--subset", choices=["demo"], help="demo subset: 51 hospitals, both DCs, clouds, GCC-HYD")
     ap.add_argument("--gzip", action="store_true", help="write .jsonl/.json files gzip-compressed (byte-stable)")
     a = ap.parse_args()
     out = a.out.rstrip("/") or "."

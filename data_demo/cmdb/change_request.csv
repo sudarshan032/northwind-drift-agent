@@ -16,7 +16,6 @@ CHG0031400,Routine maintenance on dc1-host-03,standard,closed,approved,dc1-host-
 CHG0031411,Routine maintenance on h05-wan-01,standard,closed,approved,h05-wan-01,NW-Network-WA,2026-10-04T09:00:00Z,2026-10-04T11:00:00Z,low
 CHG0031422,Routine maintenance on pacs-app,standard,closed,approved,pacs-app,NW-Imaging-Systems,2026-10-06T09:00:00Z,2026-10-06T11:00:00Z,low
 CHG0031433,Routine maintenance on sso-app,standard,closed,approved,sso-app,NW-Identity,2026-10-05T09:00:00Z,2026-10-05T11:00:00Z,low
-CHG0031444,Routine maintenance on c0412-fw-01,standard,closed,approved,c0412-fw-01,NW-Network-OR,2026-10-07T09:00:00Z,2026-10-07T11:00:00Z,low
 CHG0031455,Routine maintenance on arr-pri-b-02,standard,closed,approved,arr-pri-b-02,NW-Backup-Storage,2026-10-08T09:00:00Z,2026-10-08T11:00:00Z,low
 CHG0031500,Planned upgrade on dc1-host-11,normal,scheduled,approved,dc1-host-11,NW-Datacenter-Infra,2026-10-17T09:00:00Z,2026-10-17T13:00:00Z,moderate
 CHG0031513,Planned upgrade on emr-app,normal,scheduled,approved,emr-app,NW-EMR-Apps,2026-10-18T09:00:00Z,2026-10-18T13:00:00Z,moderate

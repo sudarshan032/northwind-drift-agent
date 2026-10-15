@@ -13,7 +13,7 @@ from ingest.generate import generate
 from tests import oracle
 
 CATALOGUE = {"D1": 8, "D2": 6, "D3": 4, "D4": 3, "D5": 6, "D6": 10, "D7": 5, "D8": 8, "D9": 4,
-             "D10": 3, "D11": 1, "D12": 4, "D13": 5}
+             "D10": 3, "D11": 1, "D12": 4, "D13": 5, "D14": 1}
 
 
 def hashes(root):
@@ -204,9 +204,9 @@ def test_demo_subset_reproducible_and_exact(tmp_path):
     gt, must, must_not, aliases = oracle.expected(str(tmp_path))
     res = oracle.check(str(tmp_path))
     assert res["findings"] == must and not (must_not & res["findings"]) and res["aliases"] == aliases
-    assert {k: v for k, v in Counter(e["type"] for e in gt).items() if k != "D13"} == \
-        {k: v for k, v in CATALOGUE.items() if k != "D13"}  # H44 (one D13 case) is outside WA/OR
-    assert Counter(e["type"] for e in gt)["D13"] == 4
-    # headline in the subset: one route per WA/OR hospital (24), all staged in lrc-db-01
+    assert Counter(e["type"] for e in gt) == CATALOGUE
     headline = next(e for e in gt if e["id"] == "D1-HEADLINE")
-    assert len(headline["finding_keys"]) == 24
+    assert len(headline["finding_keys"]) == 51  # every hospital's ORU-CRIT route
+    with open(os.path.join(repo, "cmdb", "cmn_location.csv")) as f:
+        types = Counter(r["type"] for r in csv.DictReader(f))
+    assert types["clinic"] == types["non_acute"] == 0 and sum(v for k, v in types.items() if "hospital" in k) == 51

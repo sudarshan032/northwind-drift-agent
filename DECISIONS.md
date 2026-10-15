@@ -145,3 +145,31 @@ Clarified, not changed:
 - The admin-clerk role grants to external SaaS (ERP/HR, email): SaaS records are CIs in the CMDB, so `Role -GRANTS-> ExternalService` follows the same model.
 - DR AD domain controllers carry live traffic: AD is multi-master, so they are not "quiet until failover" like the DR databases; the DR site is otherwise silent.
 - Graph size: ~49k nodes / ~140k edges, below DATA_SPEC 9.6 guidance (and its own 50k fail line); RUN_PROMPT 4.5 (fail only outside 30k–300k, do not pad) governs (#30).
+
+# AGENT_SPEC run (2026-10-15)
+
+## 35. Phase 0 (a): DATA_SPEC section 2 imaging rows
+- DATA_SPEC table now carries the research ranges (CT 3–5/1–2/0–1, MRI 2–4/1/0, X-ray 8–15/3–6/1–2, US 10–20/4–8/1), matching the generator and `test_inventory_ranges`.
+
+## 36. Phase 0 (b): demo subset = all hospitals
+- `--subset demo`: all 51 hospitals, DC-PRI, DC-DR, both cloud regions, GCC-HYD, external SaaS; no clinics or non-acute sites. Same catalogue (D13 = 5, D14 = 1) and headline (51 routes). D6/D7 cases that sit at clinics in the full world move to community hospitals in the subset (no clinics exist there). data_demo/ is 8.3 MB gzip.
+
+## 37. Phase 0 (c): ServiceNow standard relationship types
+- `Stores on::Stores` → `Provides storage for::Stored on` with ServiceNow semantics (parent = storage provider, child = consumer); `Connects through::Connects` → `Connects to::Connected by` (parent = device, child = switch/segment). `Replicates to::Replica of` and `Backed up by::Backs up` stay documented custom types.
+- Graph edge names are unchanged (`STORES_ON` consumer → storage, `CONNECTS_THROUGH`): AGENT_SPEC says the implementation's names win; the loader flips storage rows so graph direction stays as before.
+
+## 38. Phase 0 (d): department and Emergency care links
+- Site-level routes now carry the hospital department they serve in `cmdb_ci.department` (ORU-CRIT → ED, LAB-RES → LAB, DICOM → RAD, VITALS → ICU or ED) → graph `IN_DEPARTMENT` → `Department` ← `CONTAINS` ← `Site`. Routes live at DC-PRI, so the plausibility test exempts Interfaces from "department site == CI site".
+- New enterprise business service `svc-emergency-care` (patient_safety_impact = high) `Contains` each hospital's `svc-hNN-ed-critical-results` (now also high), which `Contains` its `ORU-CRIT-Hnn`. Declared by the service owner, so present in truth and CMDB (not drift).
+
+## 39. Phase 0 (f): FHIR layer and D14
+- New `emr-fhir-api` (EMR FHIR R4 / SMART on FHIR / Bulk Data, 2 VMs, tier 0) → emr-db-01, sso-app. `portal-app` → emr-fhir-api (FHIR R4, replaces portal → emr-app), `dwh-etl-app` → emr-fhir-api (`FHIR Bulk $export`, nightly), each large hospital's RTLS → emr-fhir-api (D1 candidate becomes `h03-rtls → emr-fhir-api`).
+- D14: `cardiorisk.example.com` (203.0.113.250), a third-party SMART on FHIR app. Weekdays Oct 5–14, 08:00–17:00 Pacific, it calls emr-fhir-api (FHIR reads) and sso-app (SMART launch tokens); H17 cardiology physicians (`grp-H17-CARD-physician`, CARD forced into H17's departments) launch it (`access_log` action `launch`). No CMDB record, no scan record.
+- Rule (oracle and loader): a flow endpoint that resolves to no CI by name, sys_id or IP and carries traffic on ≥ 3 days is an `unregistered_app` finding. Accesses to non-CI targets are excluded from the D12 access rule (they belong to D14). The loader stores such endpoints as `:UnregisteredEndpoint` nodes with `OBSERVED_CALLS` / `OBSERVED_ACCESS` edges.
+
+## 40. Impact semantics as a derived edge layer
+- AGENT_SPEC 1.2 rules are materialised by Cypher (`graph/impact.py`) as `IMPACTS_DECLARED` / `IMPACTS_REAL` (propagating) and `AFFECTS_DECLARED` / `AFFECTS_REAL` (terminal: a route's data consumer and the departments it serves). The loader rebuilds them at the end of every load (delete + MERGE, idempotent). Why: radius queries become single-type directed traversals (`algo.bfs(start, 10, 'IMPACTS_REAL')`), the direction rule of DECISIONS #7 lives in exactly one Cypher rule (`feeds_route`), and the paths are `shortestPath` over one edge type. Terminal edges stop the EMR (a data consumer) from dragging every EMR dependant into the radius.
+- Business services propagate impact upward through `CONTAINS`; the interface engine impacts the routes it `CONTAINS`. Failover links and health checks never carry impact.
+
+## 41. FalkorDB timeouts
+- docker-compose sets `FALKORDB_ARGS="TIMEOUT_MAX 60000 TIMEOUT_DEFAULT 10000 MAX_QUEUED_QUERIES 25"` (parameter names verified at docs.falkordb.com/getting-started/configuration). This replaces the image's deprecated `TIMEOUT 1000` and its `RESULTSET_SIZE 10000` default (now unlimited; every agent query has its own LIMIT). Agent tool queries pass a 5 s per-query timeout and return `{"error": "query timed out"}` instead of raising.

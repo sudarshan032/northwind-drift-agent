@@ -20,8 +20,10 @@ rules the future agent will run as Cypher on the graph:
 - backup_failing: CI with a backup policy and no successful job in the last
   7 days (transient failures followed by success are therefore ignored)
 - residency: PHI data replicated or sent into cloud-central-india
-- access: access with no grant path, by a disabled user, or admin on a
-  production database outside an approved change window
+- access: access to a CI with no grant path, by a disabled user, or admin on
+  a production database outside an approved change window
+- unregistered_app: a flow endpoint that matches no CI (name, sys_id, IP) and
+  carries traffic on >= 3 distinct days (e.g. a third-party SMART on FHIR app)
 
 Flows tagged `health_check=true` are ignored. Endpoints resolve by exact
 name (or sys_id), then by IP; IP and serial resolutions are returned as
@@ -39,7 +41,7 @@ from ingest.world import DISCOVERABLE_CLASSES
 
 END = datetime(2026, 10, 14, 23, 59, 59, tzinfo=timezone.utc)
 LEVEL = {"read": 1, "login": 1, "write": 2, "admin": 3}
-DEP, REP, STORES = "Depends on::Used by", "Replicates to::Replica of", "Stores on::Stores"
+DEP, REP, STORES = "Depends on::Used by", "Replicates to::Replica of", "Provides storage for::Stored on"
 
 
 def _csv(path):
@@ -65,8 +67,8 @@ def protection_paths(data):
     j = lambda *p: os.path.join(data, *p)  # noqa: E731
     edges = {}
     for r in _csv(j("cmdb", "cmdb_rel_ci.csv")):
-        if r["type"] == STORES:
-            edges.setdefault(r["parent"], set()).add(r["child"])
+        if r["type"] == STORES:  # child is stored on parent
+            edges.setdefault(r["child"], set()).add(r["parent"])
     for job in _jsonl(j("observed", "backup_jobs.jsonl")):
         if job["status"] == "success":
             edges.setdefault(job["object"], set()).add(job["target"])
@@ -108,20 +110,28 @@ def check(data):
         return None
 
     # ---- observed traffic
-    days, seen = {}, set()
+    days, seen, unresolved = {}, set(), {}
     for fname in ("flows_hourly.jsonl", "flows_daily.jsonl", "netflow_hourly.jsonl", "netflow_daily.jsonl"):
         for rec in _jsonl(j("observed", fname)):
             if rec.get("health_check"):
                 continue
             s, d = resolve(rec["src_name"], rec["src_ip"]), resolve(rec["dst_name"], rec["dst_ip"])
+            day = rec.get("day") or rec["hour"][:10]
+            for name, ci in ((rec["src_name"], s), (rec["dst_name"], d)):
+                if ci is None:
+                    unresolved.setdefault(name, set()).add(day)
             if s is None or d is None:
                 continue
-            day = rec.get("day") or rec["hour"][:10]
             days.setdefault((s, d), set()).add(day)
             seen.update((s, d))
     replic = {}
     for rec in _jsonl(j("observed", "replication_status.jsonl")):
         replic.setdefault((rec["source_array"], rec["target_array"]), []).append(rec)
+
+    # unregistered app: a flow endpoint matching no CI (name, sys_id or IP), on >= 3 days
+    for name, ds in unresolved.items():
+        if len(ds) >= 3:
+            findings.add(("unregistered_app", name))
 
     declared_dep = {frozenset((r["parent"], r["child"])) for r in rels if r["type"] == DEP}
     for (s, d), ds in days.items():
@@ -190,8 +200,8 @@ def check(data):
         jobs.setdefault(job["object"], []).append(job)
     edges = {}
     for r in rels:
-        if r["type"] == STORES:
-            edges.setdefault(r["parent"], set()).add(r["child"])
+        if r["type"] == STORES:  # child is stored on parent
+            edges.setdefault(r["child"], set()).add(r["parent"])
     for obj, js in jobs.items():
         for job in js:
             if job["status"] == "success":
@@ -217,7 +227,7 @@ def check(data):
                         todo.append(y)
             if not any(y in cis and cis[y]["site"] != r["site"] for y in reach):
                 findings.add(("protection", n))
-    phi_on = {r["child"] for r in rels if r["type"] == STORES and cis[r["parent"]]["handles_phi"] == "true"}
+    phi_on = {r["parent"] for r in rels if r["type"] == STORES and cis[r["child"]]["handles_phi"] == "true"}
     india = {n for n, r in cis.items() if r["site"] == "cloud-central-india" or r["data_residency"] == "IN"}
     for (a, b) in replic:
         if b in india and (a in phi_on or cis.get(a, {}).get("handles_phi") == "true"):
@@ -240,6 +250,8 @@ def check(data):
                if c["approval"] == "approved"]
     for e in _jsonl(j("observed", "access_log.jsonl")):
         u, tgt = users.get(e["user"]), e["target"]
+        if tgt not in cis:  # access to something with no CMDB record: covered by unregistered_app
+            continue
         key = ("access", e["user"], tgt)
         if u is None or u["status"] != "active":
             findings.add(key)
