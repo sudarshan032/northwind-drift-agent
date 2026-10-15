@@ -88,7 +88,7 @@ Each entry: question, options, choice, why.
 - WA + OR sites, DC-PRI, DC-DR, both cloud regions, GCC-HYD, external SaaS (DATA_SPEC 10). Site-specific interfaces follow their hospital. The drift plan is re-drawn on the subset with the same catalogue; H44 (Montana) is outside it, so the subset has 4 D13 cases instead of 5 and 24 ORU-CRIT routes in the headline. Full-world tests are the authority.
 
 ## 25. Identity sizing
-- Demo-site users ≈ 3–4 per workstation per department (shared clinical workstations), giving 2,655 at H03, 1,088 at H17, 157 at H44 and 300 at GCC-HYD. 3% of accounts are `disabled` (HR status from `ext-erp-hr-saas`) and never log in, except D12(b). Non-demo groups carry `member_count` only.
+- Demo-site users ≈ 3–4 per workstation per department (shared clinical workstations), giving 2,696 at H03, 1,115 at H17, 150 at H44 and 300 at GCC-HYD (final data). 3% of accounts are `disabled` (HR status from `ext-erp-hr-saas`) and never log in, except D12(b). Non-demo groups carry `member_count` only.
 
 ## 26. Loader identification
 - Discovery identification (serial, else hostname + IP) and flow endpoint resolution (name/sys_id, else unique IP) are computed in Python in the loader, then written as `IDENTIFIES {matched_by}` edges and `Component.aliases`. Discovered attributes stay on `:Discovered`. Unresolvable flow endpoints are counted and reported (zero in the generated data).

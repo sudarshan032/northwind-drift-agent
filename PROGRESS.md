@@ -25,3 +25,7 @@ Re-read this file, RUN_PROMPT.md and DATA_SPEC.md after any context compaction.
 
 ## M7 Clean-room verification — in progress
 - Script: scratchpad cleanroom.sh (down -v, delete data/.venv/caches, uv sync --frozen, generate, pytest, load twice, sanity queries, hashes).
+- Run 1 and run 2: 28/28 tests, loader idempotent (49,056 nodes / 139,693 edges), sanity queries OK, data hashes identical.
+
+## M8 Report — done
+- REPORT.md written. All milestones complete.
