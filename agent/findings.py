@@ -161,7 +161,7 @@ def score(dtype, rows, impact):
         s += {"D1": 1.0, "D9": 1.5, "D10": 1.5}.get(dtype, 0)
     elif dtype == "D12":
         reasons = set(rows[0].get("reasons", []))
-        s = 4.5 if reasons & {"disabled_user", "admin_outside_change_window"} else 3.5
+        s = 4.5 if reasons & {"inactive_in_hr", "admin_outside_change_window"} else 3.5
     else:
         s = EXPOSURE[dtype]
     label = "critical" if s >= 5 else "high" if s >= 3.5 else "medium" if s >= 2 else "low"

@@ -12,7 +12,6 @@ registration raises its security ticket instead. Everything is audited.
 The LLM never calls these; only the API's approve/reject endpoints do.
 """
 
-import csv
 import json
 import os
 import re
@@ -21,7 +20,10 @@ from datetime import datetime, timezone
 from agent import findings as F
 from graph import impact
 from graph import queries as Q
+from ingest import connect
 from ingest.config import CMDB_PATCH_FIELDS
+from ingest.sources import cmdb_export
+from ingest.views import CMDB_COLUMNS
 from ingest.load import BOOL_FIELDS, INT_FIELDS, REL_TYPES
 from ingest.world import CLASS_LABEL
 
@@ -31,17 +33,6 @@ FIELD = re.compile(r"^[a-z_]+$")
 
 def _now():
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
-def _rw_csv(path, fn):
-    with open(path, encoding="utf-8", newline="") as f:
-        reader = csv.DictReader(f)
-        cols, rows = reader.fieldnames, list(reader)
-    rows = fn(rows)
-    with open(path, "w", encoding="utf-8", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=cols, lineterminator="\n", extrasaction="ignore")
-        w.writeheader()
-        w.writerows(rows)
 
 
 def _typed(field, value):
@@ -86,13 +77,12 @@ def write_ticket(runtime, ticket, finding):
     return rec
 
 
-def apply_op(g, data, op):
-    """Apply one patch op to the CSVs and the declared graph layer."""
-    cmdb = os.path.join(data, "cmdb")
+def apply_op(g, cm, op):
+    """Apply one patch op to the CMDB tables `cm` (cmdb_export connector shape) and the declared graph layer."""
     path = op["path"]
     if path == "/cmdb_rel_ci/-" and op["op"] == "add":
         v = op["value"]
-        _rw_csv(f"{cmdb}/cmdb_rel_ci.csv", lambda rows: rows + [{**v}])
+        cm["cmdb_rel_ci"].append({**v})
         et = REL_TYPES[v["type"]]
         a, b = (v["child"], v["parent"]) if et == "STORES_ON" else (v["parent"], v["child"])
         g.query(f"MATCH (a:Component {{name: $a}}), (b:Component {{name: $b}}) "
@@ -101,11 +91,11 @@ def apply_op(g, data, op):
         m = op["match"]
         if "any_end" in m:
             n = m["any_end"]
-            _rw_csv(f"{cmdb}/cmdb_rel_ci.csv", lambda rows: [r for r in rows if n not in (r["parent"], r["child"])])
+            cm["cmdb_rel_ci"] = [r for r in cm["cmdb_rel_ci"] if n not in (r["parent"], r["child"])]
             g.query(f"MATCH (c:Component {{name: $n}})-[e:{CMDB_EDGES}]-(:Component) DELETE e", {"n": n})
         else:
-            _rw_csv(f"{cmdb}/cmdb_rel_ci.csv", lambda rows: [
-                r for r in rows if (r["parent"], r["child"], r["type"]) != (m["parent"], m["child"], m["type"])])
+            cm["cmdb_rel_ci"] = [r for r in cm["cmdb_rel_ci"]
+                                 if (r["parent"], r["child"], r["type"]) != (m["parent"], m["child"], m["type"])]
             et = REL_TYPES[m["type"]]
             a, b = (m["child"], m["parent"]) if et == "STORES_ON" else (m["parent"], m["child"])
             g.query(f"MATCH (:Component {{name: $a}})-[e:{et}]->(:Component {{name: $b}}) DELETE e", {"a": a, "b": b})
@@ -120,7 +110,7 @@ def apply_op(g, data, op):
                 if r["name"] == name:
                     r[field] = value
             return rows
-        _rw_csv(f"{cmdb}/cmdb_ci.csv", upd)
+        cm["cmdb_ci"] = upd(cm["cmdb_ci"])
         g.query(f"MATCH (c:Component {{name: $n}}) SET c.{field} = $v", {"n": name, "v": _typed(field, value)})
         if field == "support_group":
             g.query("MATCH (c:Component {name: $n})-[e:MANAGED_BY]->() DELETE e", {"n": name})
@@ -129,7 +119,7 @@ def apply_op(g, data, op):
     elif path == "/cmdb_ci/-" and op["op"] == "add":
         v = dict(op["value"])
         v.setdefault("sys_id", F.hashlib.md5(f"approved:{v['name']}".encode()).hexdigest())
-        _rw_csv(f"{cmdb}/cmdb_ci.csv", lambda rows: rows + [v])
+        cm["cmdb_ci"].append({**{k: "" for k in CMDB_COLUMNS}, "status": "operational", **v})
         label = CLASS_LABEL[v["class"]]
         props = {k: _typed(k, x) for k, x in v.items() if x != ""}
         # an endpoint seen in traffic becomes a registered CI (keeps its observed edges)
@@ -165,8 +155,11 @@ def approve(g, data, runtime, fid, approver="human"):
         return {"id": fid, "status": "approved", "resolved": False, "ticket": t, "applied_ops": 0}
     for op in f["patch"]:
         validate(op)
+    cm = cmdb_export.read(data)  # the CMDB is its export: edit it and re-run its connector
     for op in f["patch"]:
-        apply_op(g, data, op)
+        apply_op(g, cm, op)
+    cmdb_export.write(cm, data)
+    connect.write_cmdb(data, cmdb_export.read(data))
     impact.build(g)
     rows = Q.detect(g, f["type"])
     still = {tuple(r["key"]) for r in rows} if isinstance(rows, list) else set()

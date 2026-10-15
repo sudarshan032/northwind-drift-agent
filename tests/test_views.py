@@ -10,6 +10,7 @@ import sys
 from collections import Counter
 
 from ingest.generate import generate
+from ingest.sources.common import open_text
 from tests import oracle
 
 CATALOGUE = {"D1": 8, "D2": 6, "D3": 4, "D4": 3, "D5": 6, "D6": 10, "D7": 5, "D8": 8, "D9": 4,
@@ -49,8 +50,8 @@ def test_every_discoverable_ci_discovered_without_drift(clean_data):
     """9.2 (discovery part), checked directly: every individual discoverable
     CMDB CI has a scan record (exempt: CIs with no IP, i.e. the cloud vault)."""
     from ingest.world import DISCOVERABLE_CLASSES
-    cis = _csv(os.path.join(clean_data, "cmdb", "cmdb_ci.csv"))
-    with open(os.path.join(clean_data, "discovery", "scan_results.jsonl")) as f:
+    cis = _csv(os.path.join(clean_data, "normalised", "cmdb_ci.csv"))
+    with open(os.path.join(clean_data, "normalised", "discovered.jsonl")) as f:
         serials = {json.loads(line)["serial_number"] for line in f}
     want = [c for c in cis if c["class"] in DISCOVERABLE_CLASSES and not c["count"]]
     exempt = {c["name"] for c in want if not c["ip_address"]}
@@ -72,17 +73,17 @@ def test_protection_and_backups_without_drift(clean_data):
     """9.2 (protection part): every PHI data holder reaches DC-DR and the
     immutable cloud vault, and every declared `Backed up by` has jobs to that
     target (and nothing is backed up elsewhere)."""
-    cis = {r["name"]: r for r in _csv(os.path.join(clean_data, "cmdb", "cmdb_ci.csv"))}
+    cis = {r["name"]: r for r in _csv(os.path.join(clean_data, "normalised", "cmdb_ci.csv"))}
     reach = oracle.protection_paths(clean_data)
     holders = [n for n, r in cis.items() if r["handles_phi"] == "true" and r["backup_offsite"] == "true"]
     assert len(holders) > 50
     for n in holders:
         sites = {cis[x]["site"] for x in reach.get(n, ()) if x in cis}
         assert "DC-DR" in sites and "bkp-vault-usw-01" in reach[n], n
-    declared = {(r["parent"], r["child"]) for r in _csv(os.path.join(clean_data, "cmdb", "cmdb_rel_ci.csv"))
+    declared = {(r["parent"], r["child"]) for r in _csv(os.path.join(clean_data, "normalised", "cmdb_rel_ci.csv"))
                 if r["type"] == "Backed up by::Backs up"}
-    with open(os.path.join(clean_data, "observed", "backup_jobs.jsonl")) as f:
-        observed = {(j["object"], j["target"]) for j in map(json.loads, f)}
+    with open(os.path.join(clean_data, "normalised", "backups.jsonl")) as f:
+        observed = {(j["object"], j["target"]) for j in map(json.loads, f) if j["job_type"] == "backup"}
     assert declared == observed and declared
 
 
@@ -100,12 +101,12 @@ def test_drift_catalogue_exact(drift_data):
             assert e["expected_finding"] == "resolve_as_same_ci"
     # D3 pairs really are silent (not just skipped by the failover rule)
     d3 = {frozenset(e["ci_ids"]) for e in gt if e["type"] == "D3"}
-    for fname in ("flows_hourly.jsonl", "flows_daily.jsonl", "netflow_hourly.jsonl", "netflow_daily.jsonl"):
-        with open(os.path.join(drift_data, "observed", fname)) as f:
+    for fname in ("calls.jsonl", "netflow.jsonl"):
+        with open(os.path.join(drift_data, "normalised", fname)) as f:
             for line in f:
                 r = json.loads(line)
-                assert frozenset((r["src_name"], r["dst_name"])) not in d3, r
-    with open(os.path.join(drift_data, "observed", "replication_status.jsonl")) as f:
+                assert frozenset((r["client"], r["server"])) not in d3, r
+    with open(os.path.join(drift_data, "normalised", "replication.jsonl")) as f:
         for line in f:
             r = json.loads(line)
             assert [r["source_array"], r["target_array"]] not in [e["ci_ids"] for e in gt if e["type"] == "D3"], r
@@ -123,7 +124,7 @@ def test_drift_catalogue_exact(drift_data):
 def test_no_phi_in_central_india_except_d11(drift_data):
     """9.4 on the generated drift-on files: nothing in cloud-central-india
     holds PHI, and the only PHI movement into it is the D11 entry."""
-    cis = {r["name"]: r for r in _csv(os.path.join(drift_data, "cmdb", "cmdb_ci.csv"))}
+    cis = {r["name"]: r for r in _csv(os.path.join(drift_data, "normalised", "cmdb_ci.csv"))}
     assert all(r["handles_phi"] == "false" for r in cis.values() if r["site"] == "cloud-central-india")
     res = oracle.check(drift_data)["findings"]
     gt = oracle.expected(drift_data)[0]
@@ -141,36 +142,35 @@ def test_headline_scenario(drift_data):
     hospitals; CMDB links lrc-db-01 only to LIS reporting; CHG-HEADLINE
     targets dc1-host-07."""
     routes = set()
-    with open(os.path.join(drift_data, "observed", "flows_hourly.jsonl")) as f:
-        for line in f:
-            if '"lrc-db-01"' in line:
-                rec = json.loads(line)
-                if rec["src_name"].startswith("ORU-CRIT-") and rec["dst_name"] == "lrc-db-01":
-                    routes.add(rec["src_name"])
+    with open(os.path.join(drift_data, "normalised", "calls.jsonl")) as f:
+        for rec in map(json.loads, f):  # found by the interface engine connector from Database Writer URLs
+            if rec["client"] and rec["client"].startswith("ORU-CRIT-") and rec["server"] == "lrc-db-01":
+                assert rec["source"] == "interface_engine" and rec["connector_type"] == "Database Writer"
+                routes.add(rec["client"])
     assert len(routes) >= 40, len(routes)
-    rels = _csv(os.path.join(drift_data, "cmdb", "cmdb_rel_ci.csv"))
+    rels = _csv(os.path.join(drift_data, "normalised", "cmdb_rel_ci.csv"))
     users_of_lrc = {r["parent"] for r in rels if r["child"] == "lrc-db-01" and r["type"] == "Depends on::Used by"}
     assert users_of_lrc == {"lis-reporting"}
     assert not [r for r in rels if r["parent"] == "lrc-db-01" and r["type"] == "Depends on::Used by"]
     runs = {(r["parent"], r["child"]) for r in rels if r["type"] == "Runs on::Runs"}
     assert ("lrc-db-01", "dc1-vm-lrc01") in runs and ("dc1-vm-lrc01", "dc1-host-07") in runs
-    chg = [c for c in _csv(os.path.join(drift_data, "cmdb", "change_request.csv")) if c["number"] == "CHG-HEADLINE"]
+    chg = [c for c in _csv(os.path.join(drift_data, "normalised", "change_request.csv")) if c["number"] == "CHG-HEADLINE"]
     assert len(chg) == 1 and chg[0]["cmdb_ci"] == "dc1-host-07" and chg[0]["state"] == "scheduled"
 
 
 def size_report(data):
     """Expected graph size computed from the files (what the loader creates)."""
     j = lambda *p: os.path.join(data, *p)  # noqa: E731
-    cis = _csv(j("cmdb", "cmdb_ci.csv"))
+    cis = _csv(j("normalised", "cmdb_ci.csv"))
     nodes = Counter(c["class"] for c in cis)
-    n_disc = sum(1 for _ in open(j("discovery", "scan_results.jsonl")))
+    n_disc = sum(1 for _ in open(j("normalised", "discovered.jsonl")))
     ref = {t: len(_csv(j(*p))) for t, p in {
-        "Site": ("cmdb", "cmn_location.csv"), "Department": ("cmdb", "cmn_department.csv"),
-        "SupportGroup": ("cmdb", "sys_user_group.csv"), "Change": ("cmdb", "change_request.csv"),
+        "Site": ("normalised", "cmn_location.csv"), "Department": ("normalised", "cmn_department.csv"),
+        "SupportGroup": ("normalised", "sys_user_group.csv"), "Change": ("normalised", "change_request.csv"),
         "User": ("identity", "users.csv"), "Group": ("identity", "groups.csv"),
         "Role": ("identity", "roles.csv")}.items()}
     total_nodes = len(cis) + n_disc + sum(ref.values())
-    rels = len(_csv(j("cmdb", "cmdb_rel_ci.csv")))
+    rels = len(_csv(j("normalised", "cmdb_rel_ci.csv")))
     return {"by_class": dict(nodes), "discovered": n_disc, "reference": ref, "total_nodes": total_nodes,
             "cmdb_relationships": rels}
 
@@ -178,8 +178,8 @@ def size_report(data):
 def test_size_report(drift_data):
     """9.6: print counts; fail only outside 30k-300k nodes (RUN_PROMPT 4.5)."""
     rep = size_report(drift_data)
-    locs = {r["sys_id"]: r["type"] for r in _csv(os.path.join(drift_data, "cmdb", "cmn_location.csv"))}
-    cis = _csv(os.path.join(drift_data, "cmdb", "cmdb_ci.csv"))
+    locs = {r["sys_id"]: r["type"] for r in _csv(os.path.join(drift_data, "normalised", "cmn_location.csv"))}
+    cis = _csv(os.path.join(drift_data, "normalised", "cmdb_ci.csv"))
     extra = {"sites_by_type": dict(Counter(locs.values())),
              "cis_by_site_type": dict(Counter(locs[c["site"]] for c in cis)),
              "declared_edges": rep["cmdb_relationships"] + sum(1 for c in cis for k in ("site", "support_group",
@@ -207,6 +207,6 @@ def test_demo_subset_reproducible_and_exact(tmp_path):
     assert Counter(e["type"] for e in gt) == CATALOGUE
     headline = next(e for e in gt if e["id"] == "D1-HEADLINE")
     assert len(headline["finding_keys"]) == 51  # every hospital's ORU-CRIT route
-    with open(os.path.join(repo, "cmdb", "cmn_location.csv")) as f:
+    with open_text(os.path.join(repo, "normalised", "cmn_location.csv")) as f:
         types = Counter(r["type"] for r in csv.DictReader(f))
     assert types["clinic"] == types["non_acute"] == 0 and sum(v for k, v in types.items() if "hospital" in k) == 51

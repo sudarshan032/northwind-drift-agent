@@ -22,6 +22,10 @@ python -m ingest.generate --seed 42 --out data
 - Drift injection: on. Subset: none (full world).
 - Same seed gives byte-identical files.
 - `truth/world.json` is the internal truth model (tests only; never loaded).
+- `raw/<source>/` holds each discovery source's native export (ServiceNow CSV/IRE JSON,
+  Prometheus text, OTLP JSON, nfdump CSV, Mirth channel XML, Veeam sessions, array API JSON,
+  Entra sign-ins, SQL Server audit, HR worker export, ITSM history); `normalised/` is what the
+  connectors (`python -m ingest.connect`) make of them, and what the loader reads.
 - `ground_truth.json` lists every deliberately injected drift.
 - With `--gzip`, `.jsonl` / `.json` files are written as `.jsonl.gz` / `.json.gz`
   (same content; loader and checker read both).

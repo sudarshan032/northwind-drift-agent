@@ -145,11 +145,11 @@ def test_no_key_degrades():
 def test_tools_cannot_write_cmdb(env):
     g, data, runtime = env
     assert set(SPECS) - set(READ_ONLY) == {"create_finding", "propose_fix", "page_owner"}
-    before = _hash_dir(os.path.join(data, "cmdb"))
+    before = _hash_dir(os.path.join(data, "raw", "cmdb_export"))
     box = Toolbox(g, runtime)
     box.call("create_finding", {"drift_type": "D2", "key": ["stale", "a", "b"], "explanation": "x"})
     box.call("page_owner", {"team": "HYD-Integration-Support", "message": "lrc-db-01 at risk"})
-    assert _hash_dir(os.path.join(data, "cmdb")) == before
+    assert _hash_dir(os.path.join(data, "raw", "cmdb_export")) == before
     with open(os.path.join(runtime, "notifications.jsonl")) as f:
         assert json.loads(f.readline())["team"] == "HYD-Integration-Support"
 
@@ -161,19 +161,19 @@ def test_approve_and_reject(env):
     assert head["key"] == ["undocumented_group", "lrc-db-01"]
     owner = next(f for f in F.list_findings(g, limit=500) if f["type"] == "D5")
     other = next(f for f in F.list_findings(g, limit=500) if f["type"] == "D2")
-    rels_before = sum(1 for _ in open(os.path.join(data, "cmdb", "cmdb_rel_ci.csv")))
+    rels_before = sum(1 for _ in open(os.path.join(data, "raw", "cmdb_export", "cmdb_rel_ci.csv")))
     res = approval.approve(g, data, runtime, head["id"])
     assert res["status"] == "approved" and res["resolved"] is True
-    assert sum(1 for _ in open(os.path.join(data, "cmdb", "cmdb_rel_ci.csv"))) == rels_before + 51
+    assert sum(1 for _ in open(os.path.join(data, "raw", "cmdb_export", "cmdb_rel_ci.csv"))) == rels_before + 51
     assert not [r for r in Q.detect(g, "D1") if r["key"][2] == "lrc-db-01"]
     dec = Q.radius(g, "dc1-host-07", "declared")  # the CMDB now tells the truth
     assert "svc-emergency-care" in dec["business_services"]
     assert approval.approve(g, data, runtime, head["id"])["error"] == "finding is approved"
     res = approval.approve(g, data, runtime, owner["id"])
     assert res["resolved"] is True
-    before = _hash_dir(os.path.join(data, "cmdb"))
+    before = _hash_dir(os.path.join(data, "raw", "cmdb_export"))
     assert approval.reject(g, runtime, other["id"], reason="needed for failover tests")["status"] == "rejected"
-    assert _hash_dir(os.path.join(data, "cmdb")) == before and F.get_finding(g, other["id"])["status"] == "rejected"
+    assert _hash_dir(os.path.join(data, "raw", "cmdb_export")) == before and F.get_finding(g, other["id"])["status"] == "rejected"
     with open(os.path.join(runtime, "audit.jsonl")) as f:
         actions = [json.loads(x)["action"] for x in f]
     assert actions == ["approve", "approve", "reject"]
@@ -192,10 +192,10 @@ def test_write_back_rule(env):
     for t in ("D9", "D10", "D11", "D12"):
         f = next(x for x in open_ if x["type"] == t)
         assert f["action"] == "ticket" and f["patch"] == [] and f["sources"]
-        before = _hash_dir(os.path.join(data, "cmdb"))
+        before = _hash_dir(os.path.join(data, "raw", "cmdb_export"))
         res = approval.approve(g, data, runtime, f["id"])
         assert res["ticket"]["table"] == ("incident" if t in ("D9", "D10") else "sn_si_incident")
-        assert _hash_dir(os.path.join(data, "cmdb")) == before
+        assert _hash_dir(os.path.join(data, "raw", "cmdb_export")) == before
     assert sum(1 for _ in open(path)) == tickets_before + 4
     for t in ("D2", "D4", "D6", "D7", "D8"):
         f = next(x for x in open_ if x["type"] == t)

@@ -188,12 +188,12 @@ def evidence_view(world, plan):
     for c in world["cis"]:
         if c["label"] not in EVIDENCE_LABELS or c["count"] != "":
             continue
-        inc, chg = r.randint(3, 25), r.randint(1, 8)
+        inc, chg = r.randint(2, 8), r.randint(1, 3)  # 90 days of ITSM history
         last = ts(END - timedelta(days=r.randint(0, 60)))
         rows.append({"ci": c["name"], "team": c["support_group"], "incidents_resolved": inc,
                      "changes_implemented": chg, "last_activity": last, "period_days": 180})
         if r.random() < 0.3:
-            rows.append({"ci": c["name"], "team": SERVICE_DESK, "incidents_resolved": r.randint(1, 2),
+            rows.append({"ci": c["name"], "team": SERVICE_DESK, "incidents_resolved": 1,
                          "changes_implemented": 0, "last_activity": last, "period_days": 180})
     return {"ownership_evidence": rows}
 
@@ -342,7 +342,7 @@ def backup_jobs(world, plan):
                 status = "failed"
             if override.get("kind") == "failing" and d >= override["last_success_day"] + 1:
                 status = "failed"
-            dur = timedelta(minutes=max(5, int(gb / 4)))
+            dur = timedelta(minutes=min(600, max(5, int(gb / 4))))  # incremental-forever: at most 10 h per session
             jobs.append({"job_id": f"job-{c['sys_id'][:8]}-{d:02d}", "object": c["name"],
                          "policy": override.get("policy", c["backup_policy"]),
                          "target": override.get("target", "bkp-appl-pri-01"), "status": status,

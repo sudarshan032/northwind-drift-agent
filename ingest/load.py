@@ -1,4 +1,4 @@
-"""Load the generated views into FalkorDB (DATA_SPEC section 8).
+"""Load normalised evidence into FalkorDB (DATA_SPEC section 8, REALISM_SPEC 2-4).
 
     python -m ingest.load --data data/ --graph northwind
 
@@ -8,18 +8,17 @@ gives the same graph. Batched with UNWIND. Never reads `truth/world.json`.
 Graph model
 - `:Component` + class label for every CMDB CI; reference nodes `:Site`,
   `:Department`, `:SupportGroup`, `:User`, `:Group`, `:Role`, `:Change`.
-- Declared edges from the CMDB and identity files; observed edges
-  aggregated from flows, netflow, replication, backups, access and
-  ownership evidence.
-- `:Discovered` nodes hold what scanners saw; `IDENTIFIES` links them to a
-  `:Component` by serial number, else hostname + IP. Discovered attributes
-  never overwrite CMDB attributes.
-- Flow endpoints resolve by exact name (or sys_id), then by IP. Names
-  resolved by IP or serial are stored in `Component.aliases`.
+- Declared layer: the cmdb_export connector's tables and the IAM export.
+- Evidence layer: connector output only (data/normalised): every edge
+  carries `source` and `source_record`. The loader never parses raw tool
+  formats; identification (serial, name/alias, IP, IP:port) was already done
+  by the connectors (ingest/sources/identify.py).
+- `:Discovered` nodes hold what scanners saw; `IDENTIFIES {matched_by}` links
+  them to their CI. Discovered attributes never overwrite CMDB attributes.
+- Endpoints that match no CI become `:UnregisteredEndpoint`.
 """
 
 import argparse
-import csv
 import ipaddress
 import json
 import os
@@ -29,7 +28,7 @@ from collections import Counter
 from falkordb import FalkorDB
 
 from graph import impact
-from ingest.views import open_in
+from ingest.sources import common
 from ingest.world import CLASS_LABEL
 
 BATCH = 2000
@@ -78,18 +77,32 @@ def typed(row, skip=()):
 
 
 def read_csv(path):
-    with open(path, encoding="utf-8", newline="") as f:
-        return list(csv.DictReader(f))
+    return common.read_csv(path)  # plain or .gz
 
 
 def read_jsonl(path):
-    if os.path.exists(path) or os.path.exists(path + ".gz"):
-        with open_in(path) as f:  # plain or .gz
-            for line in f:
-                yield json.loads(line)
+    return common.read_jsonl(path)
+
+
+def props(row, drop=()):
+    """Evidence row -> edge properties (lists of primitives only; nested values as JSON)."""
+    out = {}
+    for k, v in row.items():
+        if k in drop or v is None:
+            continue
+        if isinstance(v, list) and v and isinstance(v[0], dict):
+            out[f"{k}_json"] = json.dumps(v)
+            out[f"{k}_count"] = len(v)
+        else:
+            out[k] = v
+    if "days" in out:
+        out["days_seen"] = len(out["days"])
+    return out
 
 
 class Loader:
+    """Loads data/normalised (connector output) and data/identity (declared IAM)."""
+
     def __init__(self, data, graph, host="localhost", port=6379, batch=BATCH):
         self.data = data
         self.db = FalkorDB(host=host, port=port)
@@ -99,6 +112,9 @@ class Loader:
 
     def path(self, *p):
         return os.path.join(self.data, *p)
+
+    def norm(self, name):
+        return self.path("normalised", name)
 
     def run(self, query, rows):
         for i in range(0, len(rows), self.batch):
@@ -118,26 +134,23 @@ class Loader:
             if (label, prop) not in existing:
                 self.g.query(f"CREATE INDEX FOR (n:{label}) ON (n.{prop})")
 
-    # ---- declared view ---------------------------------------------------
+    # ---- declared layer (cmdb_export connector output + IAM) --------------
 
     def reference(self):
-        sites = [typed(r) for r in read_csv(self.path("cmdb", "cmn_location.csv"))]
+        sites = [typed(r) for r in read_csv(self.norm("cmn_location.csv"))]
         self.run("UNWIND $rows AS r MERGE (s:Site {id: r.sys_id}) SET s += r", sites)
-        depts = [typed(r) for r in read_csv(self.path("cmdb", "cmn_department.csv"))]
+        depts = [typed(r) for r in read_csv(self.norm("cmn_department.csv"))]
         self.run("UNWIND $rows AS r MERGE (d:Department {id: r.sys_id}) SET d.name = r.name, d.code = r.code "
                  "WITH d, r MATCH (s:Site {id: r.location}) MERGE (s)-[:CONTAINS]->(d)", depts)
-        groups = [typed(r) for r in read_csv(self.path("cmdb", "sys_user_group.csv"))]
+        groups = [typed(r) for r in read_csv(self.norm("sys_user_group.csv"))]
         self.run("UNWIND $rows AS r MERGE (g:SupportGroup {name: r.name}) SET g += r", groups)
 
     def components(self):
-        rows = read_csv(self.path("cmdb", "cmdb_ci.csv"))
+        rows = read_csv(self.norm("cmdb_ci.csv"))
         self.cis = {r["name"]: r for r in rows}
-        self.by_sys = {r["sys_id"]: r["name"] for r in rows}
-        ips = Counter(r["ip_address"] for r in rows if r["ip_address"])
-        self.by_ip = {r["ip_address"]: r["name"] for r in rows if r["ip_address"] and ips[r["ip_address"]] == 1}
         by_label = {}
         for r in rows:
-            by_label.setdefault(CLASS_LABEL[r["class"]], []).append(typed(r))
+            by_label.setdefault(CLASS_LABEL[r["class"]], []).append(dict(typed(r), source="cmdb_export"))
         for label, items in sorted(by_label.items()):
             self.run(f"UNWIND $rows AS r MERGE (c:Component:{label} {{name: r.name}}) SET c += r", items)
         for col, label, key, etype in (("site", "Site", "id", "LOCATED_AT"),
@@ -149,27 +162,31 @@ class Loader:
 
     def relationships(self):
         by_type = {}
-        for r in read_csv(self.path("cmdb", "cmdb_rel_ci.csv")):
+        for r in read_csv(self.norm("cmdb_rel_ci.csv")):
             et = REL_TYPES[r["type"]]
-            props = {"failover": r["failover"] == "true"}
+            props_ = {"failover": r["failover"] == "true", "source": "cmdb_export", "rel_type": r["type"]}
             if et == "REPLICATES_TO":
-                props["mode"] = r["mode"]
+                props_["mode"] = r["mode"]
             a, b = r["parent"], r["child"]
             if et == "STORES_ON":  # CMDB parent = storage provider; graph edge points consumer -> storage
                 a, b = b, a
-            by_type.setdefault(et, []).append({"a": a, "b": b, "p": props})
+            by_type.setdefault(et, []).append({"a": a, "b": b, "p": props_})
         for et, rows in sorted(by_type.items()):
             self.run(f"UNWIND $rows AS r MATCH (a:Component {{name: r.a}}) MATCH (b:Component {{name: r.b}}) "
                      f"MERGE (a)-[e:{et}]->(b) SET e += r.p", rows)
 
     def changes(self):
-        rows = [typed(r) for r in read_csv(self.path("cmdb", "change_request.csv"))]
+        rows = [typed(r) for r in read_csv(self.norm("change_request.csv"))]
         self.run("UNWIND $rows AS r MERGE (c:Change {number: r.number}) SET c += r "
                  "WITH c, r MATCH (x:Component {name: r.cmdb_ci}) MERGE (c)-[:TARGETS]->(x)", rows)
 
     def identity(self):
         users = [typed(r) for r in read_csv(self.path("identity", "users.csv"))]
         self.run("UNWIND $rows AS r MERGE (u:User {id: r.id}) SET u += r", users)
+        workers = [{"id": w["id"], "status": w["status"], "effective": w["effective_date"]}
+                   for w in read_csv(self.norm("workers.csv"))]  # hr_feed: employment status behind the account
+        self.run("UNWIND $rows AS r MATCH (u:User {id: r.id}) SET u.status = r.status, "
+                 "u.hr_status_effective = r.effective, u.status_source = 'hr_feed'", workers)
         roles = [typed(r) for r in read_csv(self.path("identity", "roles.csv"))]
         self.run("UNWIND $rows AS r MERGE (x:Role {id: r.id}) SET x += r", roles)
         groups = read_csv(self.path("identity", "groups.csv"))
@@ -183,28 +200,19 @@ class Loader:
         self.run("UNWIND $rows AS r MATCH (x:Role {id: r.role}) MATCH (c:Component {name: r.target}) "
                  "MERGE (x)-[e:GRANTS {level: r.level}]->(c)", read_csv(self.path("identity", "grants.csv")))
 
-    # ---- discovery -----------------------------------------------------
+    # ---- evidence layer (normalised connector output) ---------------------
 
     def discovery(self):
-        by_serial = {r["serial_number"]: n for n, r in self.cis.items() if r["serial_number"]}
-        by_host_ip = {(n, r["ip_address"]): n for n, r in self.cis.items() if r["ip_address"]}
         nodes, links = [], []
-        for rec in read_jsonl(self.path("discovery", "scan_results.jsonl")):
-            key = f"{rec['site']}|{rec['hostname']}|{rec['ip_address']}"
-            nodes.append(dict({k: v for k, v in rec.items() if v != ""}, key=key))
-            ci = by_serial.get(rec["serial_number"]) if rec["serial_number"] else None
-            how = "serial_number"
-            if ci is None:
-                ci, how = by_host_ip.get((rec["hostname"], rec["ip_address"])), "hostname+ip"
-            if ci:
-                links.append({"k": key, "c": ci, "how": how})
-                if rec["hostname"] != ci:
-                    self.alias(ci, rec["hostname"])
+        for rec in read_jsonl(self.norm("discovered.jsonl")):
+            nodes.append({k: v for k, v in rec.items() if v not in ("", None) and k not in ("ci", "match_rule")})
+            if rec["ci"]:
+                links.append({"k": rec["key"], "c": rec["ci"], "how": rec["match_rule"]})
         self.run("UNWIND $rows AS r MERGE (d:Discovered {key: r.key}) SET d += r", nodes)
         self.run("UNWIND $rows AS r MATCH (d:Discovered {key: r.k}) MATCH (c:Component {name: r.c}) "
                  "MERGE (d)-[e:IDENTIFIES]->(c) SET e.matched_by = r.how", links)
         subnets = {}
-        for r in read_csv(self.path("discovery", "scan_coverage.csv")):
+        for r in read_csv(self.norm("scan_coverage.csv")):
             if r["scanned"] == "true":
                 subnets.setdefault(r["site"], []).append(r["subnet"])
         self.run("UNWIND $rows AS r MATCH (s:Site {id: r.s}) SET s.scanned_subnets = r.n",
@@ -219,119 +227,63 @@ class Loader:
                 if hit:
                     rows.append({"c": n, "s": hit})
         self.run("UNWIND $rows AS r MATCH (c:Component {name: r.c}) SET c.scanned_subnet = r.s", rows)
+        listen = [{"c": r["ci"], "p": f"{r['ip']}:{r['port']}"} for r in read_jsonl(self.norm("listening.jsonl"))]
+        by_ci = {}
+        for r in listen:
+            by_ci.setdefault(r["c"], []).append(r["p"])
+        self.run("UNWIND $rows AS r MATCH (c:Component {name: r.c}) SET c.listening = r.p",
+                 [{"c": c, "p": sorted(v)} for c, v in sorted(by_ci.items())])
 
-    # ---- observed --------------------------------------------------------
-
-    def alias(self, ci, name):
-        self.aliases.setdefault(ci, set()).add(name)
-
-    def resolve(self, name, ip):
-        if name in self.cis:
-            return name
-        if name in self.by_sys:
-            self.alias(self.by_sys[name], name)
-            return self.by_sys[name]
-        if ip in self.by_ip:
-            self.alias(self.by_ip[ip], name)
-            return self.by_ip[ip]
-        self.unresolved[name] += 1
-        self.unregistered[name] = ip
-        return None
+    def endpoints(self, rows):
+        """Ends of evidence rows: (client, server) node names; unmatched ends become
+        :UnregisteredEndpoint (shadow-IT / unregistered-app candidates)."""
+        out = []
+        for r in rows:
+            ends = []
+            for side in ("client", "server"):
+                ci = r.get(side)
+                if ci is None:
+                    name = r.get(f"{side}_name") or r.get(f"{side}_ip")
+                    if not name:
+                        break
+                    self.unresolved[name] += 1
+                    self.unregistered[name] = r.get(f"{side}_ip", "")
+                    ci = name
+                ends.append(ci)
+            if len(ends) == 2:
+                out.append((ends[0], ends[1], r))
+        return out
 
     def flows(self):
-        calls, net = {}, {}
-        for fname in ("flows_hourly.jsonl", "flows_daily.jsonl"):
-            for rec in read_jsonl(self.path("observed", fname)):
-                a, b = self.resolve(rec["src_name"], rec["src_ip"]), self.resolve(rec["dst_name"], rec["dst_ip"])
-                a, b = a or (rec["src_name"] if rec["src_name"] in self.unregistered else None), \
-                    b or (rec["dst_name"] if rec["dst_name"] in self.unregistered else None)
-                if not (a and b):
-                    continue
-                t = rec.get("hour") or rec["day"] + "T00:00:00Z"
-                k = (a, b, rec["msg_type"], rec["protocol"])
-                e = calls.setdefault(k, {"count": 0, "errors": 0, "p95_ms": 0.0, "first_seen": t, "last_seen": t,
-                                         "days": set(), "health_check": True})
-                e["count"] += rec["count"]
-                e["errors"] += rec["errors"]
-                e["p95_ms"] = max(e["p95_ms"], rec["p95_ms"])
-                e["first_seen"], e["last_seen"] = min(e["first_seen"], t), max(e["last_seen"], t)
-                e["days"].add(t[:10])
-                e["health_check"] = e["health_check"] and bool(rec.get("health_check"))
-        for fname in ("netflow_hourly.jsonl", "netflow_daily.jsonl"):
-            for rec in read_jsonl(self.path("observed", fname)):
-                a, b = self.resolve(rec["src_name"], rec["src_ip"]), self.resolve(rec["dst_name"], rec["dst_ip"])
-                if not (a and b):
-                    continue
-                t = rec.get("hour") or rec["day"] + "T00:00:00Z"
-                e = net.setdefault((a, b, rec["port"]), {"bytes": 0, "flows": 0, "first_seen": t, "last_seen": t,
-                                                         "days": set()})
-                e["bytes"] += rec["bytes"]
-                e["flows"] += rec["flows"]
-                e["first_seen"], e["last_seen"] = min(e["first_seen"], t), max(e["last_seen"], t)
-                e["days"].add(t[:10])
-        def props(e):  # distinct days with traffic, kept for the ">= 3 days" rule
-            return {**{k: v for k, v in e.items() if k != "days"}, "days_seen": len(e["days"]),
-                    "days": sorted(e["days"])}
-
-        # Endpoints with no CMDB record become :UnregisteredEndpoint nodes so their traffic stays visible.
-        self.run("UNWIND $rows AS r MERGE (x:UnregisteredEndpoint {name: r.n}) SET x.ip_address = r.ip",
-                 [{"n": n, "ip": ip} for n, ip in sorted(self.unregistered.items())])
-        rows = [{"a": a, "b": b, "m": m, "pr": pr, "p": props(e)} for (a, b, m, pr), e in sorted(calls.items())]
-        self.run("UNWIND $rows AS r MATCH (a {name: r.a}) WHERE a:Component OR a:UnregisteredEndpoint "
-                 "MATCH (b {name: r.b}) WHERE b:Component OR b:UnregisteredEndpoint "
-                 "MERGE (a)-[e:OBSERVED_CALLS {msg_type: r.m, protocol: r.pr}]->(b) SET e += r.p",
-                 [x for x in rows if x["a"] in self.unregistered or x["b"] in self.unregistered])
-        rows = [x for x in rows if x["a"] not in self.unregistered and x["b"] not in self.unregistered]
-        self.run("UNWIND $rows AS r MATCH (a:Component {name: r.a}) MATCH (b:Component {name: r.b}) "
-                 "MERGE (a)-[e:OBSERVED_CALLS {msg_type: r.m, protocol: r.pr}]->(b) SET e += r.p", rows)
-        rows = [{"a": a, "b": b, "port": port, "p": props(e)} for (a, b, port), e in sorted(net.items())]
-        self.run("UNWIND $rows AS r MATCH (a:Component {name: r.a}) MATCH (b:Component {name: r.b}) "
-                 "MERGE (a)-[e:OBSERVED_NETFLOW {port: r.port}]->(b) SET e += r.p", rows)
+        calls = self.endpoints(list(read_jsonl(self.norm("calls.jsonl"))))
+        net = self.endpoints(list(read_jsonl(self.norm("netflow.jsonl"))))
+        self.run("UNWIND $rows AS r MERGE (x:UnregisteredEndpoint {name: r.n}) SET x.ip_address = r.ip, "
+                 "x.source = 'netflow'", [{"n": n, "ip": ip} for n, ip in sorted(self.unregistered.items())])
+        drop = ("client", "server", "client_name", "server_name", "client_ip", "server_ip")
+        for edge, key, rows in (("OBSERVED_CALLS", "source", calls), ("OBSERVED_NETFLOW", "port", net)):
+            items = [{"a": a, "b": b, "k": r[key], "p": props(r, drop), "ua": a in self.unregistered,
+                      "ub": b in self.unregistered} for a, b, r in rows]
+            for ua, ub in ((False, False), (True, False), (False, True), (True, True)):  # indexed label per end
+                la, lb = ("UnregisteredEndpoint" if ua else "Component"), ("UnregisteredEndpoint" if ub else "Component")
+                self.run(f"UNWIND $rows AS r MATCH (a:{la} {{name: r.a}}) MATCH (b:{lb} {{name: r.b}}) "
+                         f"MERGE (a)-[e:{edge} {{{key}: r.k}}]->(b) SET e += r.p",
+                         [x for x in items if (x["ua"], x["ub"]) == (ua, ub)])
 
     def replication(self):
-        agg = {}
-        for rec in read_jsonl(self.path("observed", "replication_status.jsonl")):
-            k = (rec["source_array"], rec["target_array"])
-            e = agg.setdefault(k, {"mode": rec["mode"], "max_lag_s": 0, "last_seen": rec["hour"],
-                                   "state": rec["state"], "volumes": set()})
-            e["max_lag_s"] = max(e["max_lag_s"], rec["lag_seconds"])
-            if rec["hour"] >= e["last_seen"]:
-                e["last_seen"], e["state"] = rec["hour"], rec["state"]
-            e["volumes"].add(rec["source_volume"])
-        rows = [{"a": a, "b": b, "p": dict(e, volumes=sorted(e["volumes"]))} for (a, b), e in sorted(agg.items())]
+        rows = [{"a": r["source_array"], "b": r["target_array"], "p": props(r, ("source_array", "target_array"))}
+                for r in read_jsonl(self.norm("replication.jsonl")) if r["source_array"] and r["target_array"]]
         self.run("UNWIND $rows AS r MATCH (a:Component {name: r.a}) MATCH (b:Component {name: r.b}) "
-                 "MERGE (a)-[e:OBSERVED_REPLICATES_TO]->(b) SET e += r.p", rows)
+                 "MERGE (a)-[e:OBSERVED_REPLICATES_TO]->(b) SET e += r.p, e.last_seen = r.p.last_transfer", rows)
 
     def backups(self):
-        agg = {}
-        for job in read_jsonl(self.path("observed", "backup_jobs.jsonl")):
-            k = (job["object"], job["target"])
-            e = agg.setdefault(k, {"last_run": "", "last_status": "", "jobs": 0, "failures": 0,
-                                   "policy": job["policy"]})
-            e["jobs"] += 1
-            e["failures"] += job["status"] != "success"
-            if job["start"] >= e["last_run"]:
-                e["last_run"], e["last_status"] = job["start"], job["status"]
-            if job["status"] == "success" and job["end"] > e.get("last_success", ""):
-                e["last_success"] = job["end"]
-        rows = [{"a": a, "b": b, "p": e} for (a, b), e in sorted(agg.items())]
+        rows = [{"a": r["object"], "b": r["target"], "t": r["job_type"], "p": props(r, ("object", "target"))}
+                for r in read_jsonl(self.norm("backups.jsonl"))]
         self.run("UNWIND $rows AS r MATCH (a:Component {name: r.a}) MATCH (b:Component {name: r.b}) "
-                 "MERGE (a)-[e:OBSERVED_BACKUP_TO]->(b) SET e += r.p", rows)
+                 "MERGE (a)-[e:OBSERVED_BACKUP_TO {job_type: r.t}]->(b) SET e += r.p", rows)
 
     def access(self):
-        agg = {}
-        for e in read_jsonl(self.path("observed", "access_log.jsonl")):
-            k = (e["user"], e["target"], e["action"])
-            x = agg.setdefault(k, {"count": 0, "failures": 0, "first_seen": e["ts"], "last_seen": e["ts"],
-                                   "workstations": set(), "times": []})
-            if e["action"] == "admin":  # admin events keep timestamps for the change-window check
-                x["times"].append(e["ts"])
-            x["count"] += 1
-            x["failures"] += e["result"] != "success"
-            x["first_seen"], x["last_seen"] = min(x["first_seen"], e["ts"]), max(x["last_seen"], e["ts"])
-            x["workstations"].add(e["workstation"])
-        rows = [{"u": u, "c": c, "a": a, "p": dict(x, workstations=sorted(x["workstations"]), times=sorted(x["times"]))}
-                for (u, c, a), x in sorted(agg.items())]
+        rows = [{"u": r["user"], "c": r["target"], "a": r["action"], "p": props(r, ("user", "target", "registered"))}
+                for r in read_jsonl(self.norm("access.jsonl"))]
         self.run("UNWIND $rows AS r MATCH (u:User {id: r.u}) MATCH (c:Component {name: r.c}) "
                  "MERGE (u)-[e:OBSERVED_ACCESS {action: r.a}]->(c) SET e += r.p",
                  [x for x in rows if x["c"] in self.cis])
@@ -340,12 +292,18 @@ class Loader:
                  [x for x in rows if x["c"] not in self.cis])
 
     def evidence(self):
-        rows = [{"g": r["team"], "c": r["ci"],
-                 "p": {"incidents_resolved": int(r["incidents_resolved"]),
-                       "changes_implemented": int(r["changes_implemented"]), "last_activity": r["last_activity"]}}
-                for r in read_csv(self.path("evidence", "ownership_evidence.csv"))]
+        rows = [{"g": r["team"], "c": r["ci"], "p": props(r, ("team", "ci"))}
+                for r in read_jsonl(self.norm("owners.jsonl"))]
         self.run("UNWIND $rows AS r MATCH (g:SupportGroup {name: r.g}) MATCH (c:Component {name: r.c}) "
                  "MERGE (g)-[e:OBSERVED_OWNER]->(c) SET e += r.p", rows)
+
+    def write_aliases(self):
+        al = {}
+        for r in read_jsonl(self.norm("aliases.jsonl")):
+            al.setdefault(r["ci"], set()).add(r["alias"])
+        self.aliases = al
+        rows = [{"c": c, "a": sorted(a)} for c, a in sorted(al.items())]
+        self.run("UNWIND $rows AS r MATCH (c:Component {name: r.c}) SET c.aliases = r.a", rows)
 
     def tag_layers(self):
         """REALISM_SPEC 2: every node and edge says which layer it belongs to."""
@@ -355,10 +313,6 @@ class Loader:
     def impact_layers(self):
         """Derived IMPACTS_*/AFFECTS_* edges (graph/impact.py), rebuilt on every load."""
         impact.build(self.g)
-
-    def write_aliases(self):
-        rows = [{"c": c, "a": sorted(a)} for c, a in sorted(self.aliases.items())]
-        self.run("UNWIND $rows AS r MATCH (c:Component {name: r.c}) SET c.aliases = r.a", rows)
 
     # ---- driver ----------------------------------------------------------
 

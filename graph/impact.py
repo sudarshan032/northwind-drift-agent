@@ -20,7 +20,7 @@ Rules (direction a -> b):
 | contains    | (b:BusinessService or ServiceOffering)-[:CONTAINS]->(a) | both |
 | depends_on  | (b)-[:DEPENDS_ON {failover:false}]->(a)           | declared  |
 | calls       | (b)-[:OBSERVED_CALLS]->(a), a not an Interface    | real      |
-|             | (excluding health checks and fire-and-forget syslog)|           |
+|             | (excluding health checks and calls into telemetry sinks, config.TELEMETRY_SINKS) | |
 | feeds_route | (a)-[:OBSERVED_CALLS]->(b:Interface)              | real      |
 | netflow     | (b)-[:OBSERVED_NETFLOW]->(a)                      | real      |
 | consumer    | route -> its target system (terminal)             | both      |
@@ -31,6 +31,8 @@ observed leg `source -> route` is a push, so the *route* needs its source
 (not the other way round). Every other observed call means the caller needs
 the callee. Health-check calls and failover links never carry impact.
 """
+
+from ingest.config import TELEMETRY_SINKS
 
 DIRECTION_RULE = "observed call (x)->(y): y needs x if y is an Interface, else x needs y"
 
@@ -48,7 +50,7 @@ RULES = {
         ("hosts_route", "MATCH (a:Application)-[:CONTAINS]->(b:Interface)"),
         ("contains", "MATCH (b)-[:CONTAINS]->(a) WHERE b:BusinessService OR b:ServiceOffering"),
         ("calls", "MATCH (b)-[e:OBSERVED_CALLS]->(a) WHERE NOT a:Interface AND NOT coalesce(e.health_check, false) "
-                  "AND NOT e.protocol IN ['syslog-tls']"),
+                  f"AND NOT a.name IN {list(TELEMETRY_SINKS)}"),
         ("feeds_route", "MATCH (a)-[e:OBSERVED_CALLS]->(b:Interface) WHERE NOT coalesce(e.health_check, false)"),
         ("netflow", "MATCH (b)-[:OBSERVED_NETFLOW]->(a)"),
     ],

@@ -130,10 +130,11 @@ def impact_path(g, src, dst, layer="real", via_routes=None, timeout=TIMEOUT_MS):
 
 D14_PATH = """
 MATCH (grp:Group)<-[:MEMBER_OF]-(u:User)-[a:OBSERVED_ACCESS]->(x:UnregisteredEndpoint)
-      -[c:OBSERVED_CALLS]->(api:Component)-[d:OBSERVED_CALLS]->(db:Database)
+      -[c:OBSERVED_NETFLOW|OBSERVED_CALLS]->(api:Component)-[d:OBSERVED_CALLS]->(db:Database)
 WHERE x.name = $app
 RETURN grp.id AS grp, count(DISTINCT u) AS users, sum(a.count) AS launches, x.name AS app, x.ip_address AS ip,
-       api.name AS api, max(c.count) AS api_calls, max(c.days_seen) AS days_seen, collect(DISTINCT db.name) AS data
+       api.name AS api, max(coalesce(c.count, c.packets)) AS api_calls, max(c.days_seen) AS days_seen,
+       collect(DISTINCT db.name) AS data, collect(DISTINCT c.source) AS sources
 ORDER BY users DESC LIMIT 5
 """
 
@@ -228,10 +229,10 @@ DETECTORS = {
         OPTIONAL MATCH (c)-[b:OBSERVED_BACKUP_TO]->(t)
         WITH c, collect(t.name) AS backup_targets
         RETURN ['protection', c.name] AS key, c.site AS site, backup_targets ORDER BY key LIMIT $limit""",
-    # D10: CI with a backup policy and no successful backup in the last 7 days.
+    # D10: CI with backup jobs (not snapshot-only) and no successful backup in the last 7 days.
     "D10": """
-        MATCH (c:Component) WHERE c.status = 'operational' AND c.backup_policy IS NOT NULL
-        OPTIONAL MATCH (c)-[b:OBSERVED_BACKUP_TO]->()
+        MATCH (c:Component)-[b:OBSERVED_BACKUP_TO {job_type: 'backup'}]->()
+        WHERE c.status = 'operational' AND c.backup_policy IS NOT NULL
         WITH c, max(b.last_success) AS last_success
         WHERE last_success IS NULL OR last_success <= $cutoff
         RETURN ['backup_failing', c.name] AS key, last_success ORDER BY c.name LIMIT $limit""",
@@ -261,7 +262,7 @@ DETECTORS = {
         WITH u, c, lvl, need,
              sum(CASE WHEN t IS NOT NULL AND windows = 0 AND c:Database AND c.environment = 'production'
                       THEN 1 ELSE 0 END) AS outside
-        WITH u, c, CASE WHEN u.status <> 'active' THEN 'disabled_user'
+        WITH u, c, CASE WHEN u.status <> 'active' THEN 'inactive_in_hr'
                         WHEN lvl < need THEN 'no_grant_path'
                         WHEN outside > 0 THEN 'admin_outside_change_window' END AS reason
         WHERE reason IS NOT NULL
@@ -370,13 +371,16 @@ WHERE c.status = 'operational' AND c.handles_phi = true AND c.backup_policy IS N
 OPTIONAL MATCH p = (c)-[:STORES_ON|OBSERVED_BACKUP_TO|OBSERVED_REPLICATES_TO*1..6]->(x:Component)
 WHERE all(r IN relationships(p) WHERE type(r) <> 'OBSERVED_BACKUP_TO' OR r.last_success IS NOT NULL)
 WITH c, collect(DISTINCT x) AS reach
-OPTIONAL MATCH (c)-[b:OBSERVED_BACKUP_TO]->()
+OPTIONAL MATCH (c)-[b:OBSERVED_BACKUP_TO {job_type: 'backup'}]->()
 WITH c, reach, max(b.last_success) AS last_success
 WITH c, last_success, [x IN reach WHERE x.site <> c.site | x.name] AS offsite,
      [x IN reach WHERE x:BackupTarget AND x.immutable = true | x.name] AS vault
-WHERE size(offsite) = 0 OR size(vault) = 0 OR last_success IS NULL OR last_success <= $cutoff
+OPTIONAL MATCH (c)-[:STORES_ON]->(arr)-[rp:OBSERVED_REPLICATES_TO]->()
+WITH c, last_success, offsite, vault, sum(coalesce(rp.rpo_breaches_count, 0)) AS rpo_breaches
+WHERE size(offsite) = 0 OR size(vault) = 0 OR last_success IS NULL OR last_success <= $cutoff OR rpo_breaches > 0
 RETURN c.name AS component, c.site AS site, size(offsite) > 0 AS reaches_other_site,
-       size(vault) > 0 AS reaches_immutable_vault, last_success, c.backup_offsite AS cmdb_backup_offsite
+       size(vault) > 0 AS reaches_immutable_vault, last_success, c.backup_offsite AS cmdb_backup_offsite,
+       rpo_breaches AS replication_lag_over_rpo
 ORDER BY component LIMIT $limit
 """
 

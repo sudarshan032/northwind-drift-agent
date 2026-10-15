@@ -9,12 +9,13 @@ Same seed -> byte-identical output.
 
 import argparse
 import csv
+import gzip
 import json
 import os
 import shutil
 import time
 
-from ingest import drift, views
+from ingest import connect, drift, export, views
 from ingest.world import SEED, build_world
 
 README = """# Northwind Health synthetic data (FICTIONAL)
@@ -41,6 +42,10 @@ places used only as locations; vendor product names are used only as models.
 - Drift injection: {drift}. Subset: {subset}.
 - Same seed gives byte-identical files.
 - `truth/world.json` is the internal truth model (tests only; never loaded).
+- `raw/<source>/` holds each discovery source's native export (ServiceNow CSV/IRE JSON,
+  Prometheus text, OTLP JSON, nfdump CSV, Mirth channel XML, Veeam sessions, array API JSON,
+  Entra sign-ins, SQL Server audit, HR worker export, ITSM history); `normalised/` is what the
+  connectors (`python -m ingest.connect`) make of them, and what the loader reads.
 - `ground_truth.json` lists every deliberately injected drift.
 - With `--gzip`, `.jsonl` / `.json` files are written as `.jsonl.gz` / `.json.gz`
   (same content; loader and checker read both).
@@ -94,48 +99,52 @@ def subset_world(world):
     return out
 
 
+SUBDIRS = ("truth", "raw", "normalised", "identity", "cmdb", "discovery", "observed", "evidence")
+
+
+def gzip_tree(out):
+    """--gzip: compress every data file in place (gzip mtime=0, byte-stable); readers accept .gz."""
+    for d, _, files in os.walk(out):
+        for f in sorted(files):
+            p = os.path.join(d, f)
+            if f.endswith((".gz", ".md")) or f in ("ground_truth.json", "sources.json"):
+                continue
+            with open(p, "rb") as src, open(p + ".gz", "wb") as dst:
+                with gzip.GzipFile(filename="", mode="wb", fileobj=dst, mtime=0) as z:
+                    shutil.copyfileobj(src, z)
+            os.remove(p)
+
+
 def generate(seed=SEED, out="data", inject=True, subset=None, command=None, gz=False):
+    """Truth model -> drift plan -> raw source exports -> connectors -> normalised evidence."""
     t0 = time.time()
     world = build_world(seed)
     if subset == "demo":
         world = subset_world(world)
     plan = drift.plan_drift(world) if inject else drift.empty_plan()
     if os.path.isdir(out):
-        for sub in ("truth", "cmdb", "discovery", "observed", "identity", "evidence"):
+        for sub in SUBDIRS:
             shutil.rmtree(os.path.join(out, sub), ignore_errors=True)
         for f in ("ground_truth.json", "README.md"):
             if os.path.exists(os.path.join(out, f)):
                 os.remove(os.path.join(out, f))
-    for sub in ("truth", "cmdb", "discovery", "observed", "identity", "evidence"):
-        os.makedirs(os.path.join(out, sub), exist_ok=True)
-
-    with views.open_out(os.path.join(out, "truth", "world.json"), gz) as f:
+    os.makedirs(os.path.join(out, "truth"), exist_ok=True)
+    with open(os.path.join(out, "truth", "world.json"), "w", encoding="utf-8", newline="\n") as f:
         json.dump(world, f, sort_keys=True, separators=(",", ":"))
     views.prepare(world)
-
-    cm = views.cmdb_view(world, plan)
-    write_csv(f"{out}/cmdb/cmdb_ci.csv", cm["cmdb_ci"], views.CMDB_COLUMNS)
-    write_csv(f"{out}/cmdb/cmdb_rel_ci.csv", cm["cmdb_rel_ci"], views.REL_COLUMNS)
-    for t in ("cmn_location", "cmn_department", "sys_user_group", "change_request"):
-        write_csv(f"{out}/cmdb/{t}.csv", cm[t])
-    disc = views.discovery_view(world, plan)
-    views.write_jsonl(f"{out}/discovery/scan_results.jsonl", disc["scan_results"], gz)
-    write_csv(f"{out}/discovery/scan_coverage.csv", disc["scan_coverage"])
-    idn = views.identity_view(world, plan)
-    for t in ("users", "groups", "memberships", "roles", "grants"):
-        write_csv(f"{out}/identity/{t}.csv", idn[t])
-    write_csv(f"{out}/evidence/ownership_evidence.csv", views.evidence_view(world, plan)["ownership_evidence"])
-    counts = views.write_observed(world, plan, out, gz)
+    counts = export.write_all(world, plan, out)
     with open(f"{out}/ground_truth.json", "w", encoding="utf-8", newline="\n") as f:
         json.dump(plan["ground_truth"], f, indent=1, sort_keys=True)
         f.write("\n")
+    evidence = connect.run(out)
     cmd = command or f"python -m ingest.generate --seed {seed} --out {out}" + \
         ("" if inject else " --no-drift") + (f" --subset {subset}" if subset else "") + (" --gzip" if gz else "")
     with open(f"{out}/README.md", "w", encoding="utf-8", newline="\n") as f:
         f.write(README.format(command=cmd, seed=seed, drift="on" if inject else "off",
                               subset=subset or "none (full world)"))
-    return {"seconds": round(time.time() - t0, 1), "records": counts,
-            "cis": len(cm["cmdb_ci"]), "rels": len(cm["cmdb_rel_ci"])}
+    if gz:
+        gzip_tree(out)
+    return {"seconds": round(time.time() - t0, 1), "raw_records": counts, "evidence_rows": evidence}
 
 
 def main():
