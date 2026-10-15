@@ -25,7 +25,7 @@ from ingest import views
 from ingest.sources import SOURCES
 from ingest.sources import (apm_otel, backup_software, cmdb_export, db_audit, discovery_scanner, hr_feed,
                             identity_sso, interface_engine, itsm_history, netflow, storage_telemetry)
-from ingest.sources.common import write_csv, write_jsonl
+from ingest.sources.common import read_csv, write_csv, write_jsonl
 from ingest.sources.identify import Identifier
 
 STORAGE = "Provides storage for::Stored on"
@@ -96,10 +96,101 @@ def run(data):
         for r in rows:
             by_source[r.get("source", "")] = by_source.get(r.get("source", ""), 0) + 1
     by_source["cmdb_export"] = len(cm["cmdb_ci"]) + len(cm["cmdb_rel_ci"])
-    summary = [dict(s, evidence_rows=by_source.get(s["name"], 0)) for s in SOURCES]
+    smp = samples(data, cm, disc, out, workers)
+    rc = raw_counts(data)
+    summary = [dict(s, evidence_rows=by_source.get(s["name"], 0), raw_records=rc.get(s["name"]),
+                    sample=smp.get(s["name"])) for s in SOURCES]
     with open(os.path.join(norm, "sources.json"), "w", encoding="utf-8", newline="\n") as f:
         json.dump(summary, f, indent=1)
     return {s["name"]: s["evidence_rows"] for s in summary}
+
+
+def raw_counts(data):
+    """Records in each source's raw export (rows, items, samples, sessions)."""
+    raw = lambda *p: os.path.join(data, "raw", *p)  # noqa: E731
+    lines = lambda path: sum(1 for x in open(path, encoding="utf-8") if x.strip())  # noqa: E731
+    out = {"cmdb_export": sum(lines(raw("cmdb_export", f)) - 1 for f in os.listdir(raw("cmdb_export")))}
+    items = 0
+    for f in os.listdir(raw("discovery_scanner")):
+        if f.startswith("ire_batch_"):
+            with open(raw("discovery_scanner", f), encoding="utf-8") as fh:
+                items += len(json.load(fh)["items"])
+    out["discovery_scanner"] = items
+    out["apm_otel"] = sum(sum(1 for x in open(os.path.join(raw("apm_otel", "scrapes", g), f), encoding="utf-8")
+                              if x and not x.startswith("#"))
+                          for g in ("hourly", "daily") for f in os.listdir(raw("apm_otel", "scrapes", g)))
+    out["netflow"] = sum(lines(raw("netflow", f)) - 1 for f in os.listdir(raw("netflow")))
+    with open(raw("interface_engine", "channels.xml"), encoding="utf-8") as f:
+        out["interface_engine"] = f.read().count("<channel ") + lines(raw("interface_engine", "channel_statistics.csv")) - 1
+    with open(raw("backup_software", "sessions.json"), encoding="utf-8") as f:
+        out["backup_software"] = len(json.load(f)["data"])
+    out["storage_telemetry"] = lines(raw("storage_telemetry", "replication_samples.jsonl"))
+    out["identity_sso"] = lines(raw("identity_sso", "signins.jsonl"))
+    out["db_audit"] = lines(raw("db_audit", "audit_records.csv")) - 1
+    out["hr_feed"] = lines(raw("hr_feed", "workers.csv")) - 1
+    out["itsm_history"] = sum(lines(raw("itsm_history", f)) - 1 for f in os.listdir(raw("itsm_history")))
+    return out
+
+
+def _first(it, pred):
+    return next((x for x in it if pred(x)), None)
+
+
+def samples(data, cm, disc, out, workers):
+    """One raw record per source next to the evidence row it produced (UI Sources tab, README)."""
+    raw = lambda *p: os.path.join(data, "raw", *p)  # noqa: E731
+    r = {}
+    ci_raw = {x["name"]: x for x in read_csv(raw("cmdb_export", "cmdb_ci.csv"))}
+    r["cmdb_export"] = {"raw": ci_raw["lrc-db-01"], "evidence": _first(cm["cmdb_ci"], lambda x: x["name"] == "lrc-db-01"),
+                        "raw_file": "raw/cmdb_export/cmdb_ci.csv"}
+    ev = _first(disc["discovered"], lambda x: x["hostname"] == "LIS-PROD-02.nw.local") or disc["discovered"][0]
+    fn, idx = ev["source_record"].split("#items[")
+    with open(raw("discovery_scanner", fn), encoding="utf-8") as f:
+        item = json.load(f)["items"][int(idx.rstrip("]"))]
+    r["discovery_scanner"] = {"raw": item, "evidence": ev, "raw_file": f"raw/discovery_scanner/{fn}"}
+    calls = out["calls"]
+    ev = _first(calls, lambda x: x["source"] == "apm_otel" and x["client"] == "emr-app" and x["server"] == "emr-db-01")
+    d = raw("apm_otel", "scrapes", "hourly")
+    last = sorted(os.listdir(d))[-1]
+    with open(os.path.join(d, last), encoding="utf-8") as f:
+        lines = [x for x in f.read().splitlines() if 'client="emr-app"' in x and 'server="emr-db-01"' in x]
+    r["apm_otel"] = {"raw": lines, "evidence": ev, "raw_file": f"raw/apm_otel/scrapes/hourly/{last}"}
+    ev = _first(out["netflow"], lambda x: x["client"] == "h03-mri-01")
+    nf = _first(read_csv(raw("netflow", "nfdump_hourly.csv")), lambda x: x["srcDns"] == "h03-mri-01")
+    r["netflow"] = {"raw": nf, "evidence": ev, "raw_file": "raw/netflow/nfdump_hourly.csv"}
+    with open(raw("interface_engine", "channels.xml"), encoding="utf-8") as f:
+        xml = f.read()
+    i = xml.index("<name>ORU-CRIT-H03</name>")
+    j = xml.index("<transportName>Database Writer</transportName>", i)
+    k = xml.rfind("<connector ", i, j)
+    r["interface_engine"] = {"raw": xml[k:xml.index("</connector>", j) + len("</connector>")],
+                             "evidence": _first(calls, lambda x: x["client"] == "ORU-CRIT-H03" and x["server"] == "lrc-db-01"),
+                             "raw_file": "raw/interface_engine/channels.xml"}
+    with open(raw("backup_software", "sessions.json"), encoding="utf-8") as f:
+        sess = _first(json.load(f)["data"], lambda x: x["objectName"] == "emr-db-01")
+    r["backup_software"] = {"raw": sess, "evidence": _first(out["backups"], lambda x: x["object"] == "emr-db-01"
+                                                            and x["job_type"] == "backup"),
+                            "raw_file": "raw/backup_software/sessions.json"}
+    from ingest.sources.common import read_jsonl
+    smp = _first(read_jsonl(raw("storage_telemetry", "replication_samples.jsonl")), lambda x: x["endpoint"] == "pod-replica-links")
+    r["storage_telemetry"] = {"raw": smp, "evidence": _first(out["replication"], lambda x: x["source"] == "storage_telemetry"
+                                                             and x["source_array"] == smp["_polled_array"]),
+                              "raw_file": "raw/storage_telemetry/replication_samples.jsonl"}
+    si = _first(read_jsonl(raw("identity_sso", "signins.jsonl")), lambda x: x["appDisplayName"] == "emr-app")
+    r["identity_sso"] = {"raw": si, "evidence": _first(out["access"], lambda x: x["user"] == si["userPrincipalName"]
+                                                       and x["target"] == "emr-app"), "raw_file": "raw/identity_sso/signins.jsonl"}
+    au = _first(read_csv(raw("db_audit", "audit_records.csv")), lambda x: x["action_id"] == "AL")
+    r["db_audit"] = {"raw": au, "evidence": _first(out["access"], lambda x: x["user"] == au["server_principal_name"]
+                                                   and x["action"] == "admin"), "raw_file": "raw/db_audit/audit_records.csv"}
+    wk = _first(read_csv(raw("hr_feed", "workers.csv")), lambda x: x["Terminated"] == "1")
+    r["hr_feed"] = {"raw": wk, "evidence": _first(workers, lambda x: x["id"] == wk["Employee_ID"]),
+                    "raw_file": "raw/hr_feed/workers.csv"}
+    lrc_sid = ci_raw["lrc-db-01"]["sys_id"]
+    inc = _first(read_csv(raw("itsm_history", "incident.csv")), lambda x: x["cmdb_ci"] == lrc_sid)
+    r["itsm_history"] = {"raw": inc, "evidence": _first(out["owners"], lambda x: x["ci"] == "lrc-db-01"
+                                                        and x["team"] == "HYD-Integration-Support"),
+                         "raw_file": "raw/itsm_history/incident.csv"}
+    return r
 
 
 def main():

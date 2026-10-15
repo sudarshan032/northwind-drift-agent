@@ -33,9 +33,19 @@ def test_change_review_endpoint(client):
     assert r["facts"]["risk"] == "high"
     g = r["graph"]
     assert {"dc1-host-07", "lrc-db-01"} <= {n["id"] for n in g["nodes"]}
-    layers = {(e["source"], e["target"]): e["layer"] for e in g["edges"]}
-    assert layers[("dc1-host-07", "dc1-vm-lrc01")] == "structural"
-    assert layers[("lrc-db-01", "ORU-CRIT-H03")] == "observed_only"  # the hidden dependency, drawn red
+    edges = {(e["source"], e["target"]): e for e in g["edges"]}  # CMDB direction: parent -> child
+    assert edges[("dc1-vm-lrc01", "dc1-host-07")]["label"] == "Runs on" and \
+        edges[("dc1-vm-lrc01", "dc1-host-07")]["status"] == "structural"
+    hidden = edges[("ORU-CRIT-H03", "lrc-db-01")]  # the hidden dependency, dashed red
+    assert hidden["status"] == "observed_only" and hidden["layers"] == ["evidence"]
+    assert hidden["evidence"]["source"] == "interface_engine" and hidden["evidence"]["connector"] == "Database Writer"
+    assert hidden["label"] == "Depends on (observed: interface engine, not in CMDB)"
+    assert edges[("lis-reporting", "lrc-db-01")]["status"] == "confirmed"
+    nodes = {n["id"]: n for n in g["nodes"]}
+    assert nodes["dc1-host-07"]["changed"] and nodes["ORU-CRIT-H03"]["impacted_real"]
+    assert not nodes["ORU-CRIT-H03"]["impacted_declared"] and nodes["svc-h51-ed-critical-results"]["class"] == "Service Offering"
+    low = client.post("/changes/CHG0031513/review").json()["facts"]
+    assert low["risk"] == "low" and low["hidden_edges"] == []
     assert client.post("/changes/NOPE/review").status_code == 404
 
 
@@ -89,3 +99,23 @@ def test_ui_served(client):
     html = client.get("/").text
     assert "cytoscape/3.30.2/cytoscape.min.js" in html and 'id="cy"' in html and "/changes/" in html
     assert "prefers-color-scheme: dark" in html
+
+
+def test_sources_endpoint(client):
+    rows = client.get("/sources").json()
+    assert [r["name"] for r in rows] == ["cmdb_export", "discovery_scanner", "apm_otel", "netflow", "interface_engine",
+                                         "backup_software", "storage_telemetry", "identity_sso", "db_audit", "hr_feed",
+                                         "itsm_history"]
+    assert all(r["sample"]["raw"] and r["sample"]["evidence"] and r["raw_records"] > 0 for r in rows)
+    ie = next(r for r in rows if r["name"] == "interface_engine")
+    assert "Database Writer" in ie["sample"]["raw"] and ie["sample"]["evidence"]["server"] == "lrc-db-01"
+
+
+def test_findings_show_sources_and_action(client):
+    client.post("/scan")
+    fs = client.get("/findings", params={"limit": 500}).json()
+    by = {f["type"]: f for f in fs}
+    head = next(f for f in fs if f["key"] == ["undocumented_group", "lrc-db-01"])
+    assert head["action"] == "cmdb_patch" and head["sources"] == ["cmdb_export", "interface_engine"]
+    assert by["D10"]["action"] == "ticket" and by["D10"]["ticket"]["table"] == "incident"
+    assert by["D11"]["ticket"]["table"] == "sn_si_incident"

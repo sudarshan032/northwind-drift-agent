@@ -8,72 +8,90 @@
 <style>
 :root {
   --bg: #f6f7f9; --panel: #ffffff; --ink: #1c2330; --muted: #5f6b7a; --line: #dde2e8;
-  --accent: #2557d6; --red: #d23b3b; --grey: #8a94a3; --blue: #2f7fd8; --ok: #1f8a4c; --warn: #b7791f;
-  --chip: #eef1f5; --shadow: 0 1px 2px rgba(16,24,40,.06);
+  --accent: #2557d6; --red: #d23b3b; --redfill: #f6d3d3; --grey: #8a94a3; --blue: #2f7fd8; --ok: #1f8a4c;
+  --warn: #b7791f; --chip: #eef1f5; --node: #e9edf2; --shadow: 0 1px 2px rgba(16,24,40,.06);
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #0f141b; --panel: #161d27; --ink: #e6eaf0; --muted: #9aa6b5; --line: #273141;
-    --accent: #6d94ff; --red: #ff6b6b; --grey: #7d8796; --blue: #5aa2ff; --ok: #3ccf7d; --warn: #e9b44c;
-    --chip: #1f2835; --shadow: none;
+    --accent: #6d94ff; --red: #ff6b6b; --redfill: #5a2222; --grey: #7d8796; --blue: #5aa2ff; --ok: #3ccf7d;
+    --warn: #e9b44c; --chip: #1f2835; --node: #253041; --shadow: none;
   }
 }
 :root[data-theme="dark"] {
   --bg: #0f141b; --panel: #161d27; --ink: #e6eaf0; --muted: #9aa6b5; --line: #273141;
-  --accent: #6d94ff; --red: #ff6b6b; --grey: #7d8796; --blue: #5aa2ff; --ok: #3ccf7d; --warn: #e9b44c;
-  --chip: #1f2835; --shadow: none;
+  --accent: #6d94ff; --red: #ff6b6b; --redfill: #5a2222; --grey: #7d8796; --blue: #5aa2ff; --ok: #3ccf7d;
+  --warn: #e9b44c; --chip: #1f2835; --node: #253041; --shadow: none;
 }
 * { box-sizing: border-box; }
+html, body { overflow-x: hidden; }
 body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
-header { display: flex; align-items: center; gap: 12px; padding: 12px 20px; border-bottom: 1px solid var(--line); background: var(--panel); }
+header { display: flex; align-items: center; gap: 12px; padding: 12px 20px; border-bottom: 1px solid var(--line); background: var(--panel); flex-wrap: wrap; }
 header h1 { font-size: 17px; margin: 0; font-weight: 650; }
 .badge { font-size: 11px; padding: 2px 8px; border-radius: 99px; background: var(--chip); color: var(--muted); }
 .spacer { flex: 1; }
+nav { display: flex; gap: 2px; }
 nav button { background: none; border: 0; color: var(--muted); padding: 6px 10px; border-radius: 6px; cursor: pointer; font: inherit; }
 nav button.on { background: var(--chip); color: var(--ink); font-weight: 600; }
-main { padding: 16px 20px; max-width: 1400px; margin: 0 auto; }
+main { padding: 16px 20px; max-width: 1440px; margin: 0 auto; }
 .grid { display: grid; gap: 16px; grid-template-columns: 1fr 1fr; }
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; box-shadow: var(--shadow); min-width: 0; }
 .panel h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 10px; font-weight: 600; }
 .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-select, input, textarea { font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 7px 9px; }
+select, input, textarea { font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 7px 9px; max-width: 100%; }
 textarea { width: 100%; resize: vertical; }
 button.primary { background: var(--accent); color: #fff; border: 0; border-radius: 6px; padding: 7px 14px; cursor: pointer; font: inherit; font-weight: 600; }
 button.ghost { background: var(--chip); color: var(--ink); border: 0; border-radius: 6px; padding: 5px 10px; cursor: pointer; font: inherit; }
+button.ghost.on { outline: 2px solid var(--accent); }
 .vs { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
 .side { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
 .side h3 { margin: 0 0 6px; font-size: 13px; }
 .side.real { border-color: color-mix(in srgb, var(--red) 55%, var(--line)); }
 .nums { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
-.num b { display: block; font-size: 24px; font-weight: 700; line-height: 1.1; }
+.num b { display: block; font-size: 22px; font-weight: 700; line-height: 1.1; }
 .num span { font-size: 11px; color: var(--muted); }
 .real .num b { color: var(--red); }
 .risk { font-weight: 700; padding: 3px 10px; border-radius: 6px; color: #fff; text-transform: uppercase; font-size: 12px; }
 .risk.high { background: var(--red); } .risk.medium { background: var(--warn); } .risk.low { background: var(--ok); }
-#cy { height: 470px; border: 1px solid var(--line); border-radius: 8px; margin-top: 12px; background: var(--bg); }
-.legend { display: flex; gap: 14px; font-size: 12px; color: var(--muted); margin-top: 6px; flex-wrap: wrap; }
-.legend i { display: inline-block; width: 22px; height: 0; border-top: 3px solid; vertical-align: middle; margin-right: 4px; }
-.explain { margin-top: 10px; color: var(--ink); white-space: pre-wrap; }
+.viewwrap { display: grid; grid-template-columns: 1fr 230px; gap: 12px; margin-top: 12px; }
+#cy { height: 560px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); position: relative; }
+.legend { font-size: 12px; color: var(--muted); border: 1px solid var(--line); border-radius: 8px; padding: 10px; align-self: start; }
+.legend h4 { margin: 8px 0 4px; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+.legend h4:first-child { margin-top: 0; }
+.legend div { display: flex; align-items: center; gap: 6px; margin: 3px 0; }
+.legend i.ln { display: inline-block; width: 26px; height: 0; border-top: 3px solid; flex: none; }
+.legend #shapes { display: block; }
+.legend i.sw { display: inline-block; width: 14px; height: 14px; border-radius: 3px; border: 1px solid var(--grey); flex: none; }
+#tip { position: fixed; z-index: 10; pointer-events: none; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 12px; max-width: 360px; box-shadow: 0 4px 14px rgba(0,0,0,.18); display: none; }
+#tip b { display: block; margin-bottom: 3px; }
+.explain { margin-top: 10px; white-space: pre-wrap; }
 .muted { color: var(--muted); }
-.list { display: flex; flex-direction: column; gap: 8px; max-height: 640px; overflow: auto; }
+.list { display: flex; flex-direction: column; gap: 8px; max-height: 720px; overflow: auto; }
 .f { border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; }
-.f .top { display: flex; gap: 8px; align-items: center; cursor: pointer; }
+.f .top { display: flex; gap: 8px; align-items: center; cursor: pointer; flex-wrap: wrap; }
 .sev { font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 4px; color: #fff; }
 .sev.critical { background: var(--red); } .sev.high { background: var(--warn); } .sev.medium { background: var(--blue); } .sev.low { background: var(--grey); }
+.act { font-size: 11px; padding: 1px 7px; border-radius: 4px; border: 1px solid var(--line); }
+.act.ticket { color: var(--warn); border-color: var(--warn); } .act.patch { color: var(--accent); border-color: var(--accent); }
+.chip { font-size: 11px; padding: 1px 6px; border-radius: 99px; background: var(--chip); color: var(--muted); }
 .f .body { display: none; margin-top: 8px; } .f.open .body { display: block; }
-pre { background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px; overflow: auto; max-height: 220px; font-size: 12px; }
+pre { background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px; overflow: auto; max-height: 260px; font-size: 12px; white-space: pre-wrap; word-break: break-word; }
 .status { font-size: 11px; color: var(--muted); margin-left: auto; }
-#map svg { width: 100%; height: 360px; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+code { font-size: 12px; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+#map svg { width: 100%; height: 340px; }
 .feed div { padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
 .steps li { margin: 3px 0; }
 .hide { display: none; }
+.layers { display: flex; gap: 6px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-top: 6px; }
 @media (max-width: 900px) {
-  .grid, .vs { grid-template-columns: 1fr; } .nums { grid-template-columns: repeat(3, 1fr); } main { padding: 12px 16px; }
-  header { flex-wrap: wrap; padding: 10px 16px; } header .spacer { display: none; }
-  nav { order: 5; width: 100%; display: flex; overflow-x: auto; } #theme { margin-left: auto; }
-  .row select { max-width: 100%; flex: 1 1 100%; } #cy { height: 380px; }
+  .grid, .vs, .viewwrap, .pair { grid-template-columns: 1fr; } .nums { grid-template-columns: repeat(3, 1fr); }
+  main { padding: 12px 16px; } header .spacer { display: none; } nav { order: 5; width: 100%; overflow-x: auto; }
+  #cy { height: 420px; } table { display: block; overflow-x: auto; }
 }
-html, body { overflow-x: hidden; }
 </style>
 </head>
 <body>
@@ -85,11 +103,13 @@ html, body { overflow-x: hidden; }
   <nav>
     <button data-tab="change" class="on">Change review</button>
     <button data-tab="findings">Findings</button>
+    <button data-tab="sources">Sources</button>
     <button data-tab="incident">Incident</button>
     <button data-tab="chat">Chat</button>
   </nav>
-  <button class="ghost" id="theme" title="Toggle theme">◐</button>
+  <button class="ghost" id="theme" title="Toggle light/dark">◐</button>
 </header>
+<div id="tip"></div>
 <main>
   <section id="tab-change">
     <div class="panel">
@@ -101,31 +121,63 @@ html, body { overflow-x: hidden; }
         <span class="muted" id="changeinfo"></span>
       </div>
       <div class="vs">
-        <div class="side"><h3>CMDB says</h3><div class="nums" id="declared"></div></div>
-        <div class="side real"><h3>Reality (observed graph)</h3><div class="nums" id="real"></div></div>
+        <div class="side"><h3>CMDB says (declared layer)</h3><div class="nums" id="declared"></div></div>
+        <div class="side real"><h3>Reality (CMDB + discovery evidence)</h3><div class="nums" id="real"></div></div>
       </div>
-      <div id="cy"></div>
-      <div class="legend">
-        <span><i style="border-color:var(--red)"></i>observed only (undocumented)</span>
-        <span><i style="border-color:var(--grey);border-top-style:dashed"></i>declared only</span>
-        <span><i style="border-color:var(--blue);border-top-style:dashed"></i>failover</span>
-        <span><i style="border-color:var(--muted)"></i>declared and observed / structural</span>
+      <div class="row" style="margin-top:10px">
+        <span class="muted">Impact shown for:</span>
+        <button class="ghost on" data-view="real">Reality</button>
+        <button class="ghost" data-view="declared">CMDB says</button>
+        <span class="muted" id="viewnote"></span>
+      </div>
+      <div class="viewwrap">
+        <div id="cy"></div>
+        <div class="legend" id="legend">
+          <h4>Edges (CMDB direction, parent → child)</h4>
+          <div><i class="ln" style="border-color:var(--grey)"></i>In the CMDB, confirmed by evidence</div>
+          <div><i class="ln" style="border-color:var(--red);border-top-style:dashed"></i>Observed only, not in the CMDB</div>
+          <div><i class="ln" style="border-color:var(--grey);border-top-style:dotted"></i>In the CMDB, no evidence</div>
+          <div><i class="ln" style="border-color:var(--blue);border-top-style:dashed"></i>Failover relationship</div>
+          <h4>Nodes</h4>
+          <div><i class="sw" style="background:var(--redfill);border-color:var(--red)"></i>Impacted</div>
+          <div><i class="sw" style="background:var(--node)"></i>Not impacted</div>
+          <div><i class="sw" style="background:var(--node);border:3px solid var(--ink)"></i>Changed component</div>
+          <h4>Shapes (ServiceNow classes)</h4>
+          <div id="shapes"></div>
+          <h4>Layers</h4>
+          <div>CMDB (declared) · Evidence (discovery sources) · Reconciliation (matches, findings)</div>
+          <div class="muted">Hover an edge or node for details.</div>
+        </div>
       </div>
       <div class="explain" id="explain"></div>
     </div>
     <div class="grid" style="margin-top:16px">
       <div class="panel" id="map"><h2>Hospitals in the real radius</h2><div id="mapsvg"></div></div>
-      <div class="panel"><h2>Critical nodes (betweenness, observed calls)</h2><ol id="critical"></ol>
+      <div class="panel"><h2>Critical nodes (betweenness on observed calls)</h2><ol id="critical"></ol>
         <h2 style="margin-top:14px">Notifications</h2><div class="feed" id="feed"><span class="muted">No pages yet.</span></div></div>
     </div>
   </section>
 
   <section id="tab-findings" class="hide">
     <div class="panel">
-      <div class="row"><h2 style="margin:0">Findings</h2><button class="primary" id="scan">Run drift scan</button>
+      <div class="row"><h2 style="margin:0">Findings (reconciliation layer)</h2><button class="primary" id="scan">Run drift scan</button>
         <select id="fstatus"><option value="">all</option><option>open</option><option>approved</option><option>rejected</option></select>
         <span class="muted" id="scaninfo"></span></div>
+      <p class="muted" style="margin:8px 0 0">A CMDB patch may only change CI existence, <code>os_version</code>, <code>serial_number</code>, <code>ip_address</code>, <code>support_group</code>, <code>status</code> or a relationship. Everything else becomes a ticket.</p>
       <div class="list" id="findings" style="margin-top:12px"></div>
+    </div>
+  </section>
+
+  <section id="tab-sources" class="hide">
+    <div class="panel">
+      <h2>Where the data comes from</h2>
+      <table><thead><tr><th>Source</th><th>Stands in for</th><th>Reveals</th><th>Raw format</th><th>Raw records</th><th>Evidence rows</th><th>Window</th><th></th></tr></thead>
+        <tbody id="sources"></tbody></table>
+      <div id="sample" class="hide" style="margin-top:14px">
+        <h2 id="sampletitle"></h2>
+        <div class="pair"><div><b>Raw record</b> <span class="muted" id="samplefile"></span><pre id="sampleraw"></pre></div>
+          <div><b>Evidence row it produced</b><pre id="sampleev"></pre></div></div>
+      </div>
     </div>
   </section>
 
@@ -133,7 +185,7 @@ html, body { overflow-x: hidden; }
     <div class="panel">
       <h2>Incident investigation</h2>
       <textarea id="symptom" rows="2">ED critical results delayed at H03, H17 and H22</textarea>
-      <div class="row" style="margin-top:8px"><button class="primary" id="investigate">Investigate</button><span class="muted" id="incinfo"></span></div>
+      <div class="row" style="margin-top:8px"><button class="primary" id="investigate">Investigate</button></div>
       <ol class="steps" id="steps"></ol>
       <div class="explain" id="incident"></div>
     </div>
@@ -158,6 +210,7 @@ const api = async (path, opts = {}) => {
 };
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const pretty = (x) => typeof x === "string" ? x : JSON.stringify(x, null, 1);
 
 // ---- theme + tabs
 try { const t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
@@ -167,71 +220,159 @@ $("#theme").onclick = () => {
   document.documentElement.dataset.theme = dark ? "light" : "dark";
   try { localStorage.setItem("theme", document.documentElement.dataset.theme); } catch (e) {}
   if (window.cy) styleGraph();
+  drawShapes();
 };
 function showTab(tab) {
   document.querySelectorAll("nav button").forEach((x) => x.classList.toggle("on", x.dataset.tab === tab));
   document.querySelectorAll("main > section").forEach((s) => s.classList.toggle("hide", s.id !== `tab-${tab}`));
   if (tab === "findings") loadFindings();
-  history.replaceState(null, "", `#${tab}`);
+  if (tab === "sources") loadSources();
 }
-document.querySelectorAll("nav button").forEach((b) => b.onclick = () => showTab(b.dataset.tab));
+document.querySelectorAll("nav button").forEach((b) => b.onclick = () => { showTab(b.dataset.tab); history.replaceState(null, "", `#${b.dataset.tab}`); });
 
-// ---- change review
-const KEYS = [["routes", "routes"], ["hospitals", "hospitals"], ["departments", "departments"],
-              ["business_services", "business services"], ["service_offerings", "service offerings"],
-              ["components", "components"]];
+// ---- change review: conventional CMDB dependency view
+const KEYS = [["routes", "interfaces"], ["hospitals", "hospitals"], ["departments", "departments"],
+              ["business_services", "business services"], ["service_offerings", "service offerings"], ["components", "components"]];
 const nums = (c) => KEYS.map(([k, l]) => `<div class="num"><b>${c?.[k] ?? 0}</b><span>${l}</span></div>`).join("");
+const RANK = { BusinessService: 0, ServiceOffering: 1, Interface: 2, Department: 3, Application: 4, ExternalService: 4,
+               MedicalDevice: 4, Endpoint: 4, EndpointGroup: 4, Database: 5, VM: 6, Host: 7, NetworkDevice: 7,
+               StorageArray: 8, BackupTarget: 8 };
+const SHAPE = { BusinessService: "hexagon", ServiceOffering: "octagon", Interface: "diamond", Application: "ellipse",
+                ExternalService: "ellipse", Department: "tag", Database: "barrel", VM: "round-rectangle", Host: "rectangle",
+                StorageArray: "cut-rectangle", BackupTarget: "cut-rectangle", MedicalDevice: "round-triangle",
+                NetworkDevice: "round-pentagon", Endpoint: "round-rectangle", EndpointGroup: "round-rectangle" };
+let view = "real", lastReview = null;
+const SHAPE_SVG = { hexagon: "10,1 18,5.5 18,14.5 10,19 2,14.5 2,5.5", octagon: "6,1 14,1 19,6 19,14 14,19 6,19 1,14 1,6",
+  diamond: "10,1 19,10 10,19 1,10", tag: "1,3 13,3 19,10 13,17 1,17", "cut-rectangle": "4,2 16,2 19,5 19,15 16,18 4,18 1,15 1,5" };
+function shapeIcon(shape) {
+  const st = `fill="${css("--node")}" stroke="${css("--grey")}" stroke-width="1.5"`;
+  const body = SHAPE_SVG[shape] ? `<polygon points="${SHAPE_SVG[shape]}" ${st}/>` :
+    shape === "ellipse" ? `<circle cx="10" cy="10" r="8" ${st}/>` :
+    shape === "barrel" ? `<path d="M3,4 Q10,0 17,4 L17,16 Q10,20 3,16 Z" ${st}/>` :
+    shape === "round-rectangle" ? `<rect x="2" y="4" width="16" height="12" rx="4" ${st}/>` : `<rect x="2" y="4" width="16" height="12" ${st}/>`;
+  return `<svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true">${body}</svg>`;
+}
+function drawShapes() {
+  $("#shapes").innerHTML = [["BusinessService", "Business Service"], ["ServiceOffering", "Service Offering"],
+    ["Interface", "Interface (HL7)"], ["Application", "Application"], ["Department", "Department"], ["Database", "Database"],
+    ["VM", "Virtual Machine"], ["Host", "Server"], ["StorageArray", "Storage Array"]]
+    .map(([k, l]) => `<div>${shapeIcon(SHAPE[k])}${l}</div>`).join("");
+}
 
 async function loadChanges() {
   const cs = await api("/changes");
   $("#change").innerHTML = cs.map((c) => `<option value="${esc(c.number)}">${esc(c.number)} · ${esc(c.target)} · ${esc(c.state)}</option>`).join("");
-  $("#change").value = "CHG-HEADLINE";
+  const want = location.hash.startsWith("#change=") ? decodeURIComponent(location.hash.slice(8)) : "CHG-HEADLINE";
+  $("#change").value = cs.some((c) => c.number === want) ? want : "CHG-HEADLINE";
+}
+
+function layout(nodes, edges) {
+  // Tiers top-down (business services ... storage); inside a tier, order by the mean x of already
+  // placed neighbours (one barycentre sweep down, one up) to keep crossings low.
+  const rows = {};
+  nodes.forEach((n) => (rows[RANK[n.label] ?? 3] ??= []).push(n));
+  const ranks = Object.keys(rows).map(Number).sort((a, b) => a - b);
+  const nb = {};
+  edges.forEach((e) => { (nb[e.source] ??= []).push(e.target); (nb[e.target] ??= []).push(e.source); });
+  const pos = {};
+  const place = (r, ns) => ns.forEach((n, i) => { pos[n.id] = { x: (i + 1) * (1000 / (ns.length + 1)), y: 40 + r * 68 }; });
+  const sweep = (order) => order.forEach((r) => {
+    const ns = rows[r];
+    const key = (n) => { const xs = (nb[n.id] || []).filter((m) => pos[m] && pos[m].y !== 40 + r * 68).map((m) => pos[m].x);
+                         return xs.length ? xs.reduce((a, b) => a + b) / xs.length : (pos[n.id]?.x ?? 500); };
+    ns.sort((a, b) => key(a) - key(b) || a.id.localeCompare(b.id));
+    place(r, ns);
+  });
+  ranks.forEach((r) => { rows[r].sort((a, b) => a.id.localeCompare(b.id)); place(r, rows[r]); });
+  sweep(ranks); sweep([...ranks].reverse()); sweep(ranks);
+  nodes.filter((n) => n.label === "Department").forEach((n) => {  // a department sits under the route serving it
+    const up = (nb[n.id] || []).find((m) => pos[m] && pos[m].y < pos[n.id].y);
+    if (up) pos[n.id].x = pos[up].x;
+  });
+  return pos;
 }
 
 function styleGraph() {
   cy.style([
-    { selector: "node", style: { label: "data(id)", "font-size": 9, color: css("--ink"), "background-color": css("--accent"),
-      width: 14, height: 14, "text-valign": "bottom", "text-margin-y": 3 } },
-    { selector: "node[label = 'Host'], node[label = 'VM']", style: { "background-color": css("--grey"), shape: "round-rectangle" } },
-    { selector: "node[label = 'Database']", style: { "background-color": css("--warn"), shape: "barrel", width: 18, height: 18 } },
-    { selector: "node[label = 'Interface']", style: { "background-color": css("--red"), shape: "diamond" } },
-    { selector: "node[label = 'BusinessService']", style: { "background-color": css("--ok"), shape: "hexagon", width: 20, height: 20 } },
-    { selector: "node[label = 'Department']", style: { "background-color": css("--blue"), shape: "tag" } },
-    { selector: "node.target", style: { "border-width": 3, "border-color": css("--red"), width: 22, height: 22 } },
+    { selector: "node", style: { label: "data(id)", "font-size": 9, color: css("--ink"), "background-color": css("--node"),
+      "border-width": 1, "border-color": css("--grey"), width: 22, height: 22, "text-valign": "bottom", "text-margin-y": 3,
+      shape: (n) => SHAPE[n.data("label")] || "ellipse", "text-wrap": "ellipsis", "text-max-width": 120 } },
+    { selector: "node.hit", style: { "background-color": css("--redfill"), "border-color": css("--red"), "border-width": 2 } },
+    { selector: "node.changed", style: { "border-width": 5, "border-color": css("--ink"), width: 28, height: 28 } },
     { selector: "edge", style: { width: 2, "curve-style": "bezier", "target-arrow-shape": "triangle", "arrow-scale": .8,
-      "line-color": css("--muted"), "target-arrow-color": css("--muted") } },
-    { selector: "edge[layer = 'observed_only']", style: { "line-color": css("--red"), "target-arrow-color": css("--red"), width: 3 } },
-    { selector: "edge[layer = 'declared_only']", style: { "line-style": "dashed", "line-color": css("--grey"), "target-arrow-color": css("--grey") } },
-    { selector: "edge[layer = 'failover']", style: { "line-style": "dashed", "line-color": css("--blue"), "target-arrow-color": css("--blue") } },
+      "line-color": css("--grey"), "target-arrow-color": css("--grey"), label: "data(short)", "font-size": 8,
+      color: css("--muted"), "text-rotation": "autorotate", "text-background-color": css("--bg"),
+      "text-background-opacity": 1, "text-background-padding": 1 } },
+    { selector: "edge[status = 'observed_only']", style: { "line-style": "dashed", "line-color": css("--red"),
+      "target-arrow-color": css("--red"), width: 2.5, color: css("--red") } },
+    { selector: "edge[status = 'declared_only']", style: { "line-style": "dotted" } },
+    { selector: "edge[status = 'failover']", style: { "line-style": "dashed", "line-color": css("--blue"), "target-arrow-color": css("--blue") } },
+    { selector: "edge.faded", style: { opacity: .25 } },
   ]);
+}
+
+function paintImpact() {
+  if (!window.cy || !lastReview) return;
+  cy.nodes().forEach((n) => n.toggleClass("hit", view === "real" ? n.data("impacted_real") : n.data("impacted_declared")));
+  cy.edges().forEach((e) => e.toggleClass("faded", view === "declared" && e.data("status") === "observed_only"));
+  $("#viewnote").textContent = view === "real" ? "red = impacted per CMDB + evidence" : "red = impacted per the CMDB alone";
+}
+document.querySelectorAll("[data-view]").forEach((b) => b.onclick = () => {
+  view = b.dataset.view;
+  document.querySelectorAll("[data-view]").forEach((x) => x.classList.toggle("on", x === b));
+  paintImpact();
+});
+
+function tipFor(d) {
+  if (d.source) {
+    const ev = d.evidence;
+    return `<b>${esc(d.source)} → ${esc(d.target)}</b>${esc(d.label)}<br>Layers: ${esc(d.layers.join(" + "))}` +
+      (ev ? `<br>Evidence source: ${esc(ev.source)}${ev.connector ? ` (${esc(ev.connector)})` : ""}` +
+            `${ev.endpoint ? `<br>${esc(ev.endpoint)}` : ""}<br>count ${esc(ev.count ?? "–")}, errors ${esc(ev.errors ?? 0)},` +
+            ` days seen ${esc(ev.days_seen ?? "–")}<br>first seen ${esc(ev.first_seen ?? "–")}<br>last seen ${esc(ev.last_seen ?? "–")}` : "");
+  }
+  return `<b>${esc(d.id)}</b>${esc(d.class || d.label)}${d.changed ? "<br>Changed by this change" : ""}` +
+    `<br>Impacted (reality): ${d.impacted_real ? "yes" : "no"} · (CMDB): ${d.impacted_declared ? "yes" : "no"}`;
 }
 
 async function review() {
   const id = $("#change").value;
   $("#explain").textContent = "Reviewing…";
   const r = await api(`/changes/${encodeURIComponent(id)}/review`, { method: "POST" });
+  lastReview = r;
   const f = r.facts;
   $("#risk").innerHTML = `<span class="risk ${f.risk}">${f.risk} risk</span>`;
   $("#changeinfo").textContent = `${f.description} · ${f.start_date}`;
   $("#declared").innerHTML = nums(f.declared);
   $("#real").innerHTML = nums(f.real);
   $("#explain").textContent = r.explanation;
-  const g = r.graph;
+  const g = r.graph, pos = layout(g.nodes, g.edges);
   window.cy = cytoscape({
     container: $("#cy"),
-    elements: [...g.nodes.map((n) => ({ data: { id: n.id, label: n.label }, classes: f.targets.includes(n.id) ? "target" : "" })),
-               ...g.edges.map((e) => ({ data: { id: `${e.source}>${e.target}`, source: e.source, target: e.target, layer: e.layer } }))],
-    layout: { name: "breadthfirst", directed: true, roots: f.targets.map((t) => `#${CSS.escape(t)}`).join(","), spacingFactor: 1.05 },
-    wheelSensitivity: .2,
+    elements: [...g.nodes.map((n) => ({ data: { ...n }, position: pos[n.id], classes: n.changed ? "changed" : "" })),
+               ...g.edges.map((e) => ({ data: { ...e, id: `${e.source}>${e.target}`,
+                                                short: e.status === "observed_only" ? "Depends on (observed)" : e.label } }))],
+    layout: { name: "preset", fit: true, padding: 30 }, wheelSensitivity: .2,
   });
   styleGraph();
+  paintImpact();
+  const tip = $("#tip");
+  cy.on("mouseover tap", "node, edge", (ev) => {
+    tip.innerHTML = tipFor(ev.target.data());
+    const p = ev.renderedPosition || { x: 0, y: 0 };
+    const box = $("#cy").getBoundingClientRect();
+    tip.style.left = `${Math.min(box.left + p.x + 12, innerWidth - 370)}px`;
+    tip.style.top = `${box.top + p.y + 12}px`;
+    tip.style.display = "block";
+  });
+  cy.on("mouseout", "node, edge", () => { tip.style.display = "none"; });
   drawMap(f.targets[0]);
 }
 
 // ---- hospital map (equirectangular, Alaska inset)
 async function drawMap(component) {
   const hs = await api(`/hospitals?component=${encodeURIComponent(component)}`);
-  const W = 640, H = 360;
+  const W = 640, H = 340;
   const main = (lat, lon) => [((lon + 125) / 27) * (W - 40) + 10, ((49.5 - lat) / 18) * (H - 40) + 12];
   const ak = (lat, lon) => [((lon + 156) / 12) * 110 + W - 125, ((62.5 - lat) / 6) * 70 + 22];
   const dots = hs.filter((h) => h.lat != null).map((h) => {
@@ -252,18 +393,26 @@ async function drawMap(component) {
 async function loadFindings() {
   const st = $("#fstatus").value;
   const fs = await api(`/findings?limit=200${st ? `&status=${st}` : ""}`);
-  $("#findings").innerHTML = fs.length ? fs.map((f) => `
-    <div class="f" data-id="${esc(f.id)}">
-      <div class="top"><span class="sev ${esc(f.severity)}">${esc(f.severity)}</span><b>${esc(f.type)}</b> ${esc(f.kind)}
-        <span class="muted">${esc((f.subjects || []).slice(0, 3).join(", "))}</span><span class="status">${esc(f.status)}${f.resolved ? " · resolved" : ""}</span></div>
+  $("#findings").innerHTML = fs.length ? fs.map((f) => {
+    const ticket = f.action === "ticket";
+    const action = ticket ? `<span class="act ticket">Ticket: ${esc(f.ticket?.table)}</span>` : `<span class="act patch">CMDB patch</span>`;
+    return `<div class="f" data-id="${esc(f.id)}">
+      <div class="top"><span class="sev ${esc(f.severity)}">${esc(f.severity)}</span><b>${esc(f.type)}</b> ${esc(f.kind)} ${action}
+        <span class="muted">${esc((f.subjects || []).slice(0, 3).join(", "))}</span>
+        <span class="status">${esc(f.status)}${f.resolved ? " · resolved" : ""}</span></div>
+      <div class="layers">Evidence sources: ${(f.sources || []).map((s) => `<span class="chip">${esc(s)}</span>`).join(" ")}</div>
       <div class="body">
         <div>${esc(f.explanation)} <span class="muted">(${esc(f.explained_by)})</span></div>
         ${f.judgement ? `<p><b>Judgement:</b> ${esc(f.judgement.decision)} — ${esc((f.judgement.reasons || []).join("; "))}</p>` : ""}
         ${f.path ? `<p><b>Path:</b> ${esc(f.path.nodes.join(" → "))}</p>` : ""}
-        <b>Proposed CMDB patch</b><pre>${esc(JSON.stringify(f.patch, null, 1))}</pre>
-        <b>Evidence</b><pre>${esc(JSON.stringify(f.evidence, null, 1))}</pre>
-        ${f.status === "open" ? `<div class="row"><button class="primary" data-act="approve">Approve</button><button class="ghost" data-act="reject">Reject</button></div>` : ""}
-      </div></div>`).join("") : `<span class="muted">No findings yet. Run a drift scan.</span>`;
+        ${ticket ? `<b>Proposed ticket (no CMDB change)</b><pre>${esc(pretty(f.ticket))}</pre>`
+                 : `<b>Proposed CMDB patch</b><pre>${esc(pretty(f.patch))}</pre>${f.ticket ? `<b>If rejected: security ticket</b><pre>${esc(pretty(f.ticket))}</pre>` : ""}`}
+        <b>Evidence</b><pre>${esc(pretty(f.evidence))}</pre>
+        ${f.status === "open" ? `<div class="row"><button class="primary" data-act="approve">${ticket ? "Approve: raise ticket" : "Approve: apply patch"}</button><button class="ghost" data-act="reject">Reject</button></div>` : ""}
+      </div></div>`;
+  }).join("") : `<span class="muted">No findings yet. Run a drift scan.</span>`;
+  const open = location.hash.startsWith("#findings=") ? location.hash.slice(10) : null;
+  if (open) document.querySelector(`.f[data-id="${CSS.escape(open)}"]`)?.classList.add("open");
 }
 $("#findings").onclick = async (e) => {
   const card = e.target.closest(".f"); if (!card) return;
@@ -282,6 +431,27 @@ $("#scan").onclick = async () => {
   loadFindings();
 };
 
+// ---- sources
+let sources = [];
+async function loadSources() {
+  sources = await api("/sources");
+  $("#sources").innerHTML = sources.map((s, i) => `<tr><td><code>${esc(s.name)}</code></td><td>${esc(s.tool)}</td>
+    <td>${esc(s.reveals)}</td><td>${esc(s.raw)}</td><td>${(s.raw_records ?? 0).toLocaleString()}</td>
+    <td>${(s.evidence_rows ?? 0).toLocaleString()}</td><td>${esc(s.window)}</td>
+    <td>${s.sample ? `<button class="ghost" data-i="${i}">View sample</button>` : ""}</td></tr>`).join("");
+  const want = location.hash.startsWith("#sources=") ? location.hash.slice(9) : null;
+  if (want) showSample(sources.findIndex((s) => s.name === want));
+}
+function showSample(i) {
+  const s = sources[i]; if (!s) return;
+  $("#sample").classList.remove("hide");
+  $("#sampletitle").textContent = `${s.name}: one raw record and the evidence row its connector produced`;
+  $("#samplefile").textContent = s.sample.raw_file;
+  $("#sampleraw").textContent = Array.isArray(s.sample.raw) ? s.sample.raw.join("\n") : pretty(s.sample.raw);
+  $("#sampleev").textContent = pretty(s.sample.evidence);
+}
+$("#sources").onclick = (e) => { if (e.target.dataset.i) showSample(Number(e.target.dataset.i)); };
+
 // ---- incident + chat
 function renderSteps(el, steps) {
   el.innerHTML = steps.map((s) => `<li><code>${esc(s.tool)}</code> ${esc(JSON.stringify(s.input))}</li>`).join("");
@@ -299,7 +469,6 @@ $("#ask").onclick = async () => {
   $("#cites").innerHTML = r.paths.map((p) => `<li>${esc(p)}</li>`).join("");
 };
 
-// ---- side cards
 async function sideCards() {
   const crit = await api("/critical");
   $("#critical").innerHTML = crit.map((c) => `<li><b>${esc(c.name)}</b> <span class="muted">${esc(c.label)} · ${Math.round(c.score)}</span></li>`).join("");
@@ -310,12 +479,13 @@ async function sideCards() {
 (async () => {
   const h = await api("/health");
   $("#llm").textContent = h.llm ? "Live agent" : "Detection only · add ANTHROPIC_API_KEY for live agent";
+  drawShapes();
   await loadChanges();
   $("#review").onclick = review;
   await review();
   sideCards();
-  const tab = location.hash.slice(1);
-  if (["findings", "incident", "chat"].includes(tab)) showTab(tab);
+  const tab = location.hash.slice(1).split("=")[0];
+  if (["findings", "sources", "incident", "chat"].includes(tab)) showTab(tab);
 })();
 </script>
 </body>

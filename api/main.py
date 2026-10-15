@@ -5,6 +5,7 @@ NORTHWIND_DATA (data), NORTHWIND_RUNTIME (runtime), ANTHROPIC_API_KEY.
 The UI is served from ui/ at /.
 """
 
+import json
 import os
 
 from falkordb import FalkorDB
@@ -104,36 +105,95 @@ def reject(fid: str, d: Decision | None = None):
     return res
 
 
+UI_NAMES = {"BusinessService": "Business Service", "ServiceOffering": "Service Offering", "Application": "Application",
+            "Interface": "Interface (HL7)", "Database": "Database", "VM": "Virtual Machine", "Host": "Server",
+            "StorageArray": "Storage Array", "BackupTarget": "Backup Target", "NetworkDevice": "Network Device",
+            "MedicalDevice": "Medical Device", "Endpoint": "Endpoint", "EndpointGroup": "Endpoint Group",
+            "ExternalService": "External Service", "Department": "Department"}
+REL_NAMES = {"CONTAINS": "Contains", "DEPENDS_ON": "Depends on", "RUNS_ON": "Runs on", "STORES_ON": "Stored on",
+             "REPLICATES_TO": "Replicates to", "BACKED_UP_BY": "Backed up by", "CONNECTS_THROUGH": "Connects to",
+             "IN_DEPARTMENT": "Serves department"}
+EVIDENCE = {"OBSERVED_CALLS", "OBSERVED_NETFLOW", "OBSERVED_REPLICATES_TO", "OBSERVED_BACKUP_TO"}
+
+
+def dependency_edge(a, b, edges):
+    """One CMDB-direction edge (parent -> child) for a node pair, with its layer status:
+    confirmed (in the CMDB and seen in evidence), observed_only (dashed red), declared_only (no evidence),
+    failover, or structural (declared, not traffic-observable)."""
+    declared = [e for e in edges if e["type"] in REL_NAMES]
+    evidence = [e for e in edges if e["type"] in EVIDENCE]
+    ev = None
+    if evidence:
+        x = evidence[0]
+        # caller depends on callee; an inbound interface leg (source -> route) means the route depends on the source
+        parent, child = ((x["end"], x["start"]) if x.get("direction") == "inbound" else (x["start"], x["end"]))
+        ev = {"source": x["source"], "count": x["count"], "errors": x["errors"], "days_seen": x["days_seen"],
+              "first_seen": x["first_seen"], "last_seen": x["last_seen"], "port": x["port"],
+              "connector": x["connector_type"], "endpoint": x["endpoint"], "type": x["type"]}
+    if declared:
+        d = declared[0]
+        parent, child = d["start"], d["end"]
+        rel = REL_NAMES[d["type"]]
+        traffic = d["type"] in ("DEPENDS_ON", "REPLICATES_TO", "BACKED_UP_BY")
+        status = ("failover" if d["failover"] else "confirmed" if ev else "declared_only" if traffic else "structural")
+        layers = ["CMDB"] + (["evidence"] if ev else [])
+    else:
+        rel = "Depends on" if ev and ev["type"] != "OBSERVED_REPLICATES_TO" else "Replicates to"
+        status, layers = "observed_only", ["evidence"]
+        rel = f"{rel} (observed: {ev['source'].replace('_', ' ')}, not in CMDB)"
+    return {"source": parent, "target": child, "label": rel, "status": status, "layers": layers, "evidence": ev}
+
+
 def review_graph(g, review):
-    """Small highlighted graph for the change review screen: declared path to
-    each declared service, real paths to Emergency care and to a sample of
-    hospital EDs, with every edge classified by layer."""
+    """Bounded dependency view for a change: the declared path to each declared service plus the real
+    paths to high-safety services/offerings and to the EDs of the demo hospitals. Edges are drawn in CMDB
+    direction with relationship names; impact is shown by node colour."""
     paths = []
+    real_nodes, declared_nodes = set(), set()
     for t in review["per_target"]:
         src, dec, real = t["target"], t["declared"], t["real"]
+        real_nodes |= {x["name"] for x in real["impacted"]} | set(real["departments"]) | set(real["consumers"])
+        declared_nodes |= {x["name"] for x in dec["impacted"]} | set(dec["departments"])
         for svc in dec.get("business_services", [])[:3]:
             p = Q.impact_path(g, src, svc, "declared")
             if p:
                 paths.append({"layer": "declared", **p})
         routes = real.get("by_label", {}).get("Interface", [])
-        for svc in real.get("high_safety_services", [])[:1]:
-            p = Q.impact_path(g, src, "svc-emergency-care" if "svc-emergency-care" in real["business_services"] else svc)
+        targets = ["svc-emergency-care"] if "svc-emergency-care" in real["business_services"] else \
+            real.get("high_safety_services", [])[:2] + real.get("business_services", [])[:2]
+        for svc in targets:
+            p = Q.impact_path(g, src, svc)
             if p:
                 paths.append({"layer": "real", **p})
         for dept in [d for d in real.get("departments", []) if d.split("-")[0] in ("H03", "H17", "H44", "H22")]:
             p = Q.impact_path(g, src, dept, via_routes=routes)
             if p:
                 paths.append({"layer": "real", **p})
-    pairs = sorted({(a, b) for p in paths for a, b in zip(p["nodes"], p["nodes"][1:])})
-    layers = {(e["src"], e["dst"]): e for e in Q.edge_layers(g, pairs)} if pairs else {}
+    depts = {d for t in review["per_target"] for d in t["real"]["departments"] + t["declared"]["departments"]}
+    pairs = sorted({(b, a) if a in depts else (a, b)  # departments are never the first element (not Components)
+                    for p in paths for a, b in zip(p["nodes"], p["nodes"][1:])})
+    edges = {}
+    for e in Q.pair_edges(g, pairs) if pairs else []:
+        edges.setdefault((e["a"], e["b"]), []).append(e)
     nodes = sorted({n for p in paths for n in p["nodes"]})
     labels = {r["name"]: r["label"] for r in Q.run(g, "MATCH (c:Component) WHERE c.name IN $n RETURN c.name AS name, "
                                                       "[l IN labels(c) WHERE l <> 'Component'][0] AS label",
                                                  {"n": nodes})}
-    return {"nodes": [{"id": n, "label": labels.get(n, "Department")} for n in nodes],
-            "edges": [{"source": a, "target": b, **{k: layers.get((a, b), {}).get(k) for k in
-                                                    ("layer", "declared", "observed")}} for a, b in pairs],
-            "paths": paths}
+    targets = set(review["targets"])
+    return {"nodes": [{"id": n, "label": labels.get(n, "Department"), "class": UI_NAMES.get(labels.get(n, "Department")),
+                       "changed": n in targets, "impacted_real": n in real_nodes, "impacted_declared": n in declared_nodes}
+                      for n in nodes],
+            "edges": [dependency_edge(a, b, edges.get((a, b), [])) for a, b in pairs], "paths": paths}
+
+
+@app.get("/sources")
+def sources():
+    """Discovery sources: what each reveals, the tool it stands in for, raw format, counts, samples."""
+    path = os.path.join(DATA, "normalised", "sources.json")
+    if not os.path.exists(path):
+        raise HTTPException(404, "run the connectors first (python -m ingest.connect)")
+    with open(path, encoding="utf-8") as f:
+        return json.load(f)
 
 
 @app.get("/changes")

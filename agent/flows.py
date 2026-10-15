@@ -215,9 +215,13 @@ def template_review(f):
     return (f"{f['change']} ({f['description']}) is {f['risk'].upper()} risk. The CMDB says it affects "
             f"{f['declared']['components']} components and {f['declared']['business_services']} business service(s) "
             f"({', '.join(f['declared_services'])}). The observed graph says {f['real']['components']} components, "
-            f"{f['real']['routes']} routes, {f['real']['hospitals']} hospitals, {f['real']['business_services']} "
-            f"business services and {f['real']['service_offerings']} service offerings, including {', '.join(f['newly_reached_high_safety_services'][:3])}. "
-            f"{len(f['hidden_edges'])} hidden edges, e.g. {', '.join(f['hidden_edges'][:3])}. Warn: {', '.join(warn)}.")
+            f"{f['real']['routes']} interfaces (HL7 routes), {f['real']['hospitals']} hospitals, {f['real']['business_services']} "
+            f"business services and {f['real']['service_offerings']} service offerings"
+            + (f", including {', '.join(f['newly_reached_high_safety_services'][:3])}, which the CMDB misses. "
+               if f["newly_reached_high_safety_services"] else "; the CMDB already shows every high-safety service. ")
+            + (f"{len(f['hidden_edges'])} hidden dependencies, e.g. {', '.join(f['hidden_edges'][:3])}. "
+               if f["hidden_edges"] else "No hidden dependencies. ")
+            + f"Warn: {', '.join(warn)}.")
 
 
 # --------------------------------------------------------------------------

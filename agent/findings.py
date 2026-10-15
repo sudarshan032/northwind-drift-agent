@@ -142,8 +142,8 @@ SOURCES = {"D1": ["apm_otel", "interface_engine", "netflow", "cmdb_export"], "D2
 
 def evidence_sources(dtype, rows):
     """Sources behind a finding: from the evidence rows when they carry them, else the detector's inputs."""
-    seen = sorted({s for r in rows for s in (r.get("sources") or [])})
-    return seen + [s for s in ("cmdb_export",) if s not in seen] if seen else SOURCES[dtype]
+    seen = {s for r in rows for s in (r.get("sources") or [])}
+    return sorted(seen | {"cmdb_export"}) if seen else SOURCES[dtype]
 
 
 IMPACT_TYPES = {"D1", "D5", "D8", "D9", "D10"}  # failure-type findings: weigh the real blast radius

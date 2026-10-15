@@ -164,12 +164,12 @@ DETECTORS = {
     "D1": f"""
         MATCH (a:Component)-[o:OBSERVED_CALLS|OBSERVED_NETFLOW]->(b:Component)
         WHERE NOT coalesce(o.health_check, false)
-        WITH a, b, collect(o.days) AS dl
-        WITH a, b, {_FLAT} AS flat
-        WITH a, b, {_DAYS} AS days WHERE size(days) >= $min_days
+        WITH a, b, collect(o.days) AS dl, collect(DISTINCT o.source) AS sources
+        WITH a, b, sources, {_FLAT} AS flat
+        WITH a, b, sources, {_DAYS} AS days WHERE size(days) >= $min_days
         OPTIONAL MATCH (a)-[dep:DEPENDS_ON]-(b)
-        WITH a, b, days, count(dep) AS declared WHERE declared = 0
-        RETURN ['undocumented', a.name, b.name] AS key, size(days) AS days_seen
+        WITH a, b, days, sources, count(dep) AS declared WHERE declared = 0
+        RETURN ['undocumented', a.name, b.name] AS key, size(days) AS days_seen, sources
         ORDER BY key LIMIT $limit""",
     # D2: declared DEPENDS_ON / REPLICATES_TO, failover=false, neither end retired, nothing observed.
     "D2": """
@@ -272,12 +272,12 @@ DETECTORS = {
     "D14": f"""
         MATCH (x:UnregisteredEndpoint)-[o:OBSERVED_CALLS|OBSERVED_NETFLOW]-()
         WHERE NOT coalesce(o.health_check, false)
-        WITH x, collect(o.days) AS dl
-        WITH x, {_FLAT} AS flat
-        WITH x, {_DAYS} AS days WHERE size(days) >= $min_days
+        WITH x, collect(o.days) AS dl, collect(DISTINCT o.source) AS sources
+        WITH x, sources, {_FLAT} AS flat
+        WITH x, sources, {_DAYS} AS days WHERE size(days) >= $min_days
         OPTIONAL MATCH (u:User)-[a:OBSERVED_ACCESS]->(x)
-        WITH x, days, count(DISTINCT u) AS users
-        RETURN ['unregistered_app', x.name] AS key, size(days) AS days_seen, users ORDER BY key LIMIT $limit""",
+        WITH x, days, sources + collect(DISTINCT a.source) AS sources, count(DISTINCT u) AS users
+        RETURN ['unregistered_app', x.name] AS key, size(days) AS days_seen, users, sources ORDER BY key LIMIT $limit""",
 }
 
 ALIASES = """
@@ -324,6 +324,7 @@ RETURN ch.number AS number, ch.short_description AS description, ch.state AS sta
 UNDOCUMENTED_IN = """
 MATCH (a:Component)-[o:OBSERVED_CALLS|OBSERVED_NETFLOW]->(b:Component)
 WHERE a.name IN $names AND b.name IN $names AND NOT coalesce(o.health_check, false)
+      AND o.days_seen >= $min_days
 OPTIONAL MATCH (a)-[d:DEPENDS_ON]-(b)
 WITH a, b, o, count(d) AS declared WHERE declared = 0
 RETURN a.name AS src, b.name AS dst, type(o) AS observed_as, o.msg_type AS msg_type, o.count AS count,
@@ -355,7 +356,8 @@ def change_review(g, change_id, timeout=TIMEOUT_MS):
             real_hi |= set(r["high_safety_services"])
             names |= {t} | {x["name"] for x in r["impacted"]} | set(r["consumers"])
             out["per_target"].append({"target": t, "declared": d, "real": r})
-        hidden = run(g, UNDOCUMENTED_IN, {"names": sorted(names), "limit": LIMIT}, timeout)
+        hidden = run(g, UNDOCUMENTED_IN, {"names": sorted(names), "limit": LIMIT, "min_days": MIN_DAYS_UNDOCUMENTED},
+                     timeout)
         newly_hi = sorted(real_hi - dec_hi)
         risk = "high" if newly_hi else "medium" if len(real_all) > len(dec_all) else "low"
         out.update(risk=risk, newly_reached_high_safety_services=newly_hi, undocumented_edges=hidden,
@@ -549,3 +551,23 @@ def edge_layers(g, pairs, timeout=TIMEOUT_MS):
                       else "declared_only" if dec & traffic
                       else "structural" if dec else "derived")
     return rows
+
+
+PAIR_EDGES = """
+UNWIND $pairs AS p
+MATCH (a:Component {name: p[0]})
+MATCH (a)-[e]-(b) WHERE (b:Component AND b.name = p[1]) OR (b:Department AND b.id = p[1])
+WITH p, e, startNode(e) AS s, endNode(e) AS t
+WHERE NOT type(e) STARTS WITH 'IMPACTS' AND NOT type(e) STARTS WITH 'AFFECTS'
+RETURN p[0] AS a, p[1] AS b, type(e) AS type, CASE WHEN s:Department THEN s.id ELSE s.name END AS start,
+       CASE WHEN t:Department THEN t.id ELSE t.name END AS end,
+       e.layer AS layer, e.source AS source, e.failover AS failover, e.count AS count, e.errors AS errors,
+       e.days_seen AS days_seen, e.first_seen AS first_seen, e.last_seen AS last_seen, e.port AS port,
+       e.connector_type AS connector_type, e.endpoint AS endpoint, e.rel_type AS rel_type, e.direction AS direction
+"""
+
+
+@guarded
+def pair_edges(g, pairs, timeout=TIMEOUT_MS):
+    """Every declared and evidence edge between each [component, component|department] pair."""
+    return run(g, PAIR_EDGES, {"pairs": [list(p) for p in pairs]}, timeout)
