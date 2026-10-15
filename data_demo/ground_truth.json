@@ -981,14 +981,14 @@
  },
  {
   "ci_ids": [
-   "h08-esx-02"
+   "h07-acc-003"
   ],
-  "description": "CMDB os_version of h08-esx-02 is 7.0 U3; discovery reports 8.0 U2.",
+  "description": "CMDB os_version of h07-acc-003 is 16.12.4; discovery reports 17.9.4a.",
   "expected_finding": "attribute_drift",
   "finding_keys": [
    [
     "attribute",
-    "h08-esx-02",
+    "h07-acc-003",
     "os_version"
    ]
   ],
@@ -1021,14 +1021,14 @@
  },
  {
   "ci_ids": [
-   "h02-mri-02"
+   "h02-lab-12"
   ],
-  "description": "CMDB os_version of h02-mri-02 is 1.0; discovery reports LTSC 2019.",
+  "description": "CMDB os_version of h02-lab-12 is 1.0; discovery reports LTSC 2019.",
   "expected_finding": "attribute_drift",
   "finding_keys": [
    [
     "attribute",
-    "h02-mri-02",
+    "h02-lab-12",
     "os_version"
    ]
   ],
@@ -1041,14 +1041,14 @@
  },
  {
   "ci_ids": [
-   "n106-wan-01"
+   "n058-wan-01"
   ],
-  "description": "CMDB ip_address of n106-wan-01 is 172.20.105.230; discovery reports 172.20.105.1.",
+  "description": "CMDB ip_address of n058-wan-01 is 172.20.57.230; discovery reports 172.20.57.1.",
   "expected_finding": "attribute_drift",
   "finding_keys": [
    [
     "attribute",
-    "n106-wan-01",
+    "n058-wan-01",
     "ip_address"
    ]
   ],
@@ -1061,14 +1061,14 @@
  },
  {
   "ci_ids": [
-   "n363-acc-01"
+   "n319-wan-01"
   ],
-  "description": "CMDB ip_address of n363-acc-01 is 172.21.106.230; discovery reports 172.21.106.3.",
+  "description": "CMDB ip_address of n319-wan-01 is 172.21.62.230; discovery reports 172.21.62.1.",
   "expected_finding": "attribute_drift",
   "finding_keys": [
    [
     "attribute",
-    "n363-acc-01",
+    "n319-wan-01",
     "ip_address"
    ]
   ],
@@ -1081,14 +1081,14 @@
  },
  {
   "ci_ids": [
-   "n273-fw-01"
+   "n226-fw-01"
   ],
-  "description": "CMDB ip_address of n273-fw-01 is 172.21.16.230; discovery reports 172.21.16.2.",
+  "description": "CMDB ip_address of n226-fw-01 is 172.20.225.230; discovery reports 172.20.225.2.",
   "expected_finding": "attribute_drift",
   "finding_keys": [
    [
     "attribute",
-    "n273-fw-01",
+    "n226-fw-01",
     "ip_address"
    ]
   ],
@@ -1103,7 +1103,7 @@
   "ci_ids": [
    "c0085-acc-01"
   ],
-  "description": "CMDB serial_number of c0085-acc-01 is FOCTWVYW253; discovery reports FOCTWVYWGQ4.",
+  "description": "CMDB serial_number of c0085-acc-01 is FOCLUT8S253; discovery reports FOCLUT8S2KM.",
   "expected_finding": "attribute_drift",
   "finding_keys": [
    [
@@ -1123,7 +1123,7 @@
   "ci_ids": [
    "c0079-acc-01"
   ],
-  "description": "CMDB serial_number of c0079-acc-01 is FOCQ49AK426; discovery reports FOCQ49AKLCS.",
+  "description": "CMDB serial_number of c0079-acc-01 is FOCHT04S426; discovery reports FOCHT04SL22.",
   "expected_finding": "attribute_drift",
   "finding_keys": [
    [
@@ -1331,7 +1331,7 @@
   "finding_keys": [
    [
     "access",
-    "u-h03-00054",
+    "u-h03-00043",
     "emr-app"
    ]
   ],
@@ -1352,7 +1352,7 @@
   "finding_keys": [
    [
     "access",
-    "u-h17-00354",
+    "u-h17-00343",
     "pharm-app"
    ]
   ],

@@ -135,13 +135,17 @@ def discovery_view(world, plan):
         sn = subnet_of(index, rec["site"], rec["ip_address"])
         if sn:
             found[sn["cidr"]] = found.get(sn["cidr"], 0) + 1
-    endpoint_counts = {}
+    endpoint_counts, fleet_counts = {}, {}
     for c in world["cis"]:
         if c["label"] == "EndpointGroup":
             endpoint_counts[c["site"]] = endpoint_counts.get(c["site"], 0) + int(c["count"])
+        elif c["label"] == "MedicalDevice" and c["count"] != "":
+            fleet_counts[c["site"]] = fleet_counts.get(c["site"], 0) + int(c["count"])
     coverage = []
     for sn in world["subnets"]:
         n = endpoint_counts.get(sn["site"], 0) if sn["method"] == "aggregate" else found.get(sn["cidr"], 0)
+        if sn["kind"] == "medical":  # passive sensors also count bedside fleets
+            n += fleet_counts.get(sn["site"], 0)
         coverage.append({"subnet": sn["cidr"], "site": sn["site"], "kind": sn["kind"], "scanned": "true",
                          "method": sn["method"], "last_scan": ts(END - timedelta(hours=6)),
                          "devices_found": n})
@@ -243,9 +247,16 @@ def leg_records(world, leg, hourly, alias):
             if leg.get("route"):
                 rec["route"] = leg["route"]
         if hourly:
-            if n:
+            if n and "msg_mix" in leg:
+                for mt, share in leg["msg_mix"]:
+                    k = _count(r, n * share)
+                    if k:
+                        yield dict(base, hour=ts(t), **dict(rec, msg_type=mt, count=k,
+                                                            errors=min(k, rec["errors"])))
+            elif n:
                 yield dict(base, hour=ts(t), **rec)
             continue
+        assert "msg_mix" not in leg, "event mixes are only modelled on hourly (central) legs"
         if day_acc is None:
             day_acc = dict(base, day=t.strftime("%Y-%m-%d"), **rec)
         else:

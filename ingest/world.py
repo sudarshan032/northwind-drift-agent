@@ -179,17 +179,18 @@ NONACUTE_TYPES = [("home_health", "HH", 150), ("hospice", "HSP", 100), ("skilled
                   ("senior_living", "SL", 130), ("rehab", "REHAB", 80),
                   ("behavioral_health", "BH", 100), ("admin_office", "ADMIN", 120)]
 
-# Per tier inventory ranges (DATA_SPEC section 2), inclusive.
+# Per tier inventory ranges (DATA_SPEC section 2), inclusive. Imaging counts
+# (ct, mri, xray, us) were raised to research-backed ranges (RESEARCH_NOTES R2).
 INVENTORY = {
     "L": dict(wan=(2, 2), fw=(2, 2), core=(4, 6), access=(30, 50), servers=(10, 14), array=(1, 1),
-              ct=(2, 4), mri=(1, 3), xray=(5, 8), us=(8, 12), mon=(6, 10), pump=(1, 1), lab=(12, 20),
+              ct=(3, 5), mri=(2, 4), xray=(8, 15), us=(10, 20), mon=(6, 10), pump=(1, 1), lab=(12, 20),
               ws=(600, 1000), prn=(100, 200), beds=(400, 900)),
     "C": dict(wan=(2, 2), fw=(1, 1), core=(2, 2), access=(10, 20), servers=(4, 7), array=(0, 1),
-              ct=(1, 2), mri=(0, 1), xray=(2, 4), us=(3, 6), mon=(2, 4), pump=(1, 1), lab=(4, 8),
+              ct=(1, 2), mri=(1, 1), xray=(3, 6), us=(4, 8), mon=(2, 4), pump=(1, 1), lab=(4, 8),
               ws=(150, 350), prn=(30, 60), beds=(100, 399)),
     # CAH: CMS limits critical access hospitals to 25 inpatient beds (research note R1).
     "A": dict(wan=(1, 1), fw=(1, 1), core=(1, 1), access=(3, 6), servers=(1, 2), array=(0, 0),
-              ct=(0, 1), mri=(0, 0), xray=(1, 2), us=(1, 2), mon=(1, 1), pump=(0, 1), lab=(1, 3),
+              ct=(0, 1), mri=(0, 0), xray=(1, 2), us=(1, 1), mon=(1, 1), pump=(0, 1), lab=(1, 3),
               ws=(40, 80), prn=(8, 15), beds=(12, 25)),
 }
 
@@ -852,7 +853,12 @@ def _central(w):
             ("DFT-EMR-BILL", "DFT^P03", "emr-app", "billing-app", 2500),
             ("MDM-RIS-EMR", "MDM^T02", "ris-app", "emr-app", 400),
             ("SIU-SCHED-EMR", "SIU^S12", "sched-app", "emr-app", 350)):
-        _interface(w, name, mt, "MLLP", src, dst, rate, "24x7", crit=1 if mt.startswith(("ORU", "RDE", "OML")) else 2)
+        # x8: enterprise HL7 volume calibrated to ~1,000 messages/bed/day (RESEARCH_NOTES R3)
+        _interface(w, name, mt, "MLLP", src, dst, rate * 8, "24x7",
+                   crit=1 if mt.startswith(("ORU", "RDE", "OML")) else 2)
+
+
+ADT_WEIGHTS = {"A08": 0.40, "A04": 0.20, "A01": 0.12, "A03": 0.12, "A02": 0.08, "A40": 0.02}
 
 
 def _interface(w, name, mt, protocol, src, dst, rate, profile, crit=1, staging=None, tz=-7,
@@ -866,8 +872,12 @@ def _interface(w, name, mt, protocol, src, dst, rate, profile, crit=1, staging=N
     c["service_ip"] = via_ci.get("service_ip", "") if via_ci else w.service_ip(dst)
     if via_ci is not None and via_ci["class"] == "cmdb_ci_appl":
         w.rel(via, name, "Contains::Contained by")
-    leg = dict(protocol=protocol.lower(), msg_type=mt.split("/")[0] if "/" in mt else mt, rate=rate,
-               profile=profile, tz=tz, route=name)
+    leg = dict(protocol=protocol.lower(), msg_type=mt, rate=rate, profile=profile, tz=tz, route=name)
+    if "/" in mt:  # e.g. ADT^A01/A02/...: split traffic over trigger events, A08 updates dominate
+        kind, events = mt.split("^")
+        mix = [(f"{kind}^{e}", ADT_WEIGHTS.get(e, 0.05)) for e in events.split("/")]
+        total = sum(x for _, x in mix)
+        leg["msg_mix"] = [(m, round(x / total, 4)) for m, x in mix]
     if src_leg:
         w.dep(name, src, src=src, dst=name, **leg)
     w.dep(name, dst, src=name, dst=dst, **leg)
@@ -999,7 +1009,7 @@ def _hospital(w, s):
     tz = s["tz"]
     scale = {"L": 1.0, "C": 0.4, "A": 0.06}[tier]
     labmw = apps.get("labmw", "labmw-central")
-    _interface(w, f"LAB-RES-{sid}", "ORU^R01", "MLLP", labmw, "lis-app", 300 * scale, "24x7", tz=tz)
+    _interface(w, f"LAB-RES-{sid}", "ORU^R01", "MLLP", labmw, "lis-app", 1500 * scale, "24x7", tz=tz)
     pacs_target = apps.get("pacs-cache", "pacs-app")
     _interface(w, f"DICOM-MOD-{sid}", "DICOM C-STORE", "DICOM", "", pacs_target, 120 * scale, "24x7", tz=tz,
                src_leg=False, owner=w.owners["img"], via="")
@@ -1008,7 +1018,7 @@ def _hospital(w, s):
                    110 * scale, "24x7", tz=tz, owner=w.owners["img"], via="")
     monitor_src = apps.get("monitor-gw")
     if monitor_src:
-        _interface(w, f"VITALS-{sid}", "ORU^R01", "MLLP", monitor_src, "emr-app", 2000 * scale, "24x7", tz=tz)
+        _interface(w, f"VITALS-{sid}", "ORU^R01", "MLLP", monitor_src, "emr-app", 6000 * scale, "24x7", tz=tz)
     # Headline route: critical lab results to the ED worklist, staged in lrc-db-01.
     _interface(w, f"ORU-CRIT-{sid}", "ORU^R01", "MLLP", "lis-app", "emr-app",
                {"L": 18, "C": 6, "A": 0.8}[tier], "24x7", tz=tz, staging="lrc-db-01",
@@ -1069,6 +1079,18 @@ def _hospital(w, s):
     for i in range(1, w.rand(inv["lab"], r) + 1):
         device("lab", "cmdb_ci_med_lab_equipment", i, depts["LAB"], "high", port=5000, rate=40,
                target=labmw, bytes_per=3e3)
+    # Bedside fleets (RESEARCH_NOTES R2: 10-15 networked devices per bed, ~38% infusion
+    # pumps): one group CI each with `count`, managed through the pump server / gateways.
+    inpatient = depts.get("MEDSURG") or depts["ED"]
+    for kind, cls, per_bed, model in (("pump-fleet", "cmdb_ci_med_therapeutic_device", (0.9, 1.3),
+                                       ("BD", "Alaris 8015 PC unit (fleet)", "", "")),
+                                      ("monitor-fleet", "cmdb_ci_med_patient_monitoring", (0.6, 0.9),
+                                       ("Philips", "IntelliVue MX450 (fleet)", "", ""))):
+        name = f"{lo}-{kind}"
+        w.ci(name, cls, sid, biomed, dept=inpatient, crit=1, phi=True, vendor_model=model,
+             count=max(4, round(s["beds"] * r.uniform(*per_bed))), patchable=r.random() >= 0.4,
+             safety="high", description="Bedside device fleet (group)")
+        w.rel(name, medseg, "Connects through::Connects")
 
     _endpoints(w, s, depts, acc, usr, field, r, inv["ws"], inv["prn"])
     w.site_apps = getattr(w, "site_apps", {})
