@@ -95,7 +95,7 @@ class Toolbox:
         r = Q.radius(self.g, component, layer)
         if r.get("found"):  # keep the payload small: counts + names by type
             r = {k: r[k] for k in ("component", "layer", "counts", "by_label", "departments", "hospitals",
-                                    "business_services", "high_safety_services", "consumers")}
+                                    "business_services", "service_offerings", "high_safety_services", "consumers")}
         return r
 
     def _impact_path(self, source, target, layer="real"):

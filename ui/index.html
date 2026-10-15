@@ -44,7 +44,7 @@ button.ghost { background: var(--chip); color: var(--ink); border: 0; border-rad
 .side { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
 .side h3 { margin: 0 0 6px; font-size: 13px; }
 .side.real { border-color: color-mix(in srgb, var(--red) 55%, var(--line)); }
-.nums { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.nums { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
 .num b { display: block; font-size: 24px; font-weight: 700; line-height: 1.1; }
 .num span { font-size: 11px; color: var(--muted); }
 .real .num b { color: var(--red); }
@@ -178,7 +178,8 @@ document.querySelectorAll("nav button").forEach((b) => b.onclick = () => showTab
 
 // ---- change review
 const KEYS = [["routes", "routes"], ["hospitals", "hospitals"], ["departments", "departments"],
-              ["business_services", "business services"], ["components", "components"]];
+              ["business_services", "business services"], ["service_offerings", "service offerings"],
+              ["components", "components"]];
 const nums = (c) => KEYS.map(([k, l]) => `<div class="num"><b>${c?.[k] ?? 0}</b><span>${l}</span></div>`).join("");
 
 async function loadChanges() {

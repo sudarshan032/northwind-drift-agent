@@ -1,9 +1,14 @@
 """Human approval of a finding's proposed CMDB patch.
 
-`approve` applies the patch to the CMDB CSVs and the declared graph layer,
+CMDB-patch findings: `approve` checks the patch against the write-back rule
+(REALISM_SPEC 2), applies it to the CMDB CSVs and the declared graph layer,
 rebuilds the impact layers, re-runs the finding's detector, marks the
-finding `approved` (with `resolved` = its keys no longer detected) and
-appends to `audit.jsonl`. `reject` only changes the finding status.
+finding `approved` (`resolved` = its keys no longer detected) and records the
+CMDB update as a `change_request` in `tickets.jsonl`.
+Ticket findings (D9-D12): `approve` writes the proposed `incident` /
+`sn_si_incident` to `tickets.jsonl` and never touches the CMDB.
+`reject` changes only the finding status, except that rejecting a D14
+registration raises its security ticket instead. Everything is audited.
 The LLM never calls these; only the API's approve/reject endpoints do.
 """
 
@@ -16,6 +21,7 @@ from datetime import datetime, timezone
 from agent import findings as F
 from graph import impact
 from graph import queries as Q
+from ingest.config import CMDB_PATCH_FIELDS
 from ingest.load import BOOL_FIELDS, INT_FIELDS, REL_TYPES
 from ingest.world import CLASS_LABEL
 
@@ -44,6 +50,40 @@ def _typed(field, value):
     if field in INT_FIELDS and value != "":
         return int(float(value))
     return value
+
+
+NEW_CI_FIELDS = {"name", "class", "site", "status", "ip_address", "serial_number", "description", "handles_phi",
+                 "support_group", "sys_id"}
+
+
+def validate(op):
+    """Enforce the CMDB write-back rule; raise ValueError on anything else."""
+    path = op.get("path", "")
+    if path in ("/cmdb_rel_ci/-", "/cmdb_rel_ci"):
+        return
+    if path == "/cmdb_ci/-" and op["op"] == "add":
+        extra = set(op["value"]) - NEW_CI_FIELDS
+        if extra:
+            raise ValueError(f"not a CMDB attribute for a new CI: {sorted(extra)}")
+        return
+    if path.startswith("/cmdb_ci/") and op["op"] == "replace":
+        field = path.split("/", 3)[3]
+        if field not in CMDB_PATCH_FIELDS:
+            raise ValueError(f"write-back rule: {field} may not be patched (allowed: {sorted(CMDB_PATCH_FIELDS)})")
+        return
+    raise ValueError(f"write-back rule: unsupported op {op}")
+
+
+def write_ticket(runtime, ticket, finding):
+    os.makedirs(runtime, exist_ok=True)
+    rec = {"sys_created_on": _now(), "state": "New", "u_source_finding": finding["id"], **ticket}
+    with open(os.path.join(runtime, "tickets.jsonl"), "a", encoding="utf-8") as f:
+        f.write(json.dumps(rec, default=str) + "\n")
+    for team in ticket.get("notify", []):  # e.g. compliance notification for data residency
+        with open(os.path.join(runtime, "notifications.jsonl"), "a", encoding="utf-8") as f:
+            f.write(json.dumps({"ts": _now(), "team": team, "message": ticket["short_description"],
+                                "components": [ticket.get("cmdb_ci")], "channel": "compliance-notification"}) + "\n")
+    return rec
 
 
 def apply_op(g, data, op):
@@ -118,6 +158,13 @@ def approve(g, data, runtime, fid, approver="human"):
         return {"error": "no such finding", "id": fid}
     if f["status"] != "open":
         return {"error": f"finding is {f['status']}", "id": fid}
+    if f.get("action") == "ticket":
+        t = write_ticket(runtime, f["ticket"], f)
+        F.set_fields(g, fid, status="approved", resolved=False, decided_at=_now(), decided_by=approver)
+        audit(runtime, {"action": "approve", "finding": fid, "type": f["type"], "ticket": t["table"], "by": approver})
+        return {"id": fid, "status": "approved", "resolved": False, "ticket": t, "applied_ops": 0}
+    for op in f["patch"]:
+        validate(op)
     for op in f["patch"]:
         apply_op(g, data, op)
     impact.build(g)
@@ -125,8 +172,12 @@ def approve(g, data, runtime, fid, approver="human"):
     still = {tuple(r["key"]) for r in rows} if isinstance(rows, list) else set()
     resolved = not any(tuple(k) in still for k in f["keys"])
     F.set_fields(g, fid, status="approved", resolved=resolved, decided_at=_now(), decided_by=approver)
+    chg = write_ticket(runtime, {"table": "change_request", "type": "standard", "state": "Closed",
+                                 "short_description": f"CMDB update from finding {fid} ({f['kind']})",
+                                 "cmdb_ci": (f.get("subjects") or [""])[0], "assignment_group": "NW-CMDB-Governance",
+                                 "description": json.dumps(f["patch"])[:4000]}, f)
     audit(runtime, {"action": "approve", "finding": fid, "type": f["type"], "patch": f["patch"],
-                    "resolved": resolved, "by": approver})
+                    "resolved": resolved, "by": approver, "change_request": chg["short_description"]})
     return {"id": fid, "status": "approved", "resolved": resolved, "applied_ops": len(f["patch"])}
 
 
@@ -135,5 +186,9 @@ def reject(g, runtime, fid, approver="human", reason=""):
     if f is None:
         return {"error": "no such finding", "id": fid}
     F.set_fields(g, fid, status="rejected", decided_at=_now(), decided_by=approver, reason=reason)
-    audit(runtime, {"action": "reject", "finding": fid, "type": f["type"], "by": approver, "reason": reason})
-    return {"id": fid, "status": "rejected"}
+    ticket = None
+    if f["type"] == "D14" and f.get("ticket"):  # not registered -> it stays a security matter
+        ticket = write_ticket(runtime, f["ticket"], f)
+    audit(runtime, {"action": "reject", "finding": fid, "type": f["type"], "by": approver, "reason": reason,
+                    "ticket": ticket and ticket["table"]})
+    return {"id": fid, "status": "rejected", "ticket": ticket}

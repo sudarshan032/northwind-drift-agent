@@ -39,3 +39,5 @@ Re-read this file, RUN_PROMPT.md and DATA_SPEC.md after any context compaction.
 - Next: Phase 3 API (FastAPI).
 ## Phase 3 — done: api/main.py, tests/test_api.py.
 ## Phase 4 — done: ui/index.html; screenshots in docs/.
+# REALISM run
+- Step A done: config module, write-back rule + tickets, CSDM offerings, layer tags. Next: source-native raw formats + connectors.

@@ -177,3 +177,42 @@ def test_approve_and_reject(env):
     with open(os.path.join(runtime, "audit.jsonl")) as f:
         actions = [json.loads(x)["action"] for x in f]
     assert actions == ["approve", "approve", "reject"]
+
+
+def test_write_back_rule(env):
+    """REALISM_SPEC 2/8: D9-D12 approvals write tickets, never CMDB files; CMDB
+    patches touch only CMDB-appropriate fields and relationships."""
+    g, data, runtime = env
+    flows.triage(g, None)
+    open_ = F.list_findings(g, status="open", limit=500)
+    tickets_before = 0
+    path = os.path.join(runtime, "tickets.jsonl")
+    if os.path.exists(path):
+        tickets_before = sum(1 for _ in open(path))
+    for t in ("D9", "D10", "D11", "D12"):
+        f = next(x for x in open_ if x["type"] == t)
+        assert f["action"] == "ticket" and f["patch"] == [] and f["sources"]
+        before = _hash_dir(os.path.join(data, "cmdb"))
+        res = approval.approve(g, data, runtime, f["id"])
+        assert res["ticket"]["table"] == ("incident" if t in ("D9", "D10") else "sn_si_incident")
+        assert _hash_dir(os.path.join(data, "cmdb")) == before
+    assert sum(1 for _ in open(path)) == tickets_before + 4
+    for t in ("D2", "D4", "D6", "D7", "D8"):
+        f = next(x for x in open_ if x["type"] == t)
+        assert f["action"] == "cmdb_patch"
+        for op in f["patch"]:
+            approval.validate(op)  # every proposed op passes the write-back rule
+    with pytest.raises(ValueError):
+        approval.validate({"op": "replace", "path": "/cmdb_ci/emr-db-01/backup_offsite", "value": "false"})
+    with pytest.raises(ValueError):
+        approval.validate({"op": "replace", "path": "/cmdb_ci/emr-db-01/last_backup", "value": "x"})
+    d14 = next(x for x in open_ if x["type"] == "D14")
+    assert approval.reject(g, runtime, d14["id"])["ticket"]["table"] == "sn_si_incident"
+
+
+def test_layers_tagged(env):
+    g, _, _ = env
+    q = lambda s: g.query(s).result_set[0][0]  # noqa: E731
+    assert q("MATCH (n:Component) WHERE n.layer <> 'declared' RETURN count(n)") == 0
+    assert q("MATCH ()-[e:OBSERVED_CALLS]->() WHERE e.layer <> 'evidence' RETURN count(e)") == 0
+    assert q("MATCH ()-[e:IDENTIFIES]->() WHERE e.layer = 'reconciliation' RETURN count(e)") > 10000

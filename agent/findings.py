@@ -9,7 +9,10 @@ Patch format (JSON-Patch style, applied by agent.approval):
     {"op": "remove",  "path": "/cmdb_rel_ci", "match": {parent, child, type}}
     {"op": "replace", "path": "/cmdb_ci/<name>/<field>", "value": "..."}
     {"op": "add",     "path": "/cmdb_ci/-", "value": {name, class, site, status, ...}}
-An empty patch means the fix is operational (page someone), not a CMDB edit.
+Write-back rule (REALISM_SPEC 2): a patch may only touch CI existence, the
+attributes in ingest.config.CMDB_PATCH_FIELDS, or CMDB relationships. Every
+other finding (D9 protection gap, D10 failing backups, D11 residency, D12
+access) proposes a ServiceNow-shaped ticket instead (`action = "ticket"`).
 """
 
 import hashlib
@@ -77,8 +80,6 @@ def propose_patch(dtype, rows, g=None):
             ops.append({"op": "replace", "path": f"/cmdb_ci/{k[1]}/status", "value": "retired"})
         elif dtype == "D8":
             ops.append({"op": "replace", "path": f"/cmdb_ci/{k[1]}/{k[2]}", "value": r["discovered"]})
-        elif dtype == "D9":
-            ops.append({"op": "replace", "path": f"/cmdb_ci/{k[1]}/backup_offsite", "value": "false"})
         elif dtype == "D6":
             ops.append({"op": "add", "path": "/cmdb_ci/-", "value": {
                 "name": k[1], "class": "cmdb_ci_computer", "site": r.get("site", ""), "status": "operational",
@@ -87,7 +88,62 @@ def propose_patch(dtype, rows, g=None):
             ops.append({"op": "add", "path": "/cmdb_ci/-", "value": {
                 "name": k[1], "class": "cmdb_ci_cloud_service_account", "site": "EXTERNAL", "status": "operational",
                 "handles_phi": "true", "description": "Third-party SMART on FHIR app; vendor review pending"}})
-    return ops  # D10, D11, D12: operational fixes (page owner / security), no CMDB edit
+    return ops  # D9-D12: no CMDB edit (see propose_ticket)
+
+
+TICKET_TYPES = {"D9", "D10", "D11", "D12"}
+
+
+def propose_ticket(dtype, rows, evidence_sources):
+    """ServiceNow-shaped ticket for findings that must not touch the CMDB
+    (and the security ticket raised if a D14 registration is rejected)."""
+    k, r0 = rows[0]["key"], rows[0]
+    src = ", ".join(evidence_sources)
+    if dtype == "D9":
+        return {"table": "incident", "short_description": f"Offsite protection gap: {k[1]} has only same-site copies",
+                "cmdb_ci": k[1], "assignment_group": "NW-Backup-Storage", "priority": "2 - High",
+                "category": "Backup and recovery",
+                "description": f"Copies stay at {r0.get('site')} ({', '.join(r0.get('backup_targets', []))}); no copy "
+                               f"at another site or in the immutable vault. Evidence: {src}."}
+    if dtype == "D10":
+        return {"table": "incident", "short_description": f"Backups failing for {k[1]} (no success in 7 days)",
+                "cmdb_ci": k[1], "assignment_group": "NW-Backup-Storage", "priority": "2 - High",
+                "category": "Backup and recovery",
+                "description": f"Last successful backup: {r0.get('last_success')}. Evidence: {src}."}
+    if dtype == "D11":
+        return {"table": "sn_si_incident", "short_description": f"PHI copied into cloud-central-india ({k[1]} -> {k[2]})",
+                "cmdb_ci": k[2], "assignment_group": "NW-SecOps", "priority": "1 - Critical",
+                "category": "Data residency / privacy", "notify": ["NW-Privacy-Compliance"],
+                "description": f"Replication of {', '.join(r0.get('detail') or [])} from {k[1]} into {k[2]}. "
+                               f"Evidence: {src}."}
+    if dtype == "D12":
+        reasons = ", ".join(r0.get("reasons", []))
+        return {"table": "sn_si_incident", "short_description": f"Access drift: {k[1]} on {k[2]} ({reasons})",
+                "cmdb_ci": k[2], "assignment_group": "NW-SecOps",
+                "priority": "1 - Critical" if "admin_outside_change_window" in reasons else "2 - High",
+                "category": "Unauthorized access", "description": f"User {k[1]}: {reasons}. Evidence: {src}."}
+    if dtype == "D14":
+        return {"table": "sn_si_incident", "short_description": f"Unregistered third-party app {k[1]} reading EMR data",
+                "cmdb_ci": "emr-fhir-api", "assignment_group": "NW-SecOps", "priority": "2 - High",
+                "category": "Third-party risk",
+                "description": f"{k[1]} has no CMDB record and no vendor review; traffic on {r0.get('days_seen')} days "
+                               f"by {r0.get('users')} users. Evidence: {src}."}
+    return None
+
+
+SOURCES = {"D1": ["apm_otel", "interface_engine", "netflow", "cmdb_export"], "D2": ["cmdb_export", "apm_otel",
+           "interface_engine", "netflow", "storage_telemetry"], "D4": ["cmdb_export"],
+           "D5": ["cmdb_export", "itsm_history"], "D6": ["discovery_scanner", "cmdb_export"],
+           "D7": ["cmdb_export", "discovery_scanner"], "D8": ["discovery_scanner", "cmdb_export"],
+           "D9": ["backup_software", "storage_telemetry", "cmdb_export"], "D10": ["backup_software", "cmdb_export"],
+           "D11": ["storage_telemetry", "cmdb_export"], "D12": ["identity_sso", "db_audit", "hr_feed", "cmdb_export"],
+           "D14": ["netflow", "identity_sso", "cmdb_export"]}
+
+
+def evidence_sources(dtype, rows):
+    """Sources behind a finding: from the evidence rows when they carry them, else the detector's inputs."""
+    seen = sorted({s for r in rows for s in (r.get("sources") or [])})
+    return seen + [s for s in ("cmdb_export",) if s not in seen] if seen else SOURCES[dtype]
 
 
 IMPACT_TYPES = {"D1", "D5", "D8", "D9", "D10"}  # failure-type findings: weigh the real blast radius
@@ -153,9 +209,13 @@ def build(g, detections):
             path = None
             if dtype == "D1":
                 path = {"nodes": [grp[0]["key"][1], grp[0]["key"][2]], "edges": ["OBSERVED_CALLS"]}
+            srcs = evidence_sources(dtype, grp)
+            ticket = propose_ticket(dtype, grp, srcs)
             out.append({
                 "id": finding_id(dtype, key), "type": dtype, "kind": KIND[dtype], "key": key,
                 "keys": [r["key"] for r in grp], "subjects": subj, "severity": label, "score": s,
+                "sources": srcs, "action": "ticket" if dtype in TICKET_TYPES else "cmdb_patch",
+                "ticket": ticket,
                 "evidence": {"rows": grp[:60], "real_radius": impact.get("counts", {}),
                              "high_safety_services": impact.get("high_safety_services", [])[:10]},
                 "path": path, "patch": propose_patch(dtype, grp, g), "status": "open",
@@ -171,6 +231,7 @@ MERGE (f:Finding {id: r.id})
 SET f.type = r.type, f.kind = r.kind, f.key_json = r.key_json, f.severity = r.severity, f.score = r.score,
     f.explanation = r.explanation, f.explained_by = r.explained_by, f.evidence_json = r.evidence_json,
     f.path_json = r.path_json, f.patch_json = r.patch_json, f.keys_json = r.keys_json,
+    f.sources_json = r.sources_json, f.action = r.action, f.ticket_json = r.ticket_json, f.layer = 'reconciliation',
     f.status = coalesce(f.status, 'open'), f.created_at = coalesce(f.created_at, r.now), f.updated_at = r.now
 WITH f, r
 UNWIND (CASE WHEN size(r.subjects) = 0 THEN [null] ELSE r.subjects END) AS s
@@ -186,14 +247,16 @@ def store(g, findings):
              "severity": f["severity"], "score": f["score"], "explanation": f["explanation"],
              "explained_by": f["explained_by"], "evidence_json": json.dumps(f["evidence"], default=str),
              "path_json": json.dumps(f["path"]), "patch_json": json.dumps(f["patch"]),
-             "keys_json": json.dumps(f["keys"]), "subjects": f["subjects"], "now": now} for f in findings]
+             "keys_json": json.dumps(f["keys"]), "subjects": f["subjects"], "now": now,
+             "sources_json": json.dumps(f.get("sources", [])), "action": f.get("action", "cmdb_patch"),
+             "ticket_json": json.dumps(f.get("ticket"))} for f in findings]
     for i in range(0, len(rows), 200):
         g.query(UPSERT, {"rows": rows[i:i + 200]})
 
 
 def _decode(props):
     f = dict(props)
-    for k in ("key", "keys", "evidence", "path", "patch", "judgement"):
+    for k in ("key", "keys", "evidence", "path", "patch", "judgement", "sources", "ticket"):
         if f.get(f"{k}_json") is not None:
             f[k] = json.loads(f.pop(f"{k}_json"))
     return f

@@ -33,6 +33,20 @@ from ingest.views import open_in
 from ingest.world import CLASS_LABEL
 
 BATCH = 2000
+DECLARED_EDGES = ("CONTAINS|DEPENDS_ON|RUNS_ON|STORES_ON|REPLICATES_TO|BACKED_UP_BY|CONNECTS_THROUGH|LOCATED_AT|"
+                  "IN_DEPARTMENT|MANAGED_BY|MEMBER_OF|HAS_ROLE|GRANTS|TARGETS")
+EVIDENCE_EDGES = ("OBSERVED_CALLS|OBSERVED_NETFLOW|OBSERVED_REPLICATES_TO|OBSERVED_BACKUP_TO|OBSERVED_ACCESS|"
+                  "OBSERVED_OWNER")
+RECONCILIATION_EDGES = "IDENTIFIES|IMPACTS_DECLARED|IMPACTS_REAL|AFFECTS_DECLARED|AFFECTS_REAL|ABOUT"
+LAYER_TAGS = [  # declared = CMDB export + IAM; evidence = discovery/observed sources; reconciliation = matches, analysis
+    "MATCH (n) WHERE n:Component OR n:Site OR n:Department OR n:SupportGroup OR n:Change OR n:User OR n:Group "
+    "OR n:Role SET n.layer = 'declared'",
+    "MATCH (n) WHERE n:Discovered OR n:UnregisteredEndpoint SET n.layer = 'evidence'",
+    "MATCH (n:Finding) SET n.layer = 'reconciliation'",
+    f"MATCH ()-[e:{DECLARED_EDGES}]->() SET e.layer = 'declared'",
+    f"MATCH ()-[e:{EVIDENCE_EDGES}]->() SET e.layer = 'evidence'",
+    f"MATCH ()-[e:{RECONCILIATION_EDGES}]->() SET e.layer = 'reconciliation'",
+]
 INT_FIELDS = {"count", "rpo_minutes", "rto_hours", "capacity_tb", "member_count", "beds"}
 BOOL_FIELDS = {"handles_phi", "backup_offsite", "patchable", "encrypted", "immutable", "failover", "scanned"}
 # ServiceNow type -> graph edge. Graph edge names are the DATA_SPEC section 8 names.
@@ -333,6 +347,11 @@ class Loader:
         self.run("UNWIND $rows AS r MATCH (g:SupportGroup {name: r.g}) MATCH (c:Component {name: r.c}) "
                  "MERGE (g)-[e:OBSERVED_OWNER]->(c) SET e += r.p", rows)
 
+    def tag_layers(self):
+        """REALISM_SPEC 2: every node and edge says which layer it belongs to."""
+        for q in LAYER_TAGS:
+            self.g.query(q)
+
     def impact_layers(self):
         """Derived IMPACTS_*/AFFECTS_* edges (graph/impact.py), rebuilt on every load."""
         impact.build(self.g)
@@ -349,7 +368,7 @@ class Loader:
         self.indexes()
         for step in (self.reference, self.components, self.relationships, self.changes, self.identity,
                      self.discovery, self.flows, self.replication, self.backups, self.access, self.evidence,
-                     self.write_aliases, self.impact_layers):
+                     self.write_aliases, self.impact_layers, self.tag_layers):
             step()
         return round(time.time() - t0, 1)
 

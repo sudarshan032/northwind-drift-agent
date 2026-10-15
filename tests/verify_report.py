@@ -50,7 +50,7 @@ def build(data, graph, log, out):
          dec["business_services"] == ["svc-lab-results"] and "svc-emergency-care" not in dec["business_services"]),
         ("Real radius: 51 ORU-CRIT routes, 51 hospitals, Emergency care",
          real["counts"]["routes"] == 51 and real["counts"]["hospitals"] == 51
-         and "svc-emergency-care" in real["business_services"]),
+         and real["counts"]["service_offerings"] == 51 and "svc-emergency-care" in real["business_services"]),
         ("D14 path group -> users -> app -> emr-fhir-api -> emr-db-01",
          bool(d14) and d14[0]["api"] == "emr-fhir-api" and "emr-db-01" in d14[0]["data"]),
         ("Discovered without IDENTIFIES == D6 count",
@@ -70,7 +70,8 @@ def build(data, graph, log, out):
     md += [f"| {k} | {v:,} |" for k, v in counts["edges_by_type"].items()]
     md += ["", "## Blast radius of `dc1-host-07` (target of CHG-HEADLINE)", "",
            "| | Declared (CMDB) | Real (declared structure + observed) |", "|---|---|---|"]
-    for k in ("routes", "applications", "departments", "hospitals", "business_services", "components"):
+    for k in ("routes", "applications", "departments", "hospitals", "business_services", "service_offerings",
+              "components"):
         md.append(f"| {k.replace('_', ' ')} | {dec['counts'][k]} | {real['counts'][k]} |")
     md += ["", f"- Declared business services: {', '.join(dec['business_services'])}; applications: "
            f"{', '.join(dec['by_label'].get('Application', []))}.",

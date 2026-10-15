@@ -215,8 +215,8 @@ def template_review(f):
     return (f"{f['change']} ({f['description']}) is {f['risk'].upper()} risk. The CMDB says it affects "
             f"{f['declared']['components']} components and {f['declared']['business_services']} business service(s) "
             f"({', '.join(f['declared_services'])}). The observed graph says {f['real']['components']} components, "
-            f"{f['real']['routes']} routes, {f['real']['hospitals']} hospitals and {f['real']['business_services']} "
-            f"business services, including {', '.join(f['newly_reached_high_safety_services'][:3])}. "
+            f"{f['real']['routes']} routes, {f['real']['hospitals']} hospitals, {f['real']['business_services']} "
+            f"business services and {f['real']['service_offerings']} service offerings, including {', '.join(f['newly_reached_high_safety_services'][:3])}. "
             f"{len(f['hidden_edges'])} hidden edges, e.g. {', '.join(f['hidden_edges'][:3])}. Warn: {', '.join(warn)}.")
 
 

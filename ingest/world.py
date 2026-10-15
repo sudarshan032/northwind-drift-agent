@@ -202,6 +202,7 @@ INVENTORY = {
 # ServiceNow CMDB data model (research note R6).
 CLASS_LABEL = {
     "cmdb_ci_service_business": "BusinessService",
+    "service_offering": "ServiceOffering",  # CSDM; applied at export to per-site services (views.csdm_class)
     "cmdb_ci_appl": "Application",
     "u_cmdb_ci_hl7_interface": "Interface",
     "cmdb_ci_db_mssql_instance": "Database", "cmdb_ci_db_ora_instance": "Database",

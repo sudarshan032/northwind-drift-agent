@@ -11,6 +11,7 @@ import gzip
 import io
 import ipaddress
 import json
+import re
 import math
 import os
 from datetime import datetime, timedelta, timezone
@@ -52,6 +53,13 @@ def fmt_value(v):
 # --------------------------------------------------------------------------
 
 
+def csdm_class(c):
+    """CSDM at export: per-site services are Service Offerings of a Business Service."""
+    if c["class"] == "cmdb_ci_service_business" and re.fullmatch(r"svc-h\d\d-ed-critical-results", c["name"]):
+        return "service_offering"
+    return c["class"]
+
+
 def cmdb_view(world, plan):
     """ServiceNow-shaped tables. Location, department and support group are
     reference columns on cmdb_ci (as in ServiceNow); the loader turns them
@@ -59,6 +67,7 @@ def cmdb_view(world, plan):
     cis = []
     for c in world["cis"] + plan["cmdb_add_cis"]:
         row = {k: fmt_value(c.get(k, "")) for k in CMDB_COLUMNS}
+        row["class"] = csdm_class(c)
         for k, v in plan["cmdb_attr"].get(c["name"], {}).items():
             row[k] = fmt_value(v)
         cis.append(row)

@@ -8,6 +8,7 @@ raising.
 """
 
 TIMEOUT_MS = 5000
+SERVICE_LABELS = ("BusinessService", "ServiceOffering")  # CSDM: counted separately, both can be high-safety
 LIMIT = 5000
 
 
@@ -81,17 +82,18 @@ def radius(g, name, layer="real", depth=10, timeout=TIMEOUT_MS):
     for x in impacted:
         by_label.setdefault(x["label"], []).append(x["name"])
     services = sorted(by_label.get("BusinessService", []))
+    offerings = sorted(by_label.get("ServiceOffering", []))
     return {
         "component": name, "layer": layer, "found": True,
         "impacted": impacted, "by_label": {k: sorted(v) for k, v in sorted(by_label.items())},
         "counts": {"components": len(impacted), "routes": len(by_label.get("Interface", [])),
                    "applications": len(by_label.get("Application", [])),
                    "departments": len(set(r["departments"])), "hospitals": len(set(r["hospitals"])),
-                   "business_services": len(services)},
+                   "business_services": len(services), "service_offerings": len(offerings)},
         "consumers": sorted(set(r["consumers"])), "departments": sorted(set(r["departments"])),
-        "hospitals": sorted(set(r["hospitals"])), "business_services": services,
-        "high_safety_services": sorted(x["name"] for x in impacted
-                                       if x["label"] == "BusinessService" and x["safety"] == "high"),
+        "hospitals": sorted(set(r["hospitals"])), "business_services": services, "service_offerings": offerings,
+        "high_safety_services": sorted(x["name"] for x in impacted if x["label"] in SERVICE_LABELS
+                                       and x["safety"] == "high"),
     }
 
 
@@ -147,8 +149,7 @@ def unregistered_app_path(g, app, timeout=TIMEOUT_MS):
 # Each returns rows with a `key` list identical to ground_truth finding_keys.
 # --------------------------------------------------------------------------
 
-SNAPSHOT_END = "2026-10-14T23:59:59Z"
-BACKUP_CUTOFF = "2026-10-07T23:59:59Z"  # SNAPSHOT_END - 7 days
+from ingest.config import BACKUP_CUTOFF, MIN_DAYS_UNDOCUMENTED, SNAPSHOT_END  # noqa: E402,F401
 DISCOVERABLE = sorted(__import__("ingest.world", fromlist=["DISCOVERABLE_CLASSES"]).DISCOVERABLE_CLASSES)
 REL_TYPE_NAME = {"DEPENDS_ON": "Depends on::Used by", "REPLICATES_TO": "Replicates to::Replica of"}
 
@@ -164,7 +165,7 @@ DETECTORS = {
         WHERE NOT coalesce(o.health_check, false)
         WITH a, b, collect(o.days) AS dl
         WITH a, b, {_FLAT} AS flat
-        WITH a, b, {_DAYS} AS days WHERE size(days) >= 3
+        WITH a, b, {_DAYS} AS days WHERE size(days) >= $min_days
         OPTIONAL MATCH (a)-[dep:DEPENDS_ON]-(b)
         WITH a, b, days, count(dep) AS declared WHERE declared = 0
         RETURN ['undocumented', a.name, b.name] AS key, size(days) AS days_seen
@@ -272,7 +273,7 @@ DETECTORS = {
         WHERE NOT coalesce(o.health_check, false)
         WITH x, collect(o.days) AS dl
         WITH x, {_FLAT} AS flat
-        WITH x, {_DAYS} AS days WHERE size(days) >= 3
+        WITH x, {_DAYS} AS days WHERE size(days) >= $min_days
         OPTIONAL MATCH (u:User)-[a:OBSERVED_ACCESS]->(x)
         WITH x, days, count(DISTINCT u) AS users
         RETURN ['unregistered_app', x.name] AS key, size(days) AS days_seen, users ORDER BY key LIMIT $limit""",
@@ -288,8 +289,8 @@ RETURN a AS alias, c.name AS ci ORDER BY ci, alias LIMIT $limit
 @guarded
 def detect(g, drift_type, timeout=TIMEOUT_MS, limit=LIMIT):
     """Run one detector; rows carry `key` (ground-truth format)."""
-    rows = run(g, DETECTORS[drift_type], {"limit": limit, "classes": DISCOVERABLE, "cutoff": BACKUP_CUTOFF},
-               timeout)
+    rows = run(g, DETECTORS[drift_type], {"limit": limit, "classes": DISCOVERABLE, "cutoff": BACKUP_CUTOFF,
+                                          "min_days": MIN_DAYS_UNDOCUMENTED}, timeout)
     for r in rows:
         if r["key"][0] == "stale":
             r["key"][3] = REL_TYPE_NAME[r["key"][3]]

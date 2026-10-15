@@ -44,6 +44,8 @@ def test_headline_radius_and_change_review(full_graph):
     assert dec["counts"]["routes"] == 0 and dec["counts"]["departments"] == 0
     assert set(real["by_label"]["Interface"]) == {f"ORU-CRIT-H{i:02d}" for i in range(1, 52)}
     assert "svc-emergency-care" in real["business_services"]
+    assert real["counts"]["service_offerings"] == 51 and dec["counts"]["service_offerings"] == 0
+    assert set(real["business_services"]) == {"svc-emergency-care", "svc-lab-results"}  # offerings counted apart
     assert {f"H{i:02d}-ED" for i in range(1, 52)} <= set(real["departments"])
     review = Q.change_review(full_graph, "CHG-HEADLINE")
     assert review["risk"] == "high" and "svc-emergency-care" in review["newly_reached_high_safety_services"]
@@ -55,6 +57,7 @@ def test_change_review_low_and_unknown(full_graph):
     assert Q.change_review(full_graph, "NO-SUCH-CHANGE")["found"] is False
     r = Q.change_review(full_graph, "CHG0031400")  # routine host maintenance, nothing hidden there
     assert r["found"] and r["risk"] in ("low", "medium")
+    assert Q.change_review(full_graph, "CHG0031513")["risk"] == "low"  # EMR upgrade: CMDB already right
 
 
 def test_critical_nodes_stable(full_graph):

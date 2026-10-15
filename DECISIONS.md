@@ -218,3 +218,19 @@ Clarified, not changed:
 - One static page (`ui/index.html`, served by the API at `/`), no build step: Cytoscape.js 3.30.2 from cdnjs for the path graph, a hand-drawn SVG map (equirectangular, Alaska inset, state labels) instead of a tile map (no extra dependency or API key). Tabs: Change review (default, opens on CHG-HEADLINE), Findings (approve/reject), Incident, Chat; `#findings` etc. deep-link a tab. Light/dark via `prefers-color-scheme` plus a toggle.
 - Edge colours: observed only = red, declared only (a traffic-confirmable `Depends on`/`Replicates to`/`Backed up by` with no observation) = grey dashed, failover = blue dashed, declared and observed or structural (runs on, stores on, contains, department) = neutral solid.
 - Screenshots: `docs/change-review-light.png`, `docs/change-review-dark.png`, `docs/findings.png` (headless Chrome against the full data).
+
+# REALISM_SPEC run (2026-10-16), branch `realism`
+
+## 53. Thresholds in one module
+- `ingest/config.py` holds every threshold (3 distinct days, 7-day backup rule and its cutoff, 48 h transient rule, 90-day ownership window, 1 h RPO-breach duration, ephemeral port floor, service ports) and the CMDB write-back field allowlist. Detectors pass them as Cypher parameters.
+
+## 54. CMDB write-back rule and tickets
+- A finding may patch only CI existence (register / retire), `os_version`, `serial_number`, `ip_address`, `support_group`, `status`, or CMDB relationships; `agent/approval.validate` rejects anything else. D9's former `backup_offsite=false` patch is gone.
+- D9/D10 propose an `incident` to NW-Backup-Storage, D11 an `sn_si_incident` to NW-SecOps plus a compliance notification to NW-Privacy-Compliance, D12 an `sn_si_incident` (priority 1 if admin outside a change window). Approving writes the ticket to `runtime/tickets.jsonl` (ServiceNow field names: short_description, cmdb_ci, assignment_group, priority, category, description, state) and leaves the CMDB untouched; `resolved` stays false (the problem persists until the team acts).
+- Approved CMDB patches are also recorded as a closed standard `change_request` in `tickets.jsonl` (CMDB changes are changes). Rejecting a D14 registration raises its `sn_si_incident`.
+
+## 55. CSDM service offerings (no truth change)
+- The truth model is unchanged; the CMDB export classifies the 51 `svc-hNN-ed-critical-results` CIs as `service_offering` (graph label `ServiceOffering`), contained by the business service `svc-emergency-care`. Impact `contains` covers both; radius counts report `business_services` and `service_offerings` separately (headline real: 2 business services, 51 offerings; declared: 1 and 0).
+
+## 56. Layers
+- Loader tags every node and edge with `layer`: `declared` (CMDB export + IAM), `evidence` (discovered/observed: `:Discovered`, `:UnregisteredEndpoint`, `OBSERVED_*`), `reconciliation` (`IDENTIFIES`, impact layers, `:Finding`, `ABOUT`).

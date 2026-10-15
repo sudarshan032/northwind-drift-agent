@@ -17,7 +17,7 @@ Rules (direction a -> b):
 | runs_on     | (b)-[:RUNS_ON]->(a)                               | both      |
 | stores_on   | (b)-[:STORES_ON]->(a)                             | both      |
 | hosts_route | (a:Application)-[:CONTAINS]->(b:Interface)        | both      |
-| contains    | (b:BusinessService)-[:CONTAINS]->(a)              | both      |
+| contains    | (b:BusinessService or ServiceOffering)-[:CONTAINS]->(a) | both |
 | depends_on  | (b)-[:DEPENDS_ON {failover:false}]->(a)           | declared  |
 | calls       | (b)-[:OBSERVED_CALLS]->(a), a not an Interface    | real      |
 |             | (excluding health checks and fire-and-forget syslog)|           |
@@ -39,14 +39,14 @@ RULES = {
         ("runs_on", "MATCH (b)-[:RUNS_ON]->(a)"),
         ("stores_on", "MATCH (b)-[:STORES_ON]->(a)"),
         ("hosts_route", "MATCH (a:Application)-[:CONTAINS]->(b:Interface)"),
-        ("contains", "MATCH (b:BusinessService)-[:CONTAINS]->(a)"),
+        ("contains", "MATCH (b)-[:CONTAINS]->(a) WHERE b:BusinessService OR b:ServiceOffering"),
         ("depends_on", "MATCH (b:Component)-[e:DEPENDS_ON]->(a:Component) WHERE e.failover = false"),
     ],
     "real": [
         ("runs_on", "MATCH (b)-[:RUNS_ON]->(a)"),
         ("stores_on", "MATCH (b)-[:STORES_ON]->(a)"),
         ("hosts_route", "MATCH (a:Application)-[:CONTAINS]->(b:Interface)"),
-        ("contains", "MATCH (b:BusinessService)-[:CONTAINS]->(a)"),
+        ("contains", "MATCH (b)-[:CONTAINS]->(a) WHERE b:BusinessService OR b:ServiceOffering"),
         ("calls", "MATCH (b)-[e:OBSERVED_CALLS]->(a) WHERE NOT a:Interface AND NOT coalesce(e.health_check, false) "
                   "AND NOT e.protocol IN ['syslog-tls']"),
         ("feeds_route", "MATCH (a)-[e:OBSERVED_CALLS]->(b:Interface) WHERE NOT coalesce(e.health_check, false)"),
