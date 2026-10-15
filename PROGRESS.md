@@ -37,3 +37,4 @@ Re-read this file, RUN_PROMPT.md and DATA_SPEC.md after any context compaction.
 - Next: Phase 2 agent (LangGraph, fake LLM for tests).
 ## Phase 2 — done: agent/ (llm, tools, findings, approval, flows); tests/test_agent.py with FakeLLM; 58 tests pass. No API key: live check pending.
 - Next: Phase 3 API (FastAPI).
+## Phase 3 — done: api/main.py, tests/test_api.py.

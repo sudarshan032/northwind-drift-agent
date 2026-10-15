@@ -450,8 +450,9 @@ WHERE all(r IN relationships(p) WHERE NOT type(r) IN ['IMPACTS_DECLARED', 'IMPAC
                                                     'AFFECTS_REAL', 'LOCATED_AT', 'MANAGED_BY', 'OBSERVED_OWNER'])
 UNWIND relationships(p) AS r
 WITH DISTINCT r, startNode(r) AS a, endNode(r) AS b LIMIT $limit
-RETURN coalesce(a.name, a.id) AS src, [l IN labels(a) WHERE l <> 'Component'][0] AS src_label, type(r) AS type,
-       coalesce(b.name, b.id) AS dst, [l IN labels(b) WHERE l <> 'Component'][0] AS dst_label,
+RETURN coalesce(a.name, a.id, a.number, a.hostname) AS src, [l IN labels(a) WHERE l <> 'Component'][0] AS src_label,
+       type(r) AS type, coalesce(b.name, b.id, b.number, b.hostname) AS dst,
+       [l IN labels(b) WHERE l <> 'Component'][0] AS dst_label,
        r.failover AS failover
 """
 
@@ -511,3 +512,30 @@ RETURN c.name AS name, [l IN labels(c) WHERE l <> 'Component'][0] AS label, c.si
 def search_components(g, text, timeout=TIMEOUT_MS, limit=25):
     """Find components whose name or description contains `text`."""
     return run(g, SEARCH, {"text": text, "limit": limit}, timeout)
+
+
+# --------------------------------------------------------------------------
+# UI support: classify node pairs by layer
+# --------------------------------------------------------------------------
+
+EDGE_LAYERS = """
+UNWIND $pairs AS p
+MATCH (a {name: p[0]}), (b) WHERE (b.name = p[1] OR (b:Department AND b.id = p[1]))
+      AND (a:Component OR a:UnregisteredEndpoint)
+OPTIONAL MATCH (a)-[d:DEPENDS_ON|RUNS_ON|STORES_ON|CONTAINS|REPLICATES_TO|BACKED_UP_BY|CONNECTS_THROUGH|IN_DEPARTMENT]-(b)
+OPTIONAL MATCH (a)-[o:OBSERVED_CALLS|OBSERVED_NETFLOW|OBSERVED_REPLICATES_TO|OBSERVED_BACKUP_TO]-(b)
+WITH p, collect(DISTINCT type(d)) AS declared, collect(DISTINCT type(o)) AS observed,
+     max(CASE WHEN d.failover = true THEN 1 ELSE 0 END) AS fo
+RETURN p[0] AS src, p[1] AS dst, declared, observed, fo = 1 AS failover
+"""
+
+
+@guarded
+def edge_layers(g, pairs, timeout=TIMEOUT_MS):
+    """For each [src, dst]: declared edge types, observed edge types, failover.
+    UI colouring: observed-only red, declared-only grey dashed, failover blue dashed."""
+    rows = run(g, EDGE_LAYERS, {"pairs": [list(p) for p in pairs]}, timeout)
+    for r in rows:
+        r["layer"] = ("failover" if r["failover"] else "both" if r["declared"] and r["observed"]
+                      else "observed_only" if r["observed"] else "declared_only" if r["declared"] else "derived")
+    return rows
