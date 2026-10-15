@@ -21,13 +21,15 @@ from typing import TypedDict
 
 from langgraph.graph import END, StateGraph
 
-from agent import findings as F
+from agent import findings as F, grounding as G
 from agent.llm import JOB_CAPS, NO_KEY, UNAVAILABLE, LLMUnavailable, capped
 from agent.tools import READ_ONLY, Toolbox
 from graph import queries as Q
 
-GROUNDING = ("Use only facts from the tool output you are given or that you retrieve with tools. "
-             "Never invent component names, counts, dates or paths. If a tool returns nothing, say so.")
+GROUNDING = ("Use only the numbers, names, dates and risk levels that appear in the facts or tool results you are "
+             "given; never compute, round, estimate or invent counts, component names, dates or paths. If a tool "
+             "returns nothing, say so. Every number and name you write is checked against the facts.")
+DISCARDED = "AI explanation discarded (numbers or names not in the facts), showing rule-based explanation"
 
 # --------------------------------------------------------------------------
 # Generic tool-using loop (used by incident and chat)
@@ -40,23 +42,32 @@ class LoopState(TypedDict):
     answer: str
 
 
-def tool_loop(llm, box, system, tool_names, max_steps=8):
-    """LangGraph agent loop: model -> (tools -> model)* -> answer."""
+def final_prompt(question, box, limit=40000):
+    """The last allowed call: no tools, the question plus every tool result so far."""
+    ev = "\n".join(f"- {t['tool']}({json.dumps(t['input'], default=str)}) -> {box.text(t['result'])[:8000]}"
+                    for t in box.trace)
+    return (f"{question}\n\nEvidence gathered with tools (JSON results):\n{ev or '(none)'}"[:limit]
+            + "\n\nTools are now disabled. Give your final answer from this evidence only.")
+
+
+def tool_loop(llm, box, system, tool_names, max_steps, question):
+    """LangGraph agent loop: model -> (tools -> model)* -> answer. The model
+    is told its step budget; the final allowed call has tools disabled and
+    gets the gathered evidence as plain text, so it must answer."""
     specs = box.specs(tool_names)
+    system = (f"{system} You have at most {max_steps} model calls in this job; tools are disabled on the last one, "
+              "so gather evidence early and keep calls few.")
 
     def model(state):
-        last = state["steps"] == max_steps - 1  # job cap: the final call must answer
-        sys_ = system + (" You have no tool calls left: give your final answer now from the results so far."
-                         if last and max_steps > 1 else "")
+        last = max_steps > 1 and state["steps"] == max_steps - 1
+        msgs = [{"role": "user", "content": final_prompt(question, box)}] if last else state["messages"]
         try:
-            reply = llm.respond(sys_, state["messages"], specs, **({"tool_choice": "none"} if last else {}))
+            reply = llm.respond(system, msgs, None if last else specs)
         except LLMUnavailable:
-            return {"steps": state["steps"] + 1, "answer": UNAVAILABLE + "."}
-        if last and "<tool_call>" in reply.text:  # a model that writes a tool call as text: no answer
-            reply.text = ""
-        msgs = state["messages"] + [{"role": "assistant", "content": reply.content}]
-        return {"messages": msgs, "steps": state["steps"] + 1,
-                "answer": reply.text if not reply.tool_calls else state["answer"]}
+            return {"steps": state["steps"] + 1, "answer": ""}
+        text = "" if "<tool_call>" in reply.text else reply.text  # a tool call written as text is no answer
+        return {"messages": state["messages"] + [{"role": "assistant", "content": reply.content}],
+                "steps": state["steps"] + 1, "answer": text if (last or not reply.tool_calls) else state["answer"]}
 
     def tools(state):
         last = state["messages"][-1]["content"]
@@ -87,13 +98,22 @@ def tool_loop(llm, box, system, tool_names, max_steps=8):
     return sg.compile()
 
 
-def run_loop(llm, box, system, question, tool_names, max_steps=8):
-    app = tool_loop(llm, box, system, tool_names, max_steps)
+def run_loop(llm, box, system, question, tool_names, max_steps, job):
+    app = tool_loop(llm, box, system, tool_names, max_steps, question)
     out = app.invoke({"messages": [{"role": "user", "content": question}], "steps": 0, "answer": ""},
                      {"recursion_limit": 4 * max_steps + 4})
-    answer = out["answer"] or "(stopped: step limit reached before a final answer)"
-    return {"answer": answer, "steps": [{"tool": t["tool"], "input": t["input"]} for t in box.trace],
-            "paths": cited_paths(box.trace)}
+    facts = {"question": question, "tool_calls": [{"tool": t["tool"], "input": t["input"], "result": t["result"]}
+                                                  for t in box.trace]}
+    answer, notice, bad = out["answer"], None, []
+    if not answer:  # unavailable, step limit or unusable final reply
+        notice = UNAVAILABLE
+    else:
+        answer, bad = G.grounded(answer, facts, G.graph_names(box.g), job)
+        notice = DISCARDED if bad else None
+    if answer is None or not out["answer"]:
+        answer = G.summarise_trace(box.trace, question)
+    return {"answer": answer, "notice": notice, "mismatches": bad,
+            "steps": [{"tool": t["tool"], "input": t["input"]} for t in box.trace], "paths": cited_paths(box.trace)}
 
 
 def cited_paths(trace):
@@ -146,7 +166,7 @@ def triage(g, llm=None, top_n=10):
     def explain(s):
         fs, notice = s["findings"], None
         if job is not None:  # one batched call for the top N (free-tier budget)
-            facts = [{"id": f["id"], **{k: f[k] for k in ("kind", "key", "severity", "path")},
+            facts = [{"id": f["id"], **{k: f[k] for k in ("kind", "key", "subjects", "severity", "path")},
                       "evidence": json.dumps(f["evidence"], default=str)[:1500], "patch_ops": len(f["patch"])}
                      for f in fs[:top_n]]
             try:
@@ -154,11 +174,20 @@ def triage(g, llm=None, top_n=10):
                     facts, default=str)}]).text)
             except LLMUnavailable:
                 got, notice = {}, UNAVAILABLE
+            names, discarded = G.graph_names(g), 0
             for f in fs[:top_n]:
                 if got.get(f["id"]):
-                    f["explanation"], f["explained_by"] = got[f["id"]], "llm"
+                    facts = {k: f[k] for k in ("id", "kind", "key", "keys", "subjects", "severity", "evidence",
+                                               "path", "patch", "explanation")}
+                    text, bad = G.grounded(got[f["id"]], facts, names, f"triage {f['id']}")
+                    if text:
+                        f["explanation"], f["explained_by"] = text, "llm"
+                    else:
+                        discarded += 1  # mismatch logged by G.grounded
             if not got and notice is None:
                 notice = "AI explanation unavailable (model reply not usable), showing rule-based explanation"
+            elif discarded:
+                notice = f"{DISCARDED} for {discarded} finding(s)"
         return {"findings": fs, "notice": notice}
 
     def store(s):
@@ -193,6 +222,7 @@ class ChangeState(TypedDict, total=False):
     owners: list
     explanation: str
     notice: str
+    mismatches: list
 
 
 def change_review(g, change_id, llm=None):
@@ -222,7 +252,12 @@ def change_review(g, change_id, llm=None):
             reply = job.respond(CHANGE, [{"role": "user", "content": json.dumps(facts, default=str)[:12000]}])
         except LLMUnavailable:
             return {"explanation": template_review(facts), "notice": UNAVAILABLE}
-        return {"explanation": reply.text or template_review(facts)}
+        if not reply.text:
+            return {"explanation": template_review(facts), "notice": UNAVAILABLE}
+        text, bad = G.grounded(reply.text, facts, G.graph_names(g), f"change_review {change_id}")
+        if text is None:
+            return {"explanation": template_review(facts), "notice": DISCARDED, "mismatches": bad}
+        return {"explanation": text}
 
     sg = StateGraph(ChangeState)
     sg.add_node("review", review)
@@ -234,7 +269,8 @@ def change_review(g, change_id, llm=None):
     sg.add_edge("explain", END)
     out = sg.compile().invoke({})
     return {"change": change_id, "facts": summarise_review(out["review"], out["owners"])
-            if out["review"].get("found") else None, "explanation": out["explanation"], "notice": out.get("notice")}
+            if out["review"].get("found") else None, "explanation": out["explanation"], "notice": out.get("notice"),
+            "mismatches": out.get("mismatches", [])}
 
 
 def summarise_review(r, owners):
@@ -282,7 +318,7 @@ def incident(g, symptom, llm=None):
     if llm is None:
         return {"answer": NO_KEY, "steps": [], "paths": []}
     return run_loop(capped(llm, "incident"), Toolbox(g), INCIDENT, symptom, INCIDENT_TOOLS,
-                    max_steps=JOB_CAPS["incident"])
+                    JOB_CAPS["incident"], "incident")
 
 
 # --------------------------------------------------------------------------
@@ -350,5 +386,5 @@ CHAT = ("You answer questions about Northwind Health's IT estate using only the 
 def chat(g, message, llm=None):
     if llm is None:
         return {"answer": NO_KEY, "steps": [], "paths": []}
-    return run_loop(capped(llm, "chat"), Toolbox(g), CHAT, message, READ_ONLY, max_steps=JOB_CAPS["chat"])
+    return run_loop(capped(llm, "chat"), Toolbox(g), CHAT, message, READ_ONLY, JOB_CAPS["chat"], "chat")
 

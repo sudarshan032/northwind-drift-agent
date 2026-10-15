@@ -471,13 +471,13 @@ $("#investigate").onclick = async () => {
   $("#incident").textContent = "Investigating…";
   const r = await api("/incident", { method: "POST", body: JSON.stringify({ symptom: $("#symptom").value }) });
   renderSteps($("#steps"), r.steps);
-  $("#incident").textContent = r.answer + (r.paths.length ? `\n\nPaths:\n${r.paths.join("\n")}` : "");
+  $("#incident").textContent = (r.notice ? r.notice + "\n\n" : "") + r.answer + (r.paths.length ? `\n\nPaths:\n${r.paths.join("\n")}` : "");
   quota();
 };
 $("#ask").onclick = async () => {
   $("#answer").textContent = "Thinking…";
   const r = await api("/chat", { method: "POST", body: JSON.stringify({ message: $("#question").value }) });
-  $("#answer").textContent = r.answer;
+  $("#answer").textContent = (r.notice ? r.notice + "\n\n" : "") + r.answer;
   $("#cites").innerHTML = r.paths.map((p) => `<li>${esc(p)}</li>`).join("");
   quota();
 };

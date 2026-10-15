@@ -39,7 +39,7 @@ docker compose up -d falkordb
 uv run python -m ingest.generate --seed 42 --out data/      # raw exports + connectors, ~15 s, ~390 MB
 uv run python -m ingest.connect --data data/                 # re-run the connectors alone
 uv run python -m ingest.load --data data/ --graph northwind --fresh
-uv run python -m pytest -q                                   # 89 tests; agent tests use a scripted fake LLM
+uv run python -m pytest -q                                   # 91 tests; agent tests use a scripted fake LLM
 uv run uvicorn api.main:app --port 8000
 ```
 
@@ -265,8 +265,14 @@ These are LangGraph flows over the Cypher tools:
 All tests use a deterministic scripted LLM, so no key is needed. Live providers: OpenRouter free models
 (OpenAI-compatible API, `agent/llm.py`) or Claude through the official `anthropic` SDK with refusal fallback.
 Each job has a request cap: triage 1 (the top-10 explanations are one batched call), change review 1,
-incident at most 6, chat at most 4 per message; the last allowed call is made with `tool_choice: none` so it
-must answer.
+incident at most 6, chat at most 4 per message. The model is told its budget, and the last allowed call has
+tools disabled and gets the gathered evidence as text, so it must answer; if it cannot, a rule-based summary of
+the tool results (shared dependency, changes, path, owners) is shown instead.
+
+**Grounding.** Every job passes its computed facts (counts, names, risk, tool results) as structured input and
+the prompt says to use only those values. Every number and CI name in the reply is then checked against the
+facts; on any mismatch the prose is discarded, the rule-based explanation is shown with a notice, and the
+mismatch is logged.
 
 ## Using free models
 

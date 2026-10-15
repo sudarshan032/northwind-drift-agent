@@ -37,9 +37,11 @@ def main():
     before = llm.status().get("remaining")
     out = {"triage": flows.triage(g, llm)["notice"]}
     for c in DEMO_CHANGES:
-        out[c] = flows.change_review(g, c, llm)["notice"]
-    out["incident"] = flows.incident(g, DEMO_SYMPTOM, llm)["answer"][:120]
-    out["chat"] = flows.chat(g, DEMO_QUESTION, llm)["answer"][:120]
+        r = flows.change_review(g, c, llm)
+        out[c] = {"notice": r["notice"], "mismatches": r["mismatches"]}
+    for job, r in (("incident", flows.incident(g, DEMO_SYMPTOM, llm)), ("chat", flows.chat(g, DEMO_QUESTION, llm))):
+        out[job] = {"notice": r["notice"], "mismatches": r["mismatches"], "steps": len(r["steps"]),
+                    "answer": r["answer"][:160]}
     llm._key_info = (0, None)  # force a fresh key-info read
     out["requests_remaining"] = {"before": before, "after": llm.status().get("remaining")}
     print(json.dumps(out, indent=1))

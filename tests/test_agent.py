@@ -40,8 +40,8 @@ def test_triage_findings_and_ranking(env, drift_data):
     g, data, _ = env
     def batch(system, messages, tools):  # one call explains the whole top 10
         items = json.loads(messages[0]["content"])
-        return {"text": json.dumps({"explanations": [{"id": f["id"], "text": f"Scripted explanation {i}."}
-                                                     for i, f in enumerate(items)]})}
+        return {"text": json.dumps({"explanations": [{"id": f["id"], "text": f"Scripted: {f['subjects'][0]}."}
+                                                     for f in items]})}
     llm = FakeLLM([batch])
     res = flows.triage(g, llm)
     top = res["top"]
@@ -66,18 +66,64 @@ def test_llm_unavailable_falls_back_to_templates(env):
     out = flows.change_review(g, "CHG-HEADLINE", FakeLLM([LLMUnavailable("budget")]))
     assert out["notice"] == UNAVAILABLE and "HIGH" in out["explanation"] and out["facts"]["risk"] == "high"
     out = flows.chat(g, "What is lrc-db-01?", FakeLLM([LLMUnavailable("budget")]))
-    assert out["answer"].startswith(UNAVAILABLE)
+    assert out["notice"] == UNAVAILABLE and out["answer"] == "Rule-based summary: no tool evidence was gathered."
 
 
 def test_job_caps(env):
     g, _, _ = env
     llm = FakeLLM([{"tool": "search_components", "input": {"text": "lrc"}}] * 10)
     out = flows.chat(g, "loop forever", llm)
-    assert len(llm.calls) == JOB_CAPS["chat"] == 4 and out["answer"].startswith("(stopped")
-    assert [c["tool_choice"] for c in llm.calls] == [None, None, None, "none"]  # last call must answer
+    # the fake keeps writing tool calls even without tools: rule-based summary of what was gathered
+    assert len(llm.calls) == JOB_CAPS["chat"] == 4 and out["notice"] == UNAVAILABLE
+    assert out["answer"].startswith("Rule-based summary") and "lrc-db-01" in out["answer"]
+    assert [bool(c["tools"]) for c in llm.calls] == [True, True, True, False]  # last call: tools disabled
+    assert "at most 4 model calls" in llm.calls[0]["system"]
+    assert "Evidence gathered with tools" in llm.calls[-1]["messages"][0]["content"]
     llm = FakeLLM([{"tool": "search_components", "input": {"text": "lrc"}}] * 10)
     flows.incident(g, "loop forever", llm)
     assert len(llm.calls) == JOB_CAPS["incident"] == 6
+
+
+def test_incident_final_call_fails_rule_based_summary(env):
+    g, _, _ = env
+    routes = ["ORU-CRIT-H03", "ORU-CRIT-H17", "ORU-CRIT-H22"]
+    llm = FakeLLM([{"tool": "shared_dependencies", "input": {"routes": routes}},
+                   {"tool": "changes_on", "input": {"components": ["lrc-db-01", "dc1-host-07"]}},
+                   {"tool": "impact_path", "input": {"source": "dc1-host-07", "target": "H03-ED"}},
+                   {"tool": "who_to_page", "input": {"components": ["lrc-db-01"]}},
+                   {"tool": "radius", "input": {"component": "lrc-db-01", "layer": "real"}},
+                   LLMUnavailable("429 on the final call")])
+    out = flows.incident(g, "ED critical results delayed at H03, H17 and H22", llm)
+    a = out["answer"]
+    assert out["notice"] == UNAVAILABLE and len(llm.calls) == 6 and llm.calls[-1]["tools"] is None
+    assert "Shared by every affected route" in a and "lrc-db-01" in a and "CHG-HEADLINE" in a
+    assert "dc1-host-07 -> dc1-vm-lrc01 -> lrc-db-01 -> ORU-CRIT-H03 -> H03-ED" in a
+    assert "HYD-Integration-Support" in a
+
+
+def test_grounding_rejects_wrong_count_and_wrong_ci(env, caplog):
+    g, _, _ = env
+    ok = flows.change_review(g, "CHG-HEADLINE", FakeLLM([{"text": "51 hospitals depend on lrc-db-01 via "
+                                                                  "ORU-CRIT-H03; risk is high."}]))
+    assert ok["notice"] is None and ok["explanation"].startswith("51 hospitals")
+    wrong_count = flows.change_review(g, "CHG-HEADLINE", FakeLLM([{"text": "52 hospitals depend on lrc-db-01."}]))
+    assert wrong_count["notice"] == flows.DISCARDED and wrong_count["explanation"] == flows.template_review(
+        wrong_count["facts"]) and wrong_count["mismatches"] == ["number 52 not in facts"]
+    wrong_ci = flows.change_review(g, "CHG-HEADLINE", FakeLLM([{"text": "51 hospitals depend on lrc-db-02."}]))
+    assert wrong_ci["notice"] == flows.DISCARDED and wrong_ci["mismatches"] == ["CI name lrc-db-02 not in facts"]
+    assert "LLM prose discarded" in caplog.text and "lrc-db-02" in caplog.text
+
+    def batch(system, messages, tools):  # first finding gets a wrong count, the rest are fine
+        items = json.loads(messages[0]["content"])
+        return {"text": json.dumps({"explanations": [{"id": f["id"], "text": f"{f['subjects'][0]} is wrong in "
+                                    + ("9999 places." if i == 0 else "the CMDB.")} for i, f in enumerate(items)]})}
+    res = flows.triage(g, FakeLLM([batch]), top_n=3)
+    assert [f["explained_by"] for f in res["top"]] == ["template", "llm", "llm"]
+    assert res["notice"] == flows.DISCARDED + " for 1 finding(s)"
+    out = flows.chat(g, "What is lrc-db-01?", FakeLLM([{"tool": "get_component", "input": {"name": "lrc-db-01"}},
+                                                       {"text": "lrc-db-01 runs on dc1-host-08."}]))
+    assert out["notice"] == flows.DISCARDED and "CI name dc1-host-08 not in facts" in out["mismatches"]
+    assert out["answer"].startswith("Rule-based summary")
 
 
 def test_triage_without_llm_uses_templates(env):

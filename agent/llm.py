@@ -330,7 +330,7 @@ class FakeLLM:
 
     def respond(self, system, messages, tools=None, tool_choice=None):
         self.calls.append({"system": system, "messages": json.loads(json.dumps(messages, default=str)),
-                           "tool_choice": tool_choice})
+                           "tools": [t["name"] for t in tools] if tools else None, "tool_choice": tool_choice})
         item = self.script.pop(0) if self.script else {"text": self.final}
         if isinstance(item, Exception):
             raise item
