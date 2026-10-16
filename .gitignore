@@ -1,17 +1,22 @@
-.venv/
-__pycache__/
-*.pyc
-.pytest_cache/
-# full generated data set is ~140 MB: regenerate with `python -m ingest.generate`
-data/*
-!data/README.md
-runtime/
+# secrets and local state: never in git
 .env
-.vercel
+.env.*
+!.env.example
+.vercel/
+runtime/
 
-# benchmark data and live run state
+# generated data (regenerate with `uv run python -m ingest.generate --seed 42 --out data/`)
+# and benchmark run state; the committed demo subset is data_demo/
+data/
 bench/data/
 bench/logs/
 bench/STATUS.json
 bench/DONE
 bench/FAILED
+
+# OS and Python caches
+.DS_Store
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/

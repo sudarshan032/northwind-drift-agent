@@ -11,7 +11,7 @@ from agent import approval, findings as F, flows
 from agent.llm import JOB_CAPS, NO_KEY, UNAVAILABLE, FakeLLM, LLMUnavailable
 from agent.tools import READ_ONLY, SPECS, Toolbox
 from graph import queries as Q
-from tests import oracle
+from tests.helpers import oracle
 from tests.conftest import _load
 
 pytestmark = pytest.mark.falkordb

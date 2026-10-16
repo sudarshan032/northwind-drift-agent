@@ -20,7 +20,7 @@ Where a name in this file (label, edge type, property, file) differs from what t
 
 Put every query in `graph/queries.py`, one function each, parameterised, each returning rows plus, where relevant, paths as ordered lists of node names and edge types.
 
-1. **Detectors**, one per drift type D1, D2, D4–D12, D14, implementing the same rules as `tests/oracle.py` (RUN_PROMPT 4.1) but as Cypher on the loaded graph. Python may only orchestrate and format; the logic must be in the queries. D3 must not appear; D13 must be returned as resolved aliases, not findings.
+1. **Detectors**, one per drift type D1, D2, D4–D12, D14, implementing the same rules as `tests/helpers/oracle.py` (RUN_PROMPT 4.1) but as Cypher on the loaded graph. Python may only orchestrate and format; the logic must be in the queries. D3 must not appear; D13 must be returned as resolved aliases, not findings.
 2. **Impact semantics** (used by both blast-radius queries). Impact flows from a failed component to everything that needs it:
    - things that run on or store on it (`RUNS_ON`, `STORES_ON`, or the actual storage edge name);
    - things that depend on it: declared `DEPENDS_ON`, or observed calls where the caller needs the callee (for example a route staging into `lrc-db-01`);

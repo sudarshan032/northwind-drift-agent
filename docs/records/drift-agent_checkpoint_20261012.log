@@ -1,0 +1,64 @@
+================================================================================
+CHECKPOINT LOG FILE
+================================================================================
+[2026-10-12 15:06:46.072] [SESSION_START] Session initiated
+[2026-10-12 15:06:46.072] [NOTE] Project: drift-agent (CMDB drift agent on FalkorDB, hackathon)
+[2026-10-12 15:06:46.072] [NOTE] Log file: drift-agent_checkpoint_20261012.log
+[2026-10-12 15:06:46.072] [NOTE] Working dir: /Users/siddh/Downloads/graph_hacks
+================================================================================
+
+[2026-10-12 15:06:46.072] [USER] Pasted full build spec: CMDB drift agent on FalkorDB (declared CMDB vs observed OTel traces, drift scan, blast radius, change review, LangGraph agent, FastAPI, Cytoscape UI). Spec says: no implementation before Oct 15 12:01 AM IST (hackathon rule).
+[2026-10-12 15:06:46.072] [DECISION] Did not start implementation: today is 2026-10-12, before the Oct 15 hackathon start rule. Did prep only.
+[2026-10-12 15:06:46.072] [CMD] ls -la; which docker python3 node; versions
+[2026-10-12 15:06:46.072] [OUTPUT] Project dir empty. Docker 29.1.3, Node v24.12.0, Python 3.14.6 (no python3.11 on host).
+[2026-10-12 15:06:46.072] [NOTE] Fetched docs.falkordb.com/algorithms, /betweenness-centrality, /pagerank to verify algorithm syntax.
+[2026-10-12 15:06:46.072] [OUTPUT] Betweenness: CALL algo.betweenness({nodeLabels, relationshipTypes, samplingSize, samplingSeed}) YIELD node, score. samplingSeed default 0 = time-based -> nondeterministic. PageRank: positional algo.pageRank(label, relType), single label only.
+[2026-10-12 15:06:46.072] [CLAUDE] Reported 6 spec gaps: (1) stale cutoff must derive from snapshot max last_seen, not now; (2) no query flags retired service; (3) generator must declare all observed edges incl. Infra except 3 removed; (4) unlabelled (f {name}) skips index -> add shared :Component label; (5) codeowners holds true owners, CMDB wrong for 2; (6) change-risk path enumeration OK at ~20 services. Flagged: recording OTel demo needs ~8GB Docker RAM and may count as early work - user's call.
+[2026-10-12 15:06:46.072] [DECISION] Use python:3.11 container image; host Python version irrelevant.
+[2026-10-12 15:06:46.072] [DECISION] Use betweenness centrality with samplingSeed: 42 for deterministic top-3; do not use PageRank.
+[2026-10-12 15:06:46.072] [USER] Re-pasted revised spec with all 6 fixes folded in (Component label, snapshot-relative cutoff, retired query, generator rules, fixed seed, new tests).
+[2026-10-12 15:06:46.072] [CLAUDE] Re-reviewed revised spec, found 2 more issues and fixed them in saved file.
+[2026-10-12 15:06:46.072] [FIX] Stale query: added AND coalesce(a.status,'')<>'retired' AND coalesce(b.status,'')<>'retired' - otherwise retired service's no-traffic edges count as stale and break 'exactly 2 stale' test.
+[2026-10-12 15:06:46.072] [FIX] Both blast-radius queries: added WHERE up <> f - call cycles could list the failed node as affected by itself.
+[2026-10-12 15:06:46.072] [CHANGE] Created /Users/siddh/Downloads/graph_hacks/SPEC.md: revised spec verbatim plus the 2 fixes above.
+[2026-10-12 15:06:46.072] [NOTE] Open offer to user: set reminder for Oct 15 12:01 AM IST to start Day 1 from SPEC.md.
+[2026-10-12 15:06:46.072] [USER] /checkpoint-logger
+[2026-10-12 15:06:46.072] [CHANGE] Created checkpoint log drift-agent_checkpoint_20261012.log
+
+================================================================================
+[2026-10-12 15:06:46.072] [SUMMARY] No code written (hackathon rule). Outputs: SPEC.md (8 fixes total vs original spec), FalkorDB algorithm syntax verified. Next: Day 1 on Oct 15.
+================================================================================
+
+================================================================================
+[2026-10-15 01:51:20.105] [SESSION_START] Autonomous data-phase run (Northwind Health). Prior online-shop plan in this log is superseded; following RUN_PROMPT.md + DATA_SPEC.md.
+[2026-10-15 01:51:20.136] [DECISION] Work on new branch northwind-data-phase (master untouched).
+[2026-10-15 01:53:22.619] [MILESTONE] M1 scaffold done and committed. FalkorDB v4.22.0 healthy, uv Python 3.11.14 venv.
+[2026-10-15 02:06:42.522] [DECISION] Design: world.py (truth) -> views.py (CMDB/discovery/observed/identity/evidence) -> drift.py (plan applied to views) -> generate.py; loader load.py; tests/oracle.py. Interfaces observed as route-level IE flows (src->route, route->target). D9 = backups land on same-site array snapshots only. D11 = PHI volume replicated to cloud-central-india storage. Stale rule covers Depends on + Replicates to.
+[2026-10-15 02:21:55.000] [MILESTONE] M2 truth model committed (21.4k CIs, test_world 9.4 passing).
+[2026-10-15 02:21:55.029] [MILESTONE] M3+M4 committed together: views, tests/oracle.py, drift catalogue. 9.1/9.2/9.3/9.5/9.6 pass; oracle drift-off = 0 findings, drift-on = ground truth exactly (108 findings, 6 aliases).
+[2026-10-15 02:25:27.576] [MILESTONE] M5 loader committed. Full load: ~48k nodes / ~136k edges in ~3 s; test 9.7 idempotency passes; 24 tests green. data/ gitignored (136 MB); data_demo/ (WA+OR, gzip, 9 MB) committed.
+[2026-10-15 02:29:39.058] [CHANGE] M6 research fixes committed: imaging ranges, pump/monitor fleets, HL7 volume x8 + ADT event mix, CAH beds<=25, ServiceNow class names. RESEARCH_NOTES.md + DECISIONS #4-#32.
+[2026-10-15 02:31:45.760] [NOTE] Review #1 (fresh-context subagent: DATA_SPEC + RUN_PROMPT + code only) launched. README.md, tests/sanity_queries.py, loader --fresh added; clean-room script prepared in scratchpad.
+[2026-10-15 02:39:34.666] [FIX] Review #1: 20 findings; 16 fixed (tests strengthened, endpoint rounding bug, ADT error split bug, DICOM/vitals interfaces, SSO, coverage gaps), rest justified in DECISIONS #33. 25 tests pass. Launching review #2.
+[2026-10-15 02:54:06.610] [FIX] Review #2: no high findings; fixes committed (DECISIONS #34). 28 tests pass. Next: clean-room verification x2.
+[2026-10-15 02:55:09.812] [TEST] Clean-room run 1 passed: 28/28 tests, loader idempotent (49056 nodes / 139693 edges), sanity queries saved.
+[2026-10-15 02:56:06.735] [TEST] Clean-room run 2 passed; data hashes and sanity outputs identical to run 1 (24 files).
+[2026-10-15 02:57:26.277] [MILESTONE] M7 clean-room x2 passed (identical hashes). M8 REPORT.md written. Run complete.
+================================================================================
+[2026-10-15 21:37:43.333] [SESSION_START] AGENT_SPEC run: Phase 0 (data follow-ups a-f, VERIFY.md) then Phases 1-5.
+[2026-10-15 21:46:54.952] [MILESTONE] Phase 0 code committed (30 tests pass). Running clean-room for VERIFY.md.
+[2026-10-15 21:48:01.610] [MILESTONE] Phase 0 complete: VERIFY.md all checks PASS (30 tests, 49,063 nodes / 150,406 edges). Starting Phase 1.
+[2026-10-15 21:53:18.014] [MILESTONE] Phase 1 committed: 12 Cypher detectors exact on full + demo; CHG-HEADLINE high; all tool queries < 5 s. Starting Phase 2.
+[2026-10-15 22:02:12.991] [MILESTONE] Phase 2 committed: agent flows + approval; 58 tests pass with FakeLLM (no ANTHROPIC_API_KEY on host).
+[2026-10-15 22:04:54.103] [MILESTONE] Phase 3 committed (API + tests).
+[2026-10-15 22:17:05.148] [MILESTONE] Phase 4 committed (UI + docs screenshots).
+[2026-10-15 22:23:26.281] [MILESTONE] AGENT_SPEC run complete: phases 0-5 done, clean-room 4 passed (64 tests, VERIFY all PASS, stack up from scratch). Live LLM check pending (no key).
+[2026-10-16 01:44:55.247] [MILESTONE] Realism A committed (66 tests, demo stack OK).
+[2026-10-16 02:12:01.090] [MILESTONE] Realism B committed: 11 source-native raw formats + connectors; detectors/oracle exact; 66 tests; data 388 MB.
+[2026-10-16 02:15:42.461] [MILESTONE] Realism C committed: 77 tests pass.
+[2026-10-16 02:33:32.998] [MILESTONE] Realism D committed: dependency view, Sources tab, findings sources/actions.
+[2026-10-16 02:40:43.135] [STEP] Realism E committed: README + screenshots; 79 tests pass
+[2026-10-16 02:45:22.313] [DONE] Realism complete; REPORT Realism section committed
+[2026-10-16 03:06:40.145] [STEP] OpenRouter provider committed; 89 tests pass; live prewarm verified, cached rerun 0 requests
+[2026-10-16 03:26:09.380] [DONE] master = realism; clean-clone docker check passed (CHG-HEADLINE high, no key)
+[2026-10-16 04:45:41.201] [DONE] UI redesign merged; public deployment live on Vercel bom1 + FalkorDB Cloud; repo pushed (private)

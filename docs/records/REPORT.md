@@ -32,7 +32,7 @@ uv venv --python 3.11 && uv sync --frozen         # Python 3.11.14, pinned deps 
 uv run python -m ingest.generate --seed 42 --out data/
 uv run python -m pytest -v                        # 28 tests; the loader tests need FalkorDB
 uv run python -m ingest.load --data data/ --graph northwind --fresh
-uv run python -m tests.sanity_queries --graph northwind --data data/
+uv run python -m tests.helpers.sanity_queries --graph northwind --data data/
 ```
 
 Other options:
@@ -88,7 +88,7 @@ How the tests map to DATA_SPEC section 9:
 | 9.6 Size | `test_size_report` |
 | 9.7 Loader idempotency | `test_load_is_idempotent` |
 
-For 9.2 and 9.3, the reference checker `tests/oracle.py` (the RUN_PROMPT 4.1 rules) finds:
+For 9.2 and 9.3, the reference checker `tests/helpers/oracle.py` (the RUN_PROMPT 4.1 rules) finds:
 - 0 findings with drift off;
 - with drift on, exactly the `ground_truth.json` keys: 108 findings, no D3 hits, and the 6 D13 aliases resolved.
 
@@ -527,19 +527,19 @@ All URLs and quoted field definitions are in `RESEARCH_NOTES.md` R9–R18.
 
 ### Process
 
-Before-screenshots of every tab at 1440 and 390 px: `docs/ui-before/`. Plan with tokens, wireframes, components
-and the avoid-list review: `docs/ui-plan.md` (section 6 lists what was revised: no KPI tiles, no all-caps headers,
+Before-screenshots of every tab at 1440 and 390 px: `docs/screenshots/before/`. Plan with tokens, wireframes, components
+and the avoid-list review: `docs/design/ui-plan.md` (section 6 lists what was revised: no KPI tiles, no all-caps headers,
 no middle-dot strings, cards only where they mean something, static skeletons). Four self-critique rounds are
-written up in `docs/ui-plan.md` section 7. After-screenshots of every tab, light and dark, 1440 and 390 px, plus the
-expanded group, the finding drawer, the source sample and the CI view: `docs/ui-after/` (38 screenshots plus 6 demo stills). The README
-screenshots now point at `docs/ui-after/`; the old `docs/*.png` files referenced in earlier sections of this report
+written up in `docs/design/ui-plan.md` section 7. After-screenshots of every tab, light and dark, 1440 and 390 px, plus the
+expanded group, the finding drawer, the source sample and the CI view: `docs/screenshots/` (38 screenshots plus 6 demo stills). The README
+screenshots now point at `docs/screenshots/`; the old `docs/*.png` files referenced in earlier sections of this report
 were replaced.
 
 ### Accessibility results
 
 - axe-core 4.10.2 on 9 views x light/dark x 1440/390 (36 runs) plus the expanded group list: **0 violations at any
   impact level** (serious and critical issues found during the build, and how they were fixed, are in
-  `docs/ui-plan.md`).
+  `docs/design/ui-plan.md`).
 - Contrast: every text/background token pair measured with the WCAG formula; body text at least 4.5:1 in both
   themes (lowest: caution on surface 5.0:1 light; signal on the impacted tint 4.9:1), graph lines at least 4.3:1.
   Risk and severity always have a text label; edge types differ by dash pattern as well as colour.
@@ -549,7 +549,7 @@ were replaced.
 
 ### Demo check
 
-Recorded at 1440 x 900 (`docs/ui-after/demo.webm`, stills `demo-1` to `demo-6`): CHG0031513 low -> CHG-HEADLINE
+Recorded at 1440 x 900 (`docs/media/demo.webm`, stills `demo-1` to `demo-6`): CHG0031513 low -> CHG-HEADLINE
 high -> 51-interface group expanded -> top finding -> "Approve CMDB update" -> toast "CMDB updated" ->
 CHG-HEADLINE re-reviews as low ("Impact is known: 107 components."). Readable without zooming. The data and graph
 were regenerated afterwards so the repository's demo state is unchanged.

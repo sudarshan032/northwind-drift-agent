@@ -10,16 +10,18 @@ Headline: CHG-HEADLINE patches `dc1-host-07`. CMDB says it affects lab reporting
 All data is synthetic, deterministic (seed 42), no personal data.
 
 ## Where things are
-- Specs (history, newest wins on conflict): SPEC.md (original, mostly superseded) → DATA_SPEC.md → AGENT_SPEC.md → REALISM_SPEC.md → UI_SPEC.md → BENCH_SPEC.md.
-- Records: DECISIONS.md (numbered decisions), RESEARCH_NOTES.md (sources), PROGRESS.md, REPORT.md, VERIFY.md, README.md.
-- Code: `ingest/` (world.py truth model, generate.py, drift.py, views, sources/ connectors, load.py, config.py thresholds), `graph/` (queries.py, impact.py), `agent/` (LLM jobs, prewarm), `api/main.py`, `ui/`, `tests/`, `bench/` (scale benchmark).
+- Specs in [docs/specs/](docs/specs/README.md) (history, newest wins on conflict): SPEC.md (original, mostly superseded) → DATA_SPEC.md → RUN_PROMPT.md → AGENT_SPEC.md → REALISM_SPEC.md → UI_SPEC.md → BENCH_SPEC.md.md.
+- Records in docs/records/: [DECISIONS.md](docs/records/DECISIONS.md) (numbered decisions), [RESEARCH_NOTES.md](docs/records/RESEARCH_NOTES.md) (sources), [PROGRESS.md](docs/records/PROGRESS.md), [REPORT.md](docs/records/REPORT.md), [VERIFY.md](docs/records/VERIFY.md), the prep-session log; plus [README.md](README.md) at the root.
+- Design and media: docs/design/ui-plan.md, docs/screenshots/ (before/ = old UI), docs/media/demo.webm.
+- Code: `ingest/` (world.py truth model, generate.py, drift.py, views, sources/ connectors, load.py, config.py thresholds), `graph/` (queries.py, impact.py, connection.py), `agent/` (LLM jobs, prewarm), `api/main.py`, `deploy/` (cloud loader, cached AI bundle), `ui/`, `index.py` (Vercel entry, must stay at the root), `tests/` (helpers/ = oracle, sanity queries, VERIFY writer), `bench/` (scale benchmark; [bench/RESULTS.md](bench/RESULTS.md)).
 - Data: `data/` (full, git-ignored, regenerate with `uv run python -m ingest.generate --seed 42 --out data/`), `data_demo/` (committed subset).
 
 ## Commands
 - Env: `uv sync --frozen` (Python 3.11 via uv). Tests: `uv run python -m pytest -q`.
 - Local stack: `docker compose up --build` (FalkorDB + seed + API/UI on :8000).
 - Load: `uv run python -m ingest.load --data data/ --graph northwind --fresh`.
-- Bench: `./bench/start.sh <sizes>`; progress `cat bench/STATUS.json`; stop `pkill -f bench.run`.
+- Bench: `./bench/start.sh <sizes>`; progress `cat bench/STATUS.json`; stop `pkill -f bench.run`; check `uv run --group bench python -m bench.verify`.
+- Sanity queries / VERIFY: `uv run python -m tests.helpers.sanity_queries --graph northwind --data data/`, `uv run python -m tests.helpers.verify_report --data data --graph northwind --pytest-log x.txt` (writes docs/records/VERIFY.md).
 - Prewarm AI cache: `uv run python -m agent.prewarm`.
 
 ## Hard rules
@@ -31,8 +33,8 @@ All data is synthetic, deterministic (seed 42), no personal data.
 - `docker-compose.yml` must always use the local FalkorDB, never the cloud one.
 
 ## Working style
-- Work autonomously: decide, log non-trivial decisions in DECISIONS.md, research uncertain facts and cite them in RESEARCH_NOTES.md. Ask the owner only if genuinely blocked.
-- Keep PROGRESS.md updated after each milestone; re-read it and this file after context compaction.
+- Work autonomously: decide, log non-trivial decisions in docs/records/DECISIONS.md, research uncertain facts and cite them in docs/records/RESEARCH_NOTES.md. Ask the owner only if genuinely blocked.
+- Keep docs/records/PROGRESS.md updated after each milestone; re-read it and this file after context compaction.
 - Save tokens: run long jobs in the background, write status to a file, end the session instead of polling; read files selectively.
 - Report plainly and briefly: what was done, numbers, what is open. The owner reviews rather than codes; explain in simple words.
 

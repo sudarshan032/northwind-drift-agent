@@ -71,11 +71,14 @@ class Run:
 
 
 def result_path(size, name):
+    """Result file of a step. Cleanup steps leave only a "dropped" marker, kept in results/archive/<size>/."""
+    if name.startswith("cleanup"):
+        return os.path.join(C.RESULTS, "archive", str(size), f"{name}.jsonl")
     return os.path.join(C.RESULTS, str(size), f"{name}.jsonl")
 
 
 def write_result(size, name, rows, context):
-    os.makedirs(os.path.join(C.RESULTS, str(size)), exist_ok=True)
+    os.makedirs(os.path.dirname(result_path(size, name)), exist_ok=True)
     tmp = result_path(size, name) + ".tmp"
     with open(tmp, "w") as f:
         for r in rows:

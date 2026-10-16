@@ -126,16 +126,16 @@ Plain verbs, sentence case, no filler. Name things the way an IT operations pers
 
 ## 6. Process (mandatory)
 
-1. **Before coding:** take screenshots of the current UI at 1440 px and 390 px (Playwright or equivalent) for every tab; save to `docs/ui-before/`.
-2. **Plan:** write `docs/ui-plan.md` with the tokens, wireframes per screen and the components list; review it against section 2's avoid-list and revise anything generic, noting what changed.
+1. **Before coding:** take screenshots of the current UI at 1440 px and 390 px (Playwright or equivalent) for every tab; save to `docs/screenshots/before/`.
+2. **Plan:** write `docs/design/ui-plan.md` with the tokens, wireframes per screen and the components list; review it against section 2's avoid-list and revise anything generic, noting what changed.
 3. **Build:** tokens file first, then shared components (header, tabs, table, drawer, tooltip, badges, legend), then screens in priority order: change review, findings, sources, incident, chat.
-4. **Self-critique loop:** after each screen, screenshot at 1440 and 390, in light and dark, check against this spec (spacing scale, type scale, contrast, label overlap, hierarchy), fix, repeat. Keep notes in `docs/ui-plan.md`.
+4. **Self-critique loop:** after each screen, screenshot at 1440 and 390, in light and dark, check against this spec (spacing scale, type scale, contrast, label overlap, hierarchy), fix, repeat. Keep notes in `docs/design/ui-plan.md`.
 5. **Accessibility check:** run axe-core (or equivalent) on every tab; zero serious or critical issues. Keyboard: every action reachable, visible focus ring (`--declared`, 2 px, offset 2 px).
 6. **Demo check:** record the flow CHG0031513 (low) → CHG-HEADLINE (high) → expand the 51-interface group → open the top finding → approve; the whole story must be readable at 1440 px without zooming.
 
 ## 7. Deliverables
 
 - Redesigned `ui/` (no build step required; keep loading libraries as pinned scripts from cdnjs/jsDelivr).
-- `docs/ui-plan.md`, `docs/ui-before/`, `docs/ui-after/` (all tabs, light and dark, 1440 and 390).
+- `docs/design/ui-plan.md`, `docs/screenshots/before/`, `docs/screenshots/` (all tabs, light and dark, 1440 and 390).
 - README screenshots replaced with the new ones.
 - REPORT.md "UI redesign" section: what changed, accessibility results, anything not done.

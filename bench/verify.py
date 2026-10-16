@@ -10,7 +10,7 @@ import os
 import sys
 
 from bench import config as C
-from bench.run import STEPS
+from bench.run import STEPS, result_path
 
 
 def verify(sizes):
@@ -20,7 +20,7 @@ def verify(sizes):
         d = os.path.join(C.RESULTS, str(size))
         r = {}
         for s in STEPS:
-            p = os.path.join(d, f"{s}.jsonl")
+            p = result_path(size, s)
             if not os.path.exists(p):
                 problems.append(f"{size}: missing {s}")
                 continue

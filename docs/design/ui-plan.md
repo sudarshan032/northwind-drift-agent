@@ -1,6 +1,6 @@
 # UI redesign plan (UI_SPEC.md)
 
-Before-screenshots: `docs/ui-before/` (every tab at 1440 and 390 px, light). What they show: no grid, a 51-line
+Before-screenshots: `docs/screenshots/before/` (every tab at 1440 and 390 px, light). What they show: no grid, a 51-line
 fan of crossing edges in the dependency view, big-number tiles, ALL-CAPS labels, middle-dot meta strings, LLM
 markdown dumped as raw text (`**` markers, pipe tables), and on 390 px a 5,000-px page where the graph shrinks to
 an unreadable thumbnail.
@@ -192,7 +192,7 @@ graph box (top tier first) and every line, "Show all", and the explanation toggl
 list; Enter on a finding row opens the drawer with focus on Close, Tab is trapped in the drawer, Esc closes it and
 returns focus to the row. Focus ring: 2 px `--declared`, offset 2 px (SVG boxes draw the same ring as a stroke).
 
-**Demo check (1440).** Recorded with Playwright: `docs/ui-after/demo.webm` and stills `demo-1` to `demo-6`.
+**Demo check (1440).** Recorded with Playwright: `docs/media/demo.webm` and stills `demo-1` to `demo-6`.
 CHG0031513 (low, "The CMDB matches the evidence for this change. Impact is known: 231 components.") ->
 CHG-HEADLINE (high, verdict, table, eight-box chain) -> the 51-interface group opened -> top finding drawer ->
 "Approve CMDB update" -> toast "CMDB updated" -> CHG-HEADLINE re-reviews as Low risk, "The CMDB matches the evidence

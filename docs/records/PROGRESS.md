@@ -11,7 +11,7 @@ Re-read this file, RUN_PROMPT.md and DATA_SPEC.md after any context compaction.
 - ingest/world.py; tests/test_world.py (9.4 + footprint/hygiene).
 
 ## M3+M4 Views, oracle, drift — done (one commit, DECISIONS #27)
-- ingest/views.py, ingest/drift.py, ingest/generate.py, tests/oracle.py, tests/test_views.py.
+- ingest/views.py, ingest/drift.py, ingest/generate.py, tests/helpers/oracle.py, tests/test_views.py.
 - 9.1 determinism, 9.2 zero findings without drift, 9.3 exact catalogue, 9.5 headline, 9.6 size.
 
 ## M5 Loader — done
@@ -31,7 +31,7 @@ Re-read this file, RUN_PROMPT.md and DATA_SPEC.md after any context compaction.
 - REPORT.md written. All milestones complete.
 
 # AGENT_SPEC run
-## Phase 0 — data follow-ups (a)-(f) done; impact layer (graph/impact.py), radius/path queries (graph/queries.py); VERIFY.md via tests/verify_report.py after a clean-room run.
+## Phase 0 — data follow-ups (a)-(f) done; impact layer (graph/impact.py), radius/path queries (graph/queries.py); VERIFY.md via tests/helpers/verify_report.py after a clean-room run.
 ## Phase 0 — done (VERIFY.md all PASS, commit d8a7061)
 ## Phase 1 — done: graph/queries.py detectors (exact vs ground truth, full + demo), radius, paths, change review, protection, access, who-to-page, critical nodes; tests/test_queries.py.
 - Next: Phase 2 agent (LangGraph, fake LLM for tests).
@@ -50,3 +50,4 @@ Re-read this file, RUN_PROMPT.md and DATA_SPEC.md after any context compaction.
 - 2026-10-16 Benchmark verified (gate passed at 4 sizes), charts, RESULTS.md, README, Scale tab, redeploy.
 - 2026-10-16 Session 2 experiments: arm64 check, bulk loader vs COPY, raw relationships, server-side times, hybrid A-D; RESULTS.md + charts; website/README untouched.
 - 2026-10-16 Client overhead measured (current client, hiredis, redis-cli); hiredis added to dependencies.
+- 2026-10-16 Repository reorganised (docs/specs, docs/records, docs/design, docs/screenshots, docs/media, tests/helpers, LICENSE).

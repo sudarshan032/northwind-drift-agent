@@ -2,7 +2,7 @@
 
     python -m bench.charts
 
-Writes bench/charts/<chart>-<light|dark>.<png|svg> and ui/scale/ (SVG charts + scale.json + RESULTS.md copy).
+Writes bench/charts/<chart>-<light|dark>.<png|svg> and, with --site, ui/scale/ (SVG charts + scale.json; the site links to RESULTS.md on GitHub).
 FalkorDB is blue with circles, PostgreSQL amber with squares; the full radius is a solid line, the traversal
 alone dashed, so colour is never the only cue.
 """
@@ -356,8 +356,6 @@ def bundle(data):
     for c in out["charts"]:
         for theme in THEMES:
             shutil.copy(os.path.join(OUT, f"{c}-{theme}.svg"), os.path.join(SITE, f"{c}-{theme}.svg"))
-    if os.path.exists(os.path.join(C.ROOT, "RESULTS.md")):
-        shutil.copy(os.path.join(C.ROOT, "RESULTS.md"), os.path.join(SITE, "RESULTS.md"))
     return out
 
 

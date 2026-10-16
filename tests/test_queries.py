@@ -6,7 +6,7 @@ import time
 import pytest
 
 from graph import queries as Q
-from tests import oracle
+from tests.helpers import oracle
 
 pytestmark = pytest.mark.falkordb
 

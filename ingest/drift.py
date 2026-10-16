@@ -5,7 +5,7 @@ views, plus `ground_truth`, one entry per injected drift. `NO_DRIFT` is the
 empty plan (all views agree).
 
 Each ground-truth entry carries `finding_keys`: the exact findings the
-reference checker (`tests/oracle.py`) must report for it. Key shapes:
+reference checker (`tests/helpers/oracle.py`) must report for it. Key shapes:
 
     ["undocumented", src, dst]     ["stale", parent, child, type]
     ["retired_linked", ci]         ["owner", ci]

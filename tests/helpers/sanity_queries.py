@@ -1,6 +1,6 @@
 """Three sanity queries against a loaded graph (RUN_PROMPT 7.4).
 
-    python -m tests.sanity_queries --graph northwind --data data/
+    python -m tests.helpers.sanity_queries --graph northwind --data data/
 """
 
 import argparse

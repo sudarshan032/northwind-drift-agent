@@ -968,8 +968,7 @@ async function loadScale() {
       <dt>Method</dt><dd>${s.settings.runs} timed runs after warm-up per query; ${s.settings.concurrency_seconds} s per concurrency level; same impact edges in both systems</dd>
     </dl>
     <p>Full method, every table and the limits of this benchmark:
-      <a href="https://github.com/sudarshan032/northwind-drift-agent/blob/master/bench/RESULTS.md">bench/RESULTS.md</a>
-      (<a href="/static/scale/RESULTS.md">plain-text copy</a>).</p>`;
+      <a href="https://github.com/sudarshan032/northwind-drift-agent/blob/master/bench/RESULTS.md">bench/RESULTS.md</a>.</p>`;
   paintScaleCharts();
 }
 

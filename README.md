@@ -10,7 +10,7 @@ logins prove. It finds the drift, computes the real blast radius of a change, an
 > are represented. Users are pseudonymous IDs; there are no names, emails or patients. City names are real
 > places used only as locations.
 
-![Change review of CHG-HEADLINE: "This change reaches 51 hospitals. The CMDB knows about none of them."](docs/ui-after/demo-2-high.png)
+![Change review of CHG-HEADLINE: "This change reaches 51 hospitals. The CMDB knows about none of them."](docs/screenshots/demo-2-high.png)
 
 **The demo moment.** `CHG-HEADLINE` patches and reboots host `dc1-host-07`. The CMDB says that touches 4
 components and one business service, LIS reporting, so the change is low risk. The graph shows otherwise.
@@ -60,7 +60,7 @@ docker compose up -d falkordb
 uv run python -m ingest.generate --seed 42 --out data/      # raw exports + connectors, ~15 s, ~390 MB
 uv run python -m ingest.connect --data data/                 # re-run the connectors alone
 uv run python -m ingest.load --data data/ --graph northwind --fresh
-uv run python -m pytest -q                                   # 97 tests; agent tests use a scripted fake LLM
+uv run python -m pytest -q                                   # 102 tests; agent tests use a scripted fake LLM
 uv run uvicorn api.main:app --port 8000
 ```
 
@@ -118,7 +118,7 @@ proposed patch; everything else becomes a ticket. Approval re-runs the detector 
 
 ## Where the data comes from
 
-Every input is the export of a real tool's documented format (sources in `RESEARCH_NOTES.md` R9–R18). Each source has a
+Every input is the export of a real tool's documented format (sources in [RESEARCH_NOTES.md](docs/records/RESEARCH_NOTES.md) R9–R18). Each source has a
 connector in `ingest/sources/<source>.py` that turns its raw files into normalised evidence; the loader loads only that.
 
 | Source | Real-world tool it stands in for | Raw format generated | Window |
@@ -135,7 +135,7 @@ connector in `ingest/sources/<source>.py` that turns its raw files into normalis
 | `hr_feed` | Workday-style worker export | RaaS CSV (Employee_ID, Worker_Status, Active / Terminated / On_Leave flags, dates; no names) | current state |
 | `itsm_history` | ServiceNow `incident` / `change_request` history | CSV exports with sys_id references and raw state codes | 90 days |
 
-![Sources: a Mirth Database Writer connector and the evidence row it produced](docs/ui-after/sources-sample-1440-light.png)
+![Sources: a Mirth Database Writer connector and the evidence row it produced](docs/screenshots/sources-sample-1440-light.png)
 
 **HL7 interfaces.** Interfaces are CMDB CIs registered by the integration team in the custom class
 `u_cmdb_ci_hl7_interface` (what real ServiceNow customers do; there is no out-of-the-box HL7 class). What the CMDB
@@ -167,11 +167,11 @@ success in 7 days (cutoff 2026-10-07T23:59:59Z); transient failure window 48 h; 
 
 Comparison change `CHG0031513` (planned upgrade of `emr-app`) touches far more, but the CMDB already records it all, so it is LOW risk: the risk is the gap, not the size.
 
-![Change review of CHG0031513](docs/ui-after/demo-1-low.png)
+![Change review of CHG0031513](docs/screenshots/demo-1-low.png)
 
 A finding shows its evidence sources and whether approval patches the CMDB or raises a ticket:
 
-![D1 finding with its evidence and the proposed CMDB update](docs/ui-after/finding-drawer-1440-light.png)
+![D1 finding with its evidence and the proposed CMDB update](docs/screenshots/finding-drawer-1440-light.png)
 
 ## What may be written back to the CMDB
 
@@ -218,7 +218,7 @@ impacted": runs on, stored on, depends on and observed calls propagate; a route 
 source; a business service or offering is impacted when anything it contains is. Health checks, failover links and
 calls into telemetry sinks never carry impact.
 
-**The UI** (`ui/`, designed to `UI_SPEC.md`; plan and self-critique notes in `docs/ui-plan.md`) answers "is this
+**The UI** (`ui/`, designed to [UI_SPEC.md](docs/specs/UI_SPEC.md); plan and self-critique notes in [docs/design/ui-plan.md](docs/design/ui-plan.md)) answers "is this
 change safe, and if not, what is the CMDB missing and who do I warn?". Every screen uses the same two colours for
 the two records of the hospital: blue for what the CMDB declares, red for evidence that contradicts it. The change
 review opens with a verdict sentence computed from the counts ("This change reaches 51 hospitals. The CMDB knows
@@ -231,7 +231,7 @@ dotted = in the CMDB with no evidence, dash-dot blue = failover; impact is a red
 says toggle. Every box and line is keyboard-focusable with a tooltip (source, counts, days seen, first and last
 seen). Findings are a filterable table with a drawer (evidence, path, before/after diff or ticket preview,
 "Approve CMDB update" / "Create ticket"). On phones the graph becomes the impact path as a list. Screenshots of
-every tab, light and dark, 1440 and 390 px: `docs/ui-after/`; the old UI: `docs/ui-before/`.
+every tab, light and dark, 1440 and 390 px: `docs/screenshots/`; the old UI: `docs/screenshots/before/`.
 
 ## Drift catalogue
 
@@ -255,7 +255,7 @@ These cases are injected on purpose and recorded in `data/ground_truth.json`.
 | D14 | Unregistered SMART on FHIR app used by H17 cardiology | 1 |
 
 The Cypher detectors return exactly the ground-truth keys, on both the full data and the demo subset. A
-pure-Python oracle (`tests/oracle.py`) checks the same rules independently.
+pure-Python oracle (`tests/helpers/oracle.py`) checks the same rules independently.
 
 ## Cypher queries (`graph/queries.py`)
 
@@ -365,7 +365,7 @@ completion prices are zero and whose `supported_parameters` include `tools`, and
 none of the listed models qualify it picks the free tool-capable model with the largest context. The kept list
 is sent as OpenRouter's `models` fallback array, so a rate-limited or failing model falls through to the next.
 
-![Header with the selected free model and the remaining requests](docs/ui-after/demo-1-low.png)
+![Header with the selected free model and the remaining requests](docs/screenshots/demo-1-low.png)
 
 **Limits.** Free models allow 20 requests per minute and 50 per day without purchased credits (1,000 per day with
 at least 10 credits bought). Failed requests count. The agent therefore keeps a persistent daily counter
@@ -424,16 +424,16 @@ and changes are fictional. There is no personal or patient data.
 
 Real vendor product names appear only as device models. Addresses are RFC 1918 private ranges, plus RFC 5737
 documentation addresses for SaaS. Realism choices (device counts, HL7 types, DICOM, backup tiers, ServiceNow
-classes) are sourced in `RESEARCH_NOTES.md`.
+classes) are sourced in [RESEARCH_NOTES.md](docs/records/RESEARCH_NOTES.md).
 
 ## AI-usage disclosure
 
 The code, data generator, tests and documentation were written with an AI coding assistant working from the
-author's specifications (`DATA_SPEC.md`, `RUN_PROMPT.md`, `AGENT_SPEC.md`). Independent AI reviews checked
+author's specifications ([docs/specs/](docs/specs/README.md)). Independent AI reviews checked
 the result against those specifications. The author designed the scenario, the drift catalogue and the
 specifications, and reviews the output.
 
-Every decision is logged in `DECISIONS.md`. The running agent uses OpenRouter free models or Claude through the
+Every decision is logged in [DECISIONS.md](docs/records/DECISIONS.md). The running agent uses OpenRouter free models or Claude through the
 Anthropic API when a key is configured.
 
 ## Known limits
@@ -462,10 +462,24 @@ This project differs in three ways:
 
 ## Repository
 
-`ingest/` holds the truth model, raw exporters (`export.py`), source modules and connectors (`sources/`), the connector runner (`connect.py`) and the loader. `graph/` holds the impact rules and queries. `agent/` holds the LLM
-interface, tools, findings, approval and flows. `api/` is the FastAPI service. `ui/` is the UI: `tokens.css` (every colour, size and spacing), `app.css`, `app.js` and `index.html`, no build step.
-`tests/` has 79 tests, the oracle, sanity queries and the VERIFY generator.
+```
+README.md  CLAUDE.md  LICENSE  pyproject.toml  uv.lock  Dockerfile  docker-compose.yml  vercel.json
+index.py              Vercel entry point (imports the FastAPI app from api/main.py)
+ingest/               truth model, raw exporters, source connectors (sources/), connector runner, loader
+graph/                impact rules and Cypher queries
+agent/                LLM interface, tools, findings, approval, flows, prewarm
+api/                  FastAPI service
+deploy/               public deployment: cloud loader, cached AI answers (llm_cache/)
+ui/                   the web UI (tokens.css, app.css, app.js, index.html; scale/ for the Scale tab)
+bench/                scale benchmark: code, RESULTS.md, charts/, results/ (raw JSON lines; archive/)
+tests/                pytest suite; helpers/ holds the reference oracle, sanity queries, VERIFY generator
+data_demo/            committed gzip subset: all 51 hospitals, both data centres, both cloud regions, GCC-HYD
+docs/specs/           the specifications in the order they were written (README.md explains which wins)
+docs/records/         decisions, research notes, report, verification, progress, the prep-session log
+docs/design/          UI plan and self-critique notes
+docs/screenshots/     UI screenshots (before/ holds the old UI); docs/media/ the demo recording
+```
 
-`data_demo/` is a committed gzip subset: all 51 hospitals, both data centres, both cloud regions and GCC-HYD.
-
-Results and the run log are in `REPORT.md`, `VERIFY.md` and `PROGRESS.md`. Decisions are in `DECISIONS.md`.
+Results and the run log are in [REPORT.md](docs/records/REPORT.md), [VERIFY.md](docs/records/VERIFY.md) and
+[PROGRESS.md](docs/records/PROGRESS.md). Decisions are in [DECISIONS.md](docs/records/DECISIONS.md); the benchmark
+write-up is [bench/RESULTS.md](bench/RESULTS.md). Licensed under the [MIT License](LICENSE).

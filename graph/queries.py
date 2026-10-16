@@ -144,7 +144,7 @@ def unregistered_app_path(g, app, timeout=TIMEOUT_MS):
 
 
 # --------------------------------------------------------------------------
-# Drift detectors (same rules as tests/oracle.py, RUN_PROMPT 4.1), one per type.
+# Drift detectors (same rules as tests/helpers/oracle.py, RUN_PROMPT 4.1), one per type.
 # Each returns rows with a `key` list identical to ground_truth finding_keys.
 # --------------------------------------------------------------------------
 

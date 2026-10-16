@@ -1,7 +1,7 @@
 """Write VERIFY.md (AGENT_SPEC phase 0.3) from a loaded graph, the data
 directory and a saved `pytest -v` log.
 
-    python -m tests.verify_report --data data --graph northwind --pytest-log x.txt --out VERIFY.md
+    python -m tests.helpers.verify_report --data data --graph northwind --pytest-log x.txt --out docs/records/VERIFY.md
 """
 
 import argparse
@@ -13,7 +13,7 @@ from falkordb import FalkorDB
 
 from graph import queries as Q
 from ingest.load import Loader
-from tests import oracle
+from tests.helpers import oracle
 
 
 def build(data, graph, log, out):
@@ -101,7 +101,7 @@ if __name__ == "__main__":
     ap.add_argument("--data", default="data")
     ap.add_argument("--graph", default="northwind")
     ap.add_argument("--pytest-log", required=True)
-    ap.add_argument("--out", default="VERIFY.md")
+    ap.add_argument("--out", default="docs/records/VERIFY.md")
     a = ap.parse_args()
     ok = build(a.data, a.graph, a.pytest_log, a.out)
     print("all checks passing:", ok)

@@ -1,8 +1,14 @@
+# the image copies only the packages it needs (see Dockerfile COPY lines)
+.git
+.env
+.env.*
+.vercel
 .venv
+runtime
 data
 data_demo
-runtime
-.git
+bench
+docs
 **/__pycache__
 .pytest_cache
-docs
+**/.DS_Store

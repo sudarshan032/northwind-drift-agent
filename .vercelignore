@@ -5,6 +5,8 @@ data
 runtime
 docs
 tests
+bench
+.DS_Store
 *.log
 data_demo/*
 !data_demo/normalised

@@ -11,7 +11,7 @@ from collections import Counter
 
 from ingest.generate import generate
 from ingest.sources.common import open_text
-from tests import oracle
+from tests.helpers import oracle
 
 CATALOGUE = {"D1": 8, "D2": 6, "D3": 4, "D4": 3, "D5": 6, "D6": 10, "D7": 5, "D8": 8, "D9": 4,
              "D10": 3, "D11": 1, "D12": 4, "D13": 5, "D14": 1}
