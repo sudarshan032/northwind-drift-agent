@@ -33,9 +33,9 @@ STEPS_V3 = ["hybrid", "cleanup_v3"]
 # PostgreSQL server time from pg_stat_statements (real prepared executions), to check the EXPLAIN-based numbers
 STEPS_V4 = ["pg_stat_check", "cleanup_v4"]
 STEPS = STEPS_V1 + STEPS_V2 + STEPS_V3 + STEPS_V4
-# hiredis re-run (owner's request, 16 Oct): FalkorDB-side numbers again with the compiled reply parser; new files
-# only (*_hiredis.jsonl), earlier results untouched. Started with --hiredis-rerun, never part of a normal run.
-STEPS_V5 = ["concurrency_falkordb_hiredis", "hybrid_hiredis", "cleanup_v5"]
+# paired client re-run (owner's request, 16 Oct): FalkorDB with the pure-Python parser and with hiredis, back to
+# back in one session (identical conditions); new files only, earlier results untouched. --paired-rerun only.
+STEPS_V5 = ["concurrency_falkordb_paired", "hybrid_paired", "cleanup_v5"]
 
 
 # ---------------------------------------------------------------- bookkeeping
@@ -171,12 +171,16 @@ def _client_proc(system, size, starts, threads, seconds, depth, seed, out):
     out.put({"latencies": lat, "errors": errors})
 
 
-def concurrency(system, size, starts, clients, seconds=C.CONCURRENCY_SECONDS, depth=C.CONCURRENCY_DEPTH):
+def concurrency(system, size, starts, clients, seconds=C.CONCURRENCY_SECONDS, depth=C.CONCURRENCY_DEPTH,
+                parser=None):
+    """parser: None = this environment's default; "python" or "hiredis" = forced per client (bench.paired)."""
+    from bench import paired
     procs = min(clients, 10)  # Python clients spread over processes so the client is not the bottleneck
     per = [clients // procs + (1 if i < clients % procs else 0) for i in range(procs)]
     q = mp.get_context("spawn").Queue()
-    ps = [mp.get_context("spawn").Process(target=_client_proc,
-                                          args=(system, size, starts, per[i], seconds, depth, i, q))
+    target, pre = (_client_proc, ()) if parser is None else (paired.client_proc, (parser,))
+    ps = [mp.get_context("spawn").Process(target=target,
+                                          args=pre + (system, size, starts, per[i], seconds, depth, i, q))
           for i in range(procs)]
     t0 = time.perf_counter()
     for p in ps:
@@ -641,13 +645,13 @@ DEADLINE = None  # epoch seconds; --deadline HH:MM local time stops starting new
 
 
 def run_size_v5(run, size, ctx):
-    """FalkorDB with hiredis: concurrency (10/50/100 clients) and hybrid C / counts-only D, with gates."""
+    """Paired runs: concurrency (10/50/100 clients) and hybrid C / counts-only D, each with the pure-Python
+    parser and with hiredis back to back; gates as in the earlier steps, plus the parser check in every child."""
     import redis
-    import redis.utils
     import hiredis
-    if not redis.utils.HIREDIS_AVAILABLE:
-        raise RuntimeError("hiredis is not available to redis-py: the re-run would measure the old client")
-    ctx = {**ctx, "client": "hiredis", "redis_py": redis.__version__, "hiredis": hiredis.__version__}
+    from bench import paired
+    ctx = {**ctx, "clients_compared": ["python", "hiredis"], "redis_py": redis.__version__, "hiredis": hiredis.__version__,
+           "loader": "falkordb bulk loader"}
     db = infra.start_falkordb()
     infra.start_postgres()
     with open(os.path.join(C.DATA, str(size), "meta.json")) as f:
@@ -685,58 +689,48 @@ def run_size_v5(run, size, ctx):
                != len(queries.pg_radius(cur, size, nm, C.CONCURRENCY_DEPTH)["impacted"])]
         conn.close()
         if bad:
-            write_result(size, "gate_failure_hiredis", [{"starts": bad}], {**ctx, "size": size})
-            raise RuntimeError(f"hiredis concurrency gate failed for {len(bad)} starts at {size}")
+            write_result(size, "gate_failure_paired", [{"starts": bad}], {**ctx, "size": size})
+            raise RuntimeError(f"paired concurrency gate failed for {len(bad)} starts at {size}")
         rows = []
         for n in C.CLIENTS:
-            with infra.Peak(C.FALKOR["container"]) as pk:
-                r = concurrency("falkordb", size, pool, n)
-            rows.append({"system": "falkordb", **r, "peak_memory_bytes": pk.peak[C.FALKOR["container"]],
-                         "start_pool": len(pool)})
-            run.log(f"{size} falkordb+hiredis {n} clients: {r.get('throughput_qps')} q/s, p95 {r.get('p95_ms')} ms, "
-                    f"errors {r['errors']}")
+            for parser in ("python", "hiredis"):
+                load = os.getloadavg()[0]
+                with infra.Peak(C.FALKOR["container"]) as pk:
+                    r = concurrency("falkordb", size, pool, n, parser=parser)
+                rows.append({"system": "falkordb", "client": parser, **r, "load_avg_1m_before": round(load, 2),
+                             "peak_memory_bytes": pk.peak[C.FALKOR["container"]], "start_pool": len(pool)})
+                if any("wanted the" in e for e in r["error_samples"]):
+                    raise RuntimeError(r["error_samples"][0])
+                run.log(f"{size} falkordb {parser} {n} clients: {r.get('throughput_qps')} q/s, p95 {r.get('p95_ms')} ms, "
+                        f"errors {r['errors']}, load {load:.1f}")
         rows.append({"variant": "gate", "gate": "passed" if all(r["errors"] == 0 for r in rows) else "errors",
-                     "compared": "impacted count of 25 pool starts, FalkorDB vs PostgreSQL"})
+                     "compared": "impacted count of 25 pool starts, FalkorDB vs PostgreSQL; parser checked per child"})
         return rows
-    step("concurrency_falkordb_hiredis", conc)
+    step("concurrency_falkordb_paired", conc)
 
     def hyb():
         ensure_loaded()
-        g, conn = queries.falkor_graph(db, size), load_pg.connect()
-        cur = conn.cursor()
-        rows, failures = [], []
-        for name in (array, "dc1-host-07"):
-            for dp in (6, 10):
-                cc, _, ids = hybrid.c(g, cur, size, name, dp)
-                cd, _, paths = hybrid.d(g, name, dp)
-                if not (cc == cd == earlier.get((name, dp))):
-                    failures.append({"start": name, "depth": dp, "C": cc, "D": cd, "earlier_B": earlier.get((name, dp))})
-                    continue
-                for vname, fn in (("C_hybrid", lambda: hybrid.c(g, cur, size, name, dp)[1]),
-                                  ("D_falkordb_counts", lambda: hybrid.d(g, name, dp)[1])):
-                    for _ in range(C.WARMUP):
-                        fn()
-                    e2e, srv = [], []
-                    for _ in range(C.RUNS):
-                        t = time.perf_counter()
-                        srv.append(fn())
-                        e2e.append((time.perf_counter() - t) * 1000)
-                    pg_part = None
-                    if vname == "C_hybrid":
-                        pg = [hybrid.c_pg_server_ms(cur, size, ids) for _ in range(C.RUNS)]
-                        pg_part = median(pg)
-                        srv = [x + y for x, y in zip(srv, pg)]
-                    rows.append({"variant": vname, "start": name, "depth": dp, **stats(e2e),
-                                 "server_median_ms": median(srv), **({"server_postgres_part_ms": pg_part} if pg_part else {}),
-                                 "counts": cc, "example_paths": len(paths) if vname == "D_falkordb_counts" else None})
-        conn.close()
+        cases = [(name, dp) for name in (array, "dc1-host-07") for dp in (6, 10)]
+        rows = []
+        for parser in ("python", "hiredis"):
+            q = mp.get_context("spawn").Queue()
+            p = mp.get_context("spawn").Process(target=paired.hybrid_proc, args=(parser, size, cases, q))
+            p.start()
+            got = q.get()
+            p.join()
+            if any("error" in r for r in got):
+                raise RuntimeError(got[0]["error"])
+            rows += got
+            if p.exitcode:
+                raise RuntimeError(f"hybrid child ({parser}) failed")
+        failures = [r for r in rows if not (r["counts"] == r["counts_d"] == earlier.get((r["start"], r["depth"])))]
         if failures:
-            write_result(size, "gate_failure_hybrid_hiredis", failures, {**ctx, "size": size})
-            raise RuntimeError(f"hiredis hybrid gate failed for {len(failures)} cases at {size}")
-        rows.append({"variant": "gate", "gate": "passed", "cases": 4,
+            write_result(size, "gate_failure_hybrid_paired", failures, {**ctx, "size": size})
+            raise RuntimeError(f"paired hybrid gate failed for {len(failures)} rows at {size}")
+        rows.append({"variant": "gate", "gate": "passed", "cases": len(rows),
                      "compared": "counts of C and D with each other and with the earlier B (PostgreSQL) run"})
         return rows
-    step("hybrid_hiredis", hyb)
+    step("hybrid_paired", hyb)
 
     def cleanup():
         if load_falkor.graph_name(size) in db.list_graphs():
@@ -750,7 +744,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--sizes", default=",".join(str(s) for s in C.SIZES))
     ap.add_argument("--deadline", help="HH:MM local time after which no new measurement step starts")
-    ap.add_argument("--hiredis-rerun", action="store_true", help="only the STEPS_V5 re-run with hiredis")
+    ap.add_argument("--paired-rerun", action="store_true", help="only the STEPS_V5 paired client re-run")
     a = ap.parse_args()
     global DEADLINE
     if a.deadline:
@@ -765,13 +759,13 @@ def main():
     ctx = {"hardware": infra.hardware(), "falkordb": {"image": C.FALKOR["image"], "args": C.FALKOR["args"]},
            "postgres": {"image": C.PG["image"], "settings": C.PG["settings"]},
            "limits": {"memory": C.MEMORY, "cpus": C.CPUS}, "runs": C.RUNS, "warmup": C.WARMUP}
-    run.log(f"run start: sizes {sizes}" + (" (hiredis re-run)" if a.hiredis_rerun else ""))
-    if a.hiredis_rerun:
+    run.log(f"run start: sizes {sizes}" + (" (paired client re-run)" if a.paired_rerun else ""))
+    if a.paired_rerun:
         run.total = len(sizes) * len(STEPS_V5)
     try:
-        for size in sizes if a.hiredis_rerun else []:
+        for size in sizes if a.paired_rerun else []:
             run_size_v5(run, size, ctx)
-        for size in [] if a.hiredis_rerun else sizes:
+        for size in [] if a.paired_rerun else sizes:
             if all(os.path.exists(result_path(size, s)) for s in STEPS_V1):
                 run.done_steps += len(STEPS_V1)
             else:

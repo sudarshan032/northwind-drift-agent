@@ -324,6 +324,56 @@ Median end-to-end ms (p95 for the Python clients; FalkorDB's server-side median 
 - **hiredis is now a project dependency** (`pyproject.toml`), so the app and future benchmark runs use it. The
   earlier tables are unchanged and remain measured without it.
 
+### Paired client runs: pure-Python parser vs hiredis, identical conditions
+
+A first hiredis-only re-run (15:11) gave 253 q/s at 536k and 10 clients against 676 q/s in the morning run.
+Checked: same container limits (4 GB, 4 CPUs, same container), same FalkorDB image and settings
+(`THREAD_COUNT 4`, `MAX_QUEUED_QUERIES 1000`, no timeouts), same indexes; the loader does not matter (536k
+loaded with batched Cypher and with the bulk loader: 585 vs 588 q/s, p95 45 ms both, 10 clients x 20 s). What
+differed was the machine: 10 client processes plus 4 FalkorDB threads share 10 cores, and the afternoon run
+overlapped a deployment and desktop apps. Throughput at this level depends on what else the laptop is doing, so
+numbers from different sessions are not compared. That run was discarded (`results/archive/500000/*_unpaired`).
+
+Instead each measurement below ran twice back to back in one session (16 Oct, 15:31-15:51), once with
+redis-py's pure-Python parser and once with hiredis, on the same bulk-loaded graph, with every client process
+checking which parser it got and the 1-minute load average recorded per row. Gates: impacted counts of 25
+start points equal to PostgreSQL's; C and D counts equal to each other and to the earlier B run (passed at both
+sizes, no errors). **Only these paired numbers are compared with each other.** PostgreSQL was not re-run in this
+session, so they are not compared with the PostgreSQL tables above; the earlier tables stay as measured (without
+hiredis).
+
+Concurrency, full radius at depth 10, 60 s per level, same 500 random starts (q/s, p50 / p95 / p99 ms):
+
+| Nodes | Clients | Pure-Python parser | hiredis |
+|---|---|---|---|
+| 536k | 10 | 440 q/s, 6.6 / 69 / 89 | 431 q/s, 15.5 / 62 / 85 |
+| 536k | 50 | 332 q/s, 134 / 262 / 377 | **421 q/s**, 112 / **194** / **255** |
+| 536k | 100 | 349 q/s, 271 / 430 / 556 | **429 q/s**, 224 / **350** / **459** |
+| 3.47M | 10 | 80 q/s, 31 / 493 / 577 | **100 q/s**, 56 / **321** / **395** |
+| 3.47M | 50 | 84 q/s, 552 / 1,124 / 1,322 | **106 q/s**, 445 / **782** / **912** |
+| 3.47M | 100 | 86 q/s, 1,148 / 1,761 / 2,008 | **105 q/s**, 971 / **1,301** / **1,449** |
+
+Hybrid C and counts-only D, median end-to-end ms at depth 10 (20 runs after warm-up):
+
+| Nodes | Start (reached) | C pure-Python | C hiredis | D pure-Python | D hiredis |
+|---|---|---|---|---|---|
+| 536k | array (16,316) | 90 | 82 | 119 | 120 |
+| 536k | `dc1-host-07` (617) | 4.7 | 5.9 | 8.7 | 7.9 |
+| 3.47M | array (105,713) | 713 | **603** | 734 | 730 |
+| 3.47M | `dc1-host-07` (3,983) | 34 | 35 | 59 | 59 |
+
+- **Under load, hiredis raises FalkorDB's throughput by about a quarter** (3.47M: 80-86 -> 100-106 q/s; 536k
+  from 50 clients: +23-27%) and lowers p95/p99 by 17-35%. At 536k with 10 clients the two are within noise.
+  The median at 10 clients is higher with hiredis (15.5 vs 6.6 ms, 56 vs 31 ms) while p95 and throughput are
+  better; this is measured, not explained.
+- **Hybrid C gains 15% at the largest radius with hiredis** (713 -> 603 ms): its FalkorDB part returns 105,713
+  ids. Where the reply is small (D returns only counts, or small radii) the parser makes no difference.
+- The pure-Python C at 3.47M (713 ms) matches the morning run (714 ms), so the single-client timings are stable
+  across sessions; the concurrency throughput is not (morning 136 q/s at 3.47M and 10 clients, here 80 with the
+  same parser), which is why only same-session pairs are compared.
+- C's server-side split is not reported for this run: its PostgreSQL part was timed with EXPLAIN, which
+  overstates the join with a large array parameter (see the hybrid section).
+
 ## What this benchmark does not cover
 
 - Write-heavy workloads (CMDB updates, evidence ingestion while querying), and the cost of keeping the
