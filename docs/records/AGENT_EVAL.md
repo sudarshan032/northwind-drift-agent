@@ -31,11 +31,11 @@ not used (AGENT_V2_SPEC 7).
 **2/5 correct.** Total $0.0084, mean $0.0017 per investigation.
 
 What changed between the runs (tools and prompt, not the scenarios or the scoring):
-- two MCP tools:  (CMDB dependencies with no traffic inside a declared radius) and 
+- two MCP tools: `stale_links` (CMDB dependencies with no traffic inside a declared radius) and `findings_by_type`
   (estate-wide findings, e.g. D14 unregistered apps); in run 1 no tool could list unregistered apps or stale
   links, so S4 and S5 could not be solved;
 - the prompt's risk rules now distinguish changes (including "the CMDB overstates the impact") from incidents
   (degraded clinical service = medium), which fixed S3's risk.
-- A tool error found in the recorded control run ( failed on an argument-name clash) was fixed
+- A tool error found in the recorded control run (`get_neighbourhood` failed on an argument-name clash) was fixed
   and that run re-recorded; it did not affect the scored runs.
 

@@ -75,6 +75,19 @@
       </ol>
     </section>
 
+    <section class="ov" aria-labelledby="ov-agent">
+      <h2 id="ov-agent">The agent investigates, decides and acts</h2>
+      <p>Ask the Change Guardian to review a change or chase a symptom. It chooses graph tools one at a time through
+        MCP (the same read-only tools any MCP client can use at <span class="id">/mcp</span>), says why at each step,
+        then gives a checked verdict and acts: a work note on the change, a CAB review, alerts to the right owners, a
+        proposed CMDB fix that waits for a person. It remembers what people approved or rejected in its own FalkorDB
+        memory graph and recalls it next time.</p>
+      <figure class="trace-fig">
+        <img src="/static/img/trace.png" alt="Recorded agent run for CHG-HEADLINE: get_change, declared and real radius (4 versus 107 components), 51 hidden links seen by the interface engine, who to page, recall, changes on the host, then two actions: a work note and a CAB review request." loading="lazy">
+        <figcaption class="label-muted">A recorded run of the agent on CHG-HEADLINE: nine steps, two actions, $0.0032.</figcaption>
+      </figure>
+    </section>
+
     <section class="ov headline" aria-labelledby="ov-example">
       <h2 id="ov-example">The headline example</h2>
       <figure class="chain-fig">

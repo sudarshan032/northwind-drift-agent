@@ -310,6 +310,8 @@ a.button { display: inline-flex; align-items: center; text-decoration: none; }
 .chain .cls { fill: var(--ink-muted); font-size: var(--t-13); font-family: var(--font-ui); }
 .chain .lbl { font-size: var(--t-15); }
 .chain-fig figcaption { display: grid; gap: var(--s-16); justify-items: start; font-size: var(--t-17); max-width: var(--measure); }
+.trace-fig { margin: 0; display: grid; gap: var(--s-8); }
+.trace-fig img { width: 100%; max-width: calc(var(--measure) + var(--s-64)); height: auto; border: var(--line) solid var(--rule); }
 .points { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s-16); }
 .points li { display: grid; gap: var(--s-4); }
 .todo { margin: 0; padding-left: var(--s-24); display: grid; gap: var(--s-8); }
