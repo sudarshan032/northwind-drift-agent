@@ -26,6 +26,7 @@
     <button role="tab" id="tab-btn-incident" aria-controls="tab-incident" data-tab="incident">Incident</button>
     <button role="tab" id="tab-btn-sources" aria-controls="tab-sources" data-tab="sources">Sources</button>
     <button role="tab" id="tab-btn-chat" aria-controls="tab-chat" data-tab="chat">Chat</button>
+    <button role="tab" id="tab-btn-scale" aria-controls="tab-scale" data-tab="scale">Scale</button>
   </nav>
   <div class="status">
     <span id="llm-status" class="llm-status">AI status loading</span>
@@ -178,6 +179,16 @@
       <input id="question" type="text" autocomplete="off" placeholder="What breaks if lrc-db-01 fails, and who should I call?">
       <button type="submit" class="primary">Ask</button>
     </form>
+  </section>
+  <!-- Scale (static: results of bench/, no live computation) -->
+  <section id="tab-scale" role="tabpanel" aria-labelledby="tab-btn-scale" class="screen" hidden>
+    <div class="screen-head">
+      <h1>Scale</h1>
+      <p class="sub">Does the graph approach hold up as the hospital system grows? The same blast-radius questions on
+        FalkorDB and a tuned PostgreSQL, on the same edges, measured on one laptop. Both returned identical answers
+        in every case. These are recorded results, not computed live.</p>
+    </div>
+    <div id="scale-out"><span class="skel"></span><span class="skel"></span><span class="skel wide"></span></div>
   </section>
   <div class="tooltip" id="tooltip" role="tooltip" hidden></div>
   <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>

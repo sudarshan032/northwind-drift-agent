@@ -47,3 +47,4 @@ Re-read this file, RUN_PROMPT.md and DATA_SPEC.md after any context compaction.
 - 2026-10-16 UI redesign (UI_SPEC): tokens, SVG dependency view with grouping, all screens, axe 0 violations, demo recorded; 93 tests.
 - 2026-10-16 Public deployment on Vercel + FalkorDB Cloud (deploy branch); 97 tests.
 - 2026-10-16 Benchmark: generator, loaders, runner, analysis; 250k pilot passed the correctness gate; sizes 50k/500k/3.5M; full run started in the background.
+- 2026-10-16 Benchmark verified (gate passed at 4 sizes), charts, RESULTS.md, README, Scale tab, redeploy.

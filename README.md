@@ -300,6 +300,30 @@ about 0.55 s.
 - **Built-in algorithms.** BFS for the radius, shortest paths for the explanation, betweenness for single points
   of failure. A seeded run gives the same top 10 every time.
 
+**Does it hold up at scale? Measured, not assumed** (`bench/RESULTS.md`). The same blast-radius questions ran on
+FalkorDB and on a tuned PostgreSQL 18 (recursive CTE, prepared statements, the right indexes), on the same impact
+edges, from 49k to 3.47M nodes (1,989 hospitals), in 4 GB / 4-CPU containers on one laptop. Both returned
+identical answers in every case.
+
+![Traversal and full radius time vs size](bench/charts/time-vs-size-light.png)
+
+- **Traversal: FalkorDB pulls ahead as the radius grows.** For the largest radius (105,713 components at 3.47M
+  nodes) one BFS call takes 203 ms against 375 ms for the recursive query.
+- **The full question, end to end: PostgreSQL is 2-3x faster at every size** (908 ms against 1,882 ms for that
+  radius; the headline change review 31 ms against 82 ms). Much of FalkorDB's time is the Python client decoding
+  the nested result: 756 ms is spent in the database.
+- **Under load, FalkorDB has the steadier tail** (p95 1.7 s against 4.4 s at 100 clients on 3.47M nodes), PostgreSQL
+  the higher throughput (142 against 87 queries/s) and the lower median.
+
+![p95 latency vs concurrent clients](bench/charts/concurrency-p95-light.png)
+
+- **Memory is the graph's cost**: 2.6 GB in FalkorDB at 3.47M nodes, against 1.3 GB for PostgreSQL (which needs
+  2.1 GB of disk instead); 5M nodes would not fit a 4 GB container.
+
+So the case for the graph here is the model and the questions (layers on the same nodes, one-call traversals,
+graph algorithms), with traversal speed that holds up; it is not a blanket speed win over a well-tuned SQL
+database at these sizes.
+
 ## Agent (`agent/`)
 
 These are LangGraph flows over the Cypher tools:

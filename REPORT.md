@@ -594,3 +594,20 @@ covers every API addition; the incident test checks the new step results.
 - **Not done:** `vercel dev` / local `vercel build` could not create the build venv with the uv-managed Python 3.12
   (`ensurepip` failed); public mode was tested with the TestClient against the local FalkorDB and then on the real
   deployment instead. Triage and the demo chat question have no cached AI answer (rule-based text is shown).
+
+## Scale benchmark (BENCH_SPEC, branch `bench`)
+
+- **Run:** 50k, 250k (pilot), 500k and 3.5M nodes (3,474,840 nodes, 11,444,350 edges, 1,989 hospitals); 5M was
+  dropped because FalkorDB would exceed the 4 GB container with less than a 25% margin (DECISIONS #89). Full run
+  43 minutes in the background, resumed nothing, no errors; correctness gate passed at every size.
+- **Findings** (`bench/RESULTS.md`): traversal alone is faster in FalkorDB for large radii (203 vs 375 ms at
+  105,713 components); the full blast-radius question end to end is 2-3x faster in PostgreSQL at every size
+  (908 vs 1,882 ms; FalkorDB spends 756 ms of that in the database, the rest in client decoding); under 100
+  clients FalkorDB has the lower p95 (1.7 vs 4.4 s) and PostgreSQL the higher throughput (142 vs 87 q/s);
+  FalkorDB needs 2.6 GB of memory at 3.5M nodes against 1.3 GB, PostgreSQL 2.1 GB of disk against 0.34 GB.
+- **Side effect for the app:** the pilot exposed a 20x slowdown in the project's own `RADIUS` query, fixed for the
+  app too (DECISIONS #89).
+- **Published:** charts (`bench/charts/`, light and dark), `bench/RESULTS.md`, README "Why a graph", and a static
+  Scale tab on the website (0 accessibility violations), redeployed to Vercel.
+- **Not covered:** writes, distributed setups, cold caches, other query shapes, sizes above 3.5M, clients other
+  than Python.

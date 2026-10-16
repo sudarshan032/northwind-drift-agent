@@ -152,3 +152,11 @@ def test_findings_show_sources_and_action(client):
     assert head["action"] == "cmdb_patch" and head["sources"] == ["cmdb_export", "interface_engine"]
     assert by["D10"]["action"] == "ticket" and by["D10"]["ticket"]["table"] == "incident"
     assert by["D11"]["ticket"]["table"] == "sn_si_incident"
+
+
+def test_scale_tab_bundle(client):
+    """The Scale tab is static: its JSON and charts ship with the UI, and every size passed the gate."""
+    s = client.get("/static/scale/scale.json").json()
+    assert [z["gate"] for z in s["sizes"]] == ["passed"] * 4 and s["top"]["nodes"] > 3_000_000
+    for c in s["charts"]:
+        assert client.get(f"/static/scale/{c}-light.svg").status_code == 200

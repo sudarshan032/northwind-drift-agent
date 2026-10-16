@@ -99,6 +99,7 @@ $("#theme").onclick = () => {
   document.documentElement.dataset.theme = isDark() ? "light" : "dark";
   try { localStorage.setItem("theme", document.documentElement.dataset.theme); } catch (e) { /* storage off */ }
   syncThemeButton();
+  paintScaleCharts();
 };
 
 let cachedAI = false;
@@ -116,7 +117,7 @@ async function llmStatus() {
   } catch (e) { $("#llm-status").textContent = "AI status unknown"; }
 }
 
-const TABS = ["change", "findings", "incident", "sources", "chat"];
+const TABS = ["change", "findings", "incident", "sources", "chat", "scale"];
 function showTab(tab, focus = false) {
   $("#drawer").hidden = true;
   $("#scrim").hidden = true;
@@ -130,6 +131,7 @@ function showTab(tab, focus = false) {
   if (focus) $(`#tab-btn-${tab}`).focus();
   if (tab === "findings") loadFindings();
   if (tab === "sources") loadSources();
+  if (tab === "scale") loadScale();
 }
 $$(".tabs [role=tab]").forEach((b) => {
   b.onclick = () => { showTab(b.dataset.tab); history.replaceState(null, "", `#${b.dataset.tab}`); };
@@ -908,6 +910,69 @@ $("#chat-form").onsubmit = async (e) => {
   llmStatus();
 };
 
+// ================================================================ scale (static benchmark results)
+let scale = null;
+const SCALE_CHARTS = {
+  "time-vs-size": ["Query time vs size, depth 6 and 10 (busiest storage array)",
+    "Log-log chart: median milliseconds against node count. FalkorDB traversal is the lowest line at large sizes; PostgreSQL full radius is below FalkorDB full radius at every size."],
+  "time-vs-depth": ["Query time vs depth, per size",
+    "Median milliseconds against depth 2, 4, 6 and 10 for four sizes; times flatten after depth 6 because the impact graph is at most six hops deep."],
+  "concurrency-p95": ["p95 latency vs concurrent clients, per size",
+    "FalkorDB has the lower p95 at every size and client count; both rise with clients."],
+  "memory-vs-size": ["Memory and disk vs size",
+    "FalkorDB memory grows with the graph and reaches 2.6 GB at 3.47M nodes; PostgreSQL uses less memory and more disk."],
+};
+function paintScaleCharts() {
+  $$("#scale-out img[data-chart]").forEach((img) => { img.src = `/static/scale/${img.dataset.chart}-${isDark() ? "dark" : "light"}.svg`; });
+}
+const ms = (x) => x >= 100 ? Math.round(x).toLocaleString() : x.toFixed(1);
+async function loadScale() {
+  if (scale) return;
+  const out = $("#scale-out");
+  try { scale = await api("/static/scale/scale.json"); }
+  catch (e) { out.innerHTML = `<p class="notice">The benchmark results are not bundled with this build.</p>`; return; }
+  const s = scale, t = s.top, d = s.depth10, c = s.concurrency, hw = s.hardware;
+  const nodes = (n) => n >= 1e6 ? `${(n / 1e6).toFixed(2)}M` : `${Math.round(n / 1e3)}k`;
+  const row = (label, f, p, better) => `<tr><th scope="row">${label}</th><td class="num${better === "f" ? " win" : ""}">${f}</td>
+    <td class="num${better === "p" ? " win" : ""}">${p}</td></tr>`;
+  const win = (a, b, lowerBetter = true) => (lowerBetter ? a < b : a > b) ? "f" : "p";
+  out.innerHTML = `
+    <p class="verdict scale-verdict">At ${nodes(t.nodes)} nodes the traversal is faster in FalkorDB.
+      The full question is faster in PostgreSQL.</p>
+    <h2>Key numbers at ${t.nodes.toLocaleString()} nodes, ${t.edges.toLocaleString()} edges, ${t.hospitals.toLocaleString()} hospitals</h2>
+    <table class="compare scale-table">
+      <caption class="sr">FalkorDB and PostgreSQL at the largest size; the better value is marked</caption>
+      <thead><tr><th scope="col">Measure</th><th scope="col">FalkorDB</th><th scope="col">PostgreSQL</th></tr></thead>
+      <tbody>
+        ${row(`Traversal only, ${d.reach.falkordb.reached.toLocaleString()} components reached (median ms)`, ms(d.reach.falkordb.median_ms), ms(d.reach.postgres.median_ms), win(d.reach.falkordb.median_ms, d.reach.postgres.median_ms))}
+        ${row("Full radius, same start, end to end (median ms)", `${ms(d.radius.falkordb.median_ms)} <span class="label-muted">(${ms(d.radius.falkordb.server_ms)} in the database)</span>`, ms(d.radius.postgres.median_ms), win(d.radius.falkordb.median_ms, d.radius.postgres.median_ms))}
+        ${row(`Full radius of <span class="id">dc1-host-07</span>, ${d.headline_radius.falkordb.reached.toLocaleString()} reached (median ms)`, ms(d.headline_radius.falkordb.median_ms), ms(d.headline_radius.postgres.median_ms), win(d.headline_radius.falkordb.median_ms, d.headline_radius.postgres.median_ms))}
+        ${row("Change review CHG-HEADLINE (median ms)", ms(s.review.falkordb.median_ms), ms(s.review.postgres.median_ms), win(s.review.falkordb.median_ms, s.review.postgres.median_ms))}
+        ${row("100 clients: queries per second", ms(c.falkordb_100.throughput_qps), ms(c.postgres_100.throughput_qps), win(c.falkordb_100.throughput_qps, c.postgres_100.throughput_qps, false))}
+        ${row("100 clients: p95 latency (ms)", ms(c.falkordb_100.p95_ms), ms(c.postgres_100.p95_ms), win(c.falkordb_100.p95_ms, c.postgres_100.p95_ms))}
+        ${row("Peak memory (MB)", s.memory_mb.falkordb.toLocaleString(), s.memory_mb.postgres.toLocaleString(), win(s.memory_mb.falkordb, s.memory_mb.postgres))}
+        ${row("On disk (MB)", s.disk_mb.falkordb.toLocaleString(), s.disk_mb.postgres.toLocaleString(), win(s.disk_mb.falkordb, s.disk_mb.postgres))}
+        ${row("Load time (s)", ms(s.load_s.falkordb), ms(s.load_s.postgres), win(s.load_s.falkordb, s.load_s.postgres))}
+      </tbody>
+    </table>
+    <p class="sub">The better value in each row is marked "better". Identical results in every compared case
+      (${s.sizes.map((z) => `${nodes(z.nodes)}: gate ${z.gate}`).join(", ")}).</p>
+    ${Object.entries(SCALE_CHARTS).map(([k, [title, alt]]) => `<figure class="chart${k === "memory-vs-size" ? " narrow" : ""}" tabindex="0" aria-label="${esc(title)}"><figcaption><h2>${title}</h2></figcaption>
+      <img data-chart="${k}" alt="${esc(alt)}" loading="lazy"></figure>`).join("")}
+    <h2>Setup</h2>
+    <dl class="kv scale-kv">
+      <dt>Hardware</dt><dd>${esc(hw.cpu)}, ${esc(hw.cores)} cores, ${Math.round(hw.ram_bytes / 2 ** 30)} GB RAM; Docker ${esc(hw.docker)} with a ${(hw.docker_vm_memory_bytes / 2 ** 30).toFixed(1)} GB VM</dd>
+      <dt>Limits</dt><dd>${esc(s.settings.limits.memory.toUpperCase())}B memory and ${esc(s.settings.limits.cpus)} CPUs per database container</dd>
+      <dt>Systems</dt><dd><span class="id">${esc(s.settings.falkordb)}</span> and <span class="id">${esc(s.settings.postgres)}</span></dd>
+      <dt>Sizes</dt><dd>${s.sizes.map((z) => `${z.nodes.toLocaleString()} nodes (${z.hospitals} hospitals)`).join(", ")}</dd>
+      <dt>Method</dt><dd>${s.settings.runs} timed runs after warm-up per query; ${s.settings.concurrency_seconds} s per concurrency level; same impact edges in both systems</dd>
+    </dl>
+    <p>Full method, every table and the limits of this benchmark:
+      <a href="https://github.com/sudarshan032/northwind-drift-agent/blob/master/bench/RESULTS.md">bench/RESULTS.md</a>
+      (<a href="/static/scale/RESULTS.md">plain-text copy</a>).</p>`;
+  paintScaleCharts();
+}
+
 // ================================================================ routing and start
 async function route() {
   const h = location.hash;
@@ -924,7 +989,7 @@ async function route() {
   const id = changes.some((c) => c.number === want) ? want : (changes.find((c) => c.number === "CHG-HEADLINE") || changes[0])?.number;
   if (id && (current?.id !== id || current.kind !== "change")) { highlight = null; await selectChange(id, false); }
 }
-window.addEventListener("hashchange", () => { if (/^#(ci|change|findings|sources)=|^#(findings|incident|sources|chat|change)$/.test(location.hash)) route(); });
+window.addEventListener("hashchange", () => { if (/^#(ci|change|findings|sources)=|^#(findings|incident|sources|chat|change|scale)$/.test(location.hash)) route(); });
 let resizeTimer;
 window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { if (model) drawGraph(); }, 150); });
 

@@ -37,3 +37,10 @@ def test_expand_and_classify():
 def test_stats():
     s = stats([float(x) for x in range(1, 101)])
     assert s["median_ms"] == 50.5 and s["p95_ms"] == 95 and s["runs"] == 100
+
+
+def test_committed_results_verify():
+    """The recorded benchmark run is complete: every step, gate passed, no errors, memory under the limit."""
+    from bench.verify import verify
+    problems, report = verify([50000, 250000, 500000, 3500000])
+    assert problems == [] and all(r["gate"] == "passed" for r in report.values())
