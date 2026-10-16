@@ -220,7 +220,7 @@ function noticeText(n, what = "answer") {
 function friendly(text) {
   const t = String(text || "");
   if (t.startsWith("Rule-based summary: no tool evidence was gathered")) return "No answer could be put together for this from the graph. Try one of the suggested questions, or name a component such as lrc-db-01.";
-  return t.replace(/^Rule-based summary from the tool results\. /, "Summary of what the graph queries found: ");
+  return t.replace(/Rule-based summary from the tool results\. /, "Summary of what the graph queries found: ");
 }
 
 // ---------------------------------------------------------------- toast
@@ -799,7 +799,11 @@ function affected(f) {
   const names = f.subjects?.length ? f.subjects : [f.key?.[1]].filter(Boolean);
   return names.length > 1 ? `${names[0]} and ${names.length - 1} more` : names[0] || "";
 }
-function firstSentence(s) { const m = String(s || "").replace(/\*\*/g, "").match(/^.*?[.!?](\s|$)/); return (m ? m[0] : s || "").trim(); }
+function firstSentence(s) {
+  const t = String(s || "").replace(/\*\*/g, "").replace(/^\s*what is wrong:\s*/i, "");  // AI answers often open with this label
+  const m = t.match(/^.*?[.!?](\s|$)/);
+  return cap((m ? m[0] : t).trim());
+}
 function renderFindings() {
   const v = (id) => $(id).value;
   const rows = findings.filter((f) => (!v("#f-sev") || f.severity === v("#f-sev")) && (!v("#f-type") || f.type === v("#f-type"))

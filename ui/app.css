@@ -36,6 +36,14 @@ input[type="text"], select {
   min-height: var(--control-h); padding: 0 var(--s-12); border: var(--line) solid var(--rule-strong);
   border-radius: var(--r-control); background: var(--surface); color: var(--ink);
 }
+/* own chevron: the native arrow sat on the border with no padding (and differed per browser) */
+select {
+  appearance: none; -webkit-appearance: none; padding-right: calc(var(--s-12) * 2 + var(--chevron));
+  background-image: linear-gradient(45deg, transparent 50%, var(--ink-muted) 50%),
+                    linear-gradient(135deg, var(--ink-muted) 50%, transparent 50%);
+  background-position: calc(100% - var(--s-12) - var(--chevron)) 55%, calc(100% - var(--s-12)) 55%;
+  background-size: var(--chevron) var(--chevron); background-repeat: no-repeat;
+}
 a { color: var(--declared); }
 
 /* ---- header */
@@ -218,7 +226,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 /* findings */
 .filters { display: flex; flex-wrap: wrap; align-items: end; gap: var(--s-16); }
 .filters label { display: grid; gap: var(--s-4); font-size: var(--t-13); color: var(--ink-muted); font-weight: var(--w-strong); }
-.filters .count { margin-left: auto; color: var(--ink-muted); }
+.filters .count { margin-left: auto; color: var(--ink-muted); min-height: var(--control-h); display: flex; align-items: center; }
 
 /* drawer, scrim, tooltip, toast (the only shadows) */
 .scrim { position: fixed; inset: 0; background: var(--overlay); z-index: 15; }

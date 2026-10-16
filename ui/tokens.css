@@ -78,6 +78,7 @@
   --panel-max-h: 320px;
   --tip-max: 360px;
   --chip-h: 22px;
+  --chevron: 5px;               /* half-width of the select arrow */
   --chain-w: 480px;             /* overview headline diagram */
   --measure-head: 22ch;
   --spot-reach: 9999px;         /* tour spotlight: the shadow that dims the rest of the page */
