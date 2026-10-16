@@ -326,6 +326,62 @@ database at these sizes.
 
 ## Agent (`agent/`)
 
+### The Change Guardian (the main actor)
+
+Ask the agent to review a change (Change review, "Ask the agent to review") or describe a symptom (Incident).
+The Change Guardian (`agent/guardian.py`) runs a tool loop: from what it has found so far it decides which tool to
+call next, says why in one sentence, and stops when it has enough, with at most 10 model calls; the last call has
+no tools and must return a structured verdict `{risk, root_cause, reasons, hidden_links, warn, actions,
+evidence}`. Every step streams to the "Agent investigation" panel (tool, why, result, time, cost).
+
+```
+ trigger (change / symptom)
+        │
+        ▼
+ Change Guardian ──list/call──▶ MCP client ──in process──▶ MCP server (agent/mcp_tools.py) ──▶ FalkorDB `northwind`
+   (OpenAI gpt-6-luna,                                      radius, hidden_links, impact_path, who_to_page,
+    Responses API)                                          protection_check, access_check, shared_dependencies,
+        │                                                   changes_on, critical_nodes, get_component, get_change,
+        │                                                   get_neighbourhood, search_components, findings_about,
+        │                                                   unregistered_app_path, recall
+        ├──▶ action tools (agent/actions.py): add_change_note, request_cab_review, notify_owner,
+        │    propose_cmdb_fix (approval-gated), open_ticket ──▶ written to `northwind` at once
+        ├──▶ verdict ──▶ grounding checks (numbers, CI names, most-specific shared dependency) ──▶ or rule-based
+        └──▶ memory graph `northwind_memory`: Investigation, Step, Decision, Fact, Feedback ──▶ `recall` next time
+```
+
+- **MCP.** The read-only tools are an MCP server: streamable HTTP at `/mcp` (live:
+  `https://northwind-drift-agent.vercel.app/mcp`) and stdio (`uv run python -m agent.mcp_tools`). The agent itself
+  selects tools through an MCP client connected to the same server. Action tools are not on the MCP server.
+- **Memory.** Approving a finding writes a confirmed Fact, rejecting it a rejected Fact (`northwind_memory`,
+  per-user graphs `northwind_memory_<user>` with `?user=`). The agent recalls them; triage does not re-raise a
+  finding a person rejected unless its evidence changed. Try: approve the headline finding, press "Reset data, keep
+  memory", and review CHG-HEADLINE again: the panel shows that a person confirmed 51 hidden links to `lrc-db-01`.
+- **Cost.** Each call is priced from its token counts ($0.10 / $0.50 per 1M input / output tokens for
+  gpt-6-luna); a daily cap across all keys (`AGENT_DAILY_USD`, default $1.00) and 5 live runs per visitor per day
+  on the public site. When a cap is hit, the recorded run is replayed and labelled "Recorded run". Several keys can
+  be given in `OPENAI_API_KEYS` (comma-separated); on a bad key, no credit or a rate limit the agent moves to the
+  next and the trace says so.
+- **Evaluation.** `python -m agent.eval` runs the agent live on five scenarios (`ingest/scenarios.py`); results
+  in [docs/records/AGENT_EVAL.md](docs/records/AGENT_EVAL.md).
+
+<!-- EVAL_TABLE -->
+
+### Connect an MCP client
+
+Claude Desktop (`claude_desktop_config.json`), local stdio server against the local stack:
+
+```json
+{"mcpServers": {"northwind-graph": {"command": "uv", "args": ["run", "--directory", "/path/to/northwind-drift-agent",
+  "python", "-m", "agent.mcp_tools"], "env": {"FALKORDB_HOST": "localhost", "FALKORDB_PORT": "6379"}}}}
+```
+
+Any client that speaks streamable HTTP can use the live server: `https://northwind-drift-agent.vercel.app/mcp`
+(read-only, no key). From Python: `async with mcp.Client("https://northwind-drift-agent.vercel.app/mcp") as c:
+await c.list_tools()`.
+
+### The earlier flows
+
 These are LangGraph flows over the Cypher tools:
 
 1. **Triage** runs every detector and groups related rows (the 51 headline rows become one finding). It

@@ -107,7 +107,7 @@ def gzip_tree(out):
     for d, _, files in os.walk(out):
         for f in sorted(files):
             p = os.path.join(d, f)
-            if f.endswith((".gz", ".md")) or f in ("ground_truth.json", "sources.json"):
+            if f.endswith((".gz", ".md")) or f in ("ground_truth.json", "scenarios.json", "sources.json"):
                 continue
             with open(p, "rb") as src, open(p + ".gz", "wb") as dst:
                 with gzip.GzipFile(filename="", mode="wb", fileobj=dst, mtime=0) as z:

@@ -176,7 +176,8 @@ def memory_context(g, memory, kind, trigger):
     return memory.recall(sorted(names)) if names else None
 
 
-async def investigate(g, memory, kind, trigger, llm, mcp_server, *, max_steps=MAX_STEPS, charge=None, user=None):
+async def investigate(g, memory, kind, trigger, llm, mcp_server, *, max_steps=MAX_STEPS, charge=None, user=None,
+                      deadline_s=45):
     """Run one investigation; yields events. `charge(usd) -> bool` books each call's cost (False: cap reached)."""
     from mcp import Client
     t0 = time.perf_counter()
@@ -196,6 +197,8 @@ async def investigate(g, memory, kind, trigger, llm, mcp_server, *, max_steps=MA
         specs = [with_why(s) for s in mcp_specs + A.specs()]
         n = 0
         while n < max_steps - 1:
+            if time.perf_counter() - t0 > deadline_s:  # leave time for the verdict inside the 60 s function limit
+                break
             n += 1
             seen = len(getattr(llm, "events", []))
             try:

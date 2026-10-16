@@ -133,7 +133,7 @@ def test_memory_isolation_and_recall(env):
         m.reset()
     alice.fact(["emr-db-01"], "emr-db-01 is patched on Sundays.", "confirmed", "test")
     assert alice.recall(["emr-db-01"])["confirmed"][0]["statement"] == "emr-db-01 is patched on Sundays."
-    assert bob.recall(["emr-db-01"])["confirmed"] == [] and alice.name == "northwind_memory_alice"
+    assert bob.recall(["emr-db-01"])["confirmed"] == [] and alice.name == f"{GRAPH}_memory_alice"
     assert client.get("/agent/memory", params={"components": "emr-db-01", "user": "alice"}).json()["confirmed"]
     alice.reset()
 

@@ -83,7 +83,8 @@ def memory(user=None):
     """The agent's memory graph (agent.memory), next to the CMDB graph in the same FalkorDB."""
     from agent.memory import Memory
     graph()
-    return Memory(TimedDB(_db), user)
+    base = "northwind_memory" if GRAPH == "northwind" else f"{GRAPH}_memory"  # one memory per CMDB graph
+    return Memory(TimedDB(_db), user, base)
 
 
 class TimedDB:

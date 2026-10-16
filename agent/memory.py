@@ -18,10 +18,10 @@ from datetime import datetime, timezone
 BASE = "northwind_memory"
 
 
-def graph_name(user=None):
+def graph_name(user=None, base=BASE):
     if not user:
-        return BASE
-    return f"{BASE}_{re.sub(r'[^a-z0-9]+', '_', str(user).lower()).strip('_')[:40] or 'anon'}"
+        return base
+    return f"{base}_{re.sub(r'[^a-z0-9]+', '_', str(user).lower()).strip('_')[:40] or 'anon'}"
 
 
 def now():
@@ -33,8 +33,8 @@ def evidence_hash(evidence):
 
 
 class Memory:
-    def __init__(self, db, user=None):
-        self.db, self.name = db, graph_name(user)
+    def __init__(self, db, user=None, base=BASE):
+        self.db, self.name = db, graph_name(user, base)
         self.g = db.select_graph(self.name)
 
     def q(self, cypher, params=None):
