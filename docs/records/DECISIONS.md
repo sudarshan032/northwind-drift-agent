@@ -405,3 +405,32 @@ Clarified, not changed:
 - **Suggested question 6** ("Which apps are used but not in the CMDB?"): the prewarmed AI answer listed D1 subjects that are in the CMDB, so it was removed from the bundle and the question is answered by a rule over the open D6/D14 findings instead (accurate, labelled "answered from the graph"). The other five chips are cached AI answers that passed grounding.
 - **Speed:** Server-Timing (db/compute/total, stored hit/miss) on every response and a cold-start log line; results stored per data version in FalkorDB (`:Stored`, capped at 200 nodes), version token in `:Meta` replaced after approve, reject, scan and reset (a timestamp, never reused); read-only GETs carry `?v=` and get `s-maxage`/`stale-while-revalidate` only when the token matches; `/api/state` (no-store) is fetched from an inline script in `<head>`; LangGraph is imported on a flow's first run; findings list view returns only the table's fields. Sources and Scale are files (not computed), so they are edge-cached rather than stored.
 - **algo.betweenness on FalkorDB Cloud closed the connection and restarted the instance** (seen during prewarm, data intact after ~10 s). The cloud now never runs it: `deploy/critical.py` computes the result on a local copy of the demo subset and stores it as `:Meta {key: 'critical'}`, which `critical_nodes` reads first (load_cloud does this too). Tool calls that raise now return a tool error instead of crashing the request.
+
+## 94. AGENT_V2: the Change Guardian
+- **Interface:** OpenAI Responses API through raw httpx (as the OpenRouter client), effort `low`, one tool call per
+  turn, strict JSON-schema verdict on the last call (R22). Keys: `OPENAI_API_KEYS` (comma-separated, fixed order)
+  or `OPENAI_API_KEY`; on HTTP 401/402/403/429 the next key is used and the trace says "switched to backup key N";
+  the key and its account are never logged (error bodies are not logged either, they can quote part of a key).
+- **Tool selection through MCP, in process:** the agent lists and calls the read-only tools with an MCP client
+  connected to the app's own MCP server (`mcp.Client(server)`), the same server that `/mcp` (streamable HTTP,
+  stateless, JSON responses) and `python -m agent.mcp_tools` (stdio) expose. Chosen over OpenAI calling `/mcp`
+  remotely because that needs a public URL, and the app must time, price, ground and stream every step (R23).
+  Each tool spec gets a required `why` argument, stripped before the MCP call, for the trace.
+- **`/mcp` on Vercel:** one session manager per request (functions keep no task group between requests); DNS-
+  rebinding host checks off because the server is read-only and the hosts vary (preview and production URLs).
+- **Actions** are not MCP tools; they write `:Record` nodes (change_note, cab_review, notification, ticket) at
+  once; `propose_cmdb_fix` only flags the existing approval-gated findings (`proposed_by: agent`).
+- **Memory** is its own graph (`northwind_memory`, `northwind_memory_<user>`), components referenced by name
+  (`:Ref`). Approve/reject write confirmed/rejected Facts with the finding's evidence hash; triage keeps a
+  rejected finding rejected after a reset unless its evidence changed. The change review shows what memory holds
+  about the target and its real radius before the first step, also in recorded runs (memory is live there).
+- **Resets:** "Reset demo" clears data and memory (and the daily cron); "Reset data, keep memory" and "Reset memory"
+  are separate buttons in the agent panel (the spec's demo: approve, reset data, review again, the agent recalls).
+- **Cost guard:** price from token counts (R22); the daily cap counts every key together (`:AgentSpend` in the CMDB
+  graph, untouched by resets); 5 live runs per visitor per day (HMAC of IP and day). When a cap is hit, or no key
+  is configured, the recorded run is replayed and labelled; without one, the rule-based review.
+- **Scenarios** are written to `scenarios.json` next to `ground_truth.json` rather than inside it: ground_truth.json
+  is a list read by the oracle and the tests, so a `scenarios` key would change its shape. They use existing drifts
+  only (D1-HEADLINE, D10-01, D5-05, D14-01, D2-01/D2-04); no drift counts changed.
+- **Incident** now runs the agent; when no live run or recording exists for a symptom, the earlier saved
+  investigation (LangGraph flow, cached AI) is shown under a notice.

@@ -405,3 +405,27 @@ Checked 2026-10-16 against the docs and the live instance (AWS ap-south-1).
 - **Memory command.** `GRAPH.MEMORY USAGE <graph> [SAMPLES n]` reports per-graph memory in MB
   (`total_graph_sz_mb`, matrices, node and edge blocks and attributes, indices).
   https://docs.falkordb.com/commands/graph.memory.html
+
+## R22. OpenAI gpt-6-luna and the Responses API (16 Oct 2026)
+- **Model page** (https://developers.openai.com/api/docs/models/gpt-6-luna): model ID `gpt-6-luna`; $0.10 per 1M
+  input tokens, $0.01 cached input, $0.50 output; 1,050,000-token context (128,000 max output); Responses and Chat
+  Completions endpoints; function calling and structured outputs supported; reasoning effort `none` to `max`
+  (default `medium`). **Function calling on Chat Completions works only with `reasoning.effort = none`; the
+  Responses API supports it at any effort**, so the agent uses the Responses API (effort `low`).
+- **Function calling guide** (https://developers.openai.com/api/docs/guides/function-calling): tools are
+  `{type: "function", name, description, parameters, strict}`; the reply's `output` holds `function_call` items
+  (`call_id`, `name`, JSON `arguments`); results go back as `function_call_output` input items with the same
+  `call_id`; reasoning items returned with tool calls must be passed back in order; `parallel_tool_calls: false`
+  allows one call per turn; strict schemas need `additionalProperties: false` and every key in `required`
+  (optional = `["type", "null"]`). The final verdict uses `text.format = {type: "json_schema", strict: true}`.
+- Third-party price pages (OpenRouter, tokencost) agree on $0.10 / $0.50; the official page is the source used.
+
+## R23. MCP: Python SDK 2.x and OpenAI remote MCP (16 Oct 2026)
+- `mcp` 2.3.0 (PyPI, current): `FastMCP` is now `mcp.server.mcpserver.MCPServer`; `streamable_http_app(...,
+  stateless_http=True, json_response=True)` returns a Starlette app whose session manager must be running
+  (`session_manager.run()`); `mcp.Client(server)` connects in process, `mcp.Client(url)` over streamable HTTP;
+  `server.run("stdio")` for stdio clients.
+- OpenAI's Responses API can call a remote MCP server itself (`tools: [{type: "mcp", server_url, allowed_tools}]`,
+  https://developers.openai.com/api/docs/guides/tools-remote-mcp). Not used: the server must be reachable from
+  OpenAI (not the local stack or a protected preview), and the app could no longer time, cost, ground or stream
+  each step. See DECISIONS #94.
