@@ -55,3 +55,4 @@ Re-read this file, RUN_PROMPT.md and DATA_SPEC.md after any context compaction.
 - 2026-10-16 Paired client re-run (pure-Python parser vs hiredis, same session) at 536k and 3.47M; unpaired hiredis attempt archived; RESULTS.md section added.
 - 2026-10-16 AGENT_V2 sections 1-6 built with the fake LLM (OpenAI client, MCP tools, actions, memory, guardian, trace UI, scenarios); waiting for OpenAI keys for the eval.
 - 2026-10-16 AGENT_V2 eval 4/5 (gpt-6-luna; first run 2/5), recorded runs, preview checked (live run, /mcp 18 tools, memory recall after data reset), merged to master.
+- 2026-10-16 Held-out scenarios H1-H4 run once: 3/4; README tracks section.

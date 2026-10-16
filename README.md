@@ -375,7 +375,18 @@ Evaluation (gpt-6-luna, run 2, live, 16 Oct): **4/5 correct**, about $0.002 per 
 | S4-fhir-app | yes | yes (high) | yes | yes | 5 | $0.0009 | 19.2 s | open_ticket |
 | S5-stale | yes | yes (low) | no | yes | 9 | $0.0021 | 31.0 s | add_change_note |
 
-Run 1 of the first version scored 2/5; both runs and what changed are in AGENT_EVAL.md.
+S1-S5 were used during development (run 1 scored 2/5, then 4/5 after adding `stale_links` and
+`findings_by_type`). The held-out set below (D9 protection gap, D11 data residency, D12 access drift, D6 shadow IT)
+was added afterwards and run once, untouched: **3/4 correct**.
+
+| Scenario | Root cause | Risk | Owners warned | Grounding | Steps | Cost | Time | Actions taken |
+|---|---|---|---|---|---|---|---|---|
+| H1-protection | yes | yes (high) | yes | yes | 8 | $0.0015 | 29.5 s | open_ticket |
+| H2-residency | yes | yes (high) | yes | yes | 7 | $0.0016 | 26.2 s | notify_owner, notify_owner |
+| H3-access | yes | yes (high) | yes | yes | 6 | $0.0008 | 24.1 s | open_ticket |
+| H4-shadow | yes | yes (medium) | no | yes | 8 | $0.0016 | 28.2 s | open_ticket |
+
+Details, both development runs and what changed: [docs/records/AGENT_EVAL.md](docs/records/AGENT_EVAL.md).
 
 ### Connect an MCP client
 
@@ -416,6 +427,21 @@ the tool results (shared dependency, changes, path, owners) is shown instead.
 the prompt says to use only those values. Every number and CI name in the reply is then checked against the
 facts; on any mismatch the prose is discarded, the rule-based explanation is shown with a notice, and the
 mismatch is logged.
+
+## Hackathon tracks
+
+- **Track 1 (primary): an agent acting on connected data.** The Change Guardian investigates changes and incidents
+  over one FalkorDB graph of declared and observed dependencies, chooses its tools through MCP (also served at
+  `/mcp` for any MCP client), acts (work notes, CAB review, owner alerts, tickets, approval-gated CMDB fixes), and
+  every answer is traceable: each step shows the tool, why, the result, time and cost, and the verdict is checked
+  against the tool results.
+- **Track 2: memory and shared state.** A separate memory graph across sessions (`northwind_memory`, one per CMDB
+  graph, per-user graphs with `?user=`) holds investigations, steps, decisions, facts and feedback. The agent learns
+  from people: approvals become confirmed facts it recalls in later reviews, rejections become facts that stop triage
+  from re-raising the same finding.
+- **Track 3: who owns what, decisions traced to sources.** Observed vs declared ownership (who really resolves
+  incidents and implements changes) decides who gets warned, and every hidden link, finding and verdict points back
+  to the discovery source that showed it (interface engine, netflow, APM, backup software, ITSM history, ...).
 
 ## Using free models
 
