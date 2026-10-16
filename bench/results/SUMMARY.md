@@ -52,6 +52,74 @@ Change review CHG-HEADLINE (declared + real radius + difference): falkordb media
 | 100 | falkordb | 994.68 | 94.786 | 160.917 | 238.677 | 0 |
 | 100 | postgres | 1456.85 | 14.334 | 270.895 | 817.817 | 0 |
 
+| load method | insert (s) | indexes (s) | impact layer (s) | total (s) |
+|---|---|---|---|---|
+| FalkorDB batched Cypher | 4.4 | (during insert) | 0.2 | 4.6 |
+| FalkorDB bulk loader (+0.1 s CSV conversion) | 0.5 | 0.1 | 0.2 | 0.8 |
+| PostgreSQL COPY | 0.2 | 0.2 (with ANALYZE) | - | 0.4 |
+
+| query | start | depth | reached | FalkorDB end to end / server (ms) | PostgreSQL end to end / server (ms) |
+|---|---|---|---|---|---|
+| radius | `dc1-host-07` | 2 | 2 | 0.426 / 0.142 | 0.391 / 0.052 |
+| radius | `dc1-host-07` | 4 | 106 | 5.207 / 1.287 | 1.737 / 0.569 |
+| radius | `dc1-host-07` | 6 | 107 | 4.164 / 1.293 | 1.627 / 0.609 |
+| radius | `dc1-host-07` | 10 | 107 | 4.262 / 1.289 | 1.648 / 0.611 |
+| radius | `emr-app` | 2 | 230 | 7.14 / 2.514 | 2.414 / 1.188 |
+| radius | `emr-app` | 4 | 231 | 7.661 / 2.556 | 2.267 / 1.259 |
+| radius | `emr-app` | 6 | 231 | 7.333 / 2.688 | 2.317 / 1.237 |
+| radius | `emr-app` | 10 | 231 | 7.629 / 2.544 | 2.336 / 1.23 |
+| radius | `arr-pri-a-03` | 2 | 24 | 1.778 / 0.242 | 0.674 / 0.114 |
+| radius | `arr-pri-a-03` | 4 | 1,681 | 27.746 / 13.116 | 7.631 / 7.371 |
+| radius | `arr-pri-a-03` | 6 | 2,771 | 45.044 / 22.002 | 14.498 / 14.573 |
+| radius | `arr-pri-a-03` | 10 | 2,771 | 45.098 / 22.423 | 15.667 / 15.37 |
+| reach | `dc1-host-07` | 2 | 2 | 0.634 / 0.058 | 0.378 / 0.019 |
+| reach | `dc1-host-07` | 4 | 106 | 0.695 / 0.076 | 0.735 / 0.137 |
+| reach | `dc1-host-07` | 6 | 107 | 1.495 / 0.086 | 0.903 / 0.174 |
+| reach | `dc1-host-07` | 10 | 107 | 1.393 / 0.083 | 0.882 / 0.181 |
+| reach | `emr-app` | 2 | 230 | 1.765 / 0.083 | 1.271 / 0.387 |
+| reach | `emr-app` | 4 | 231 | 1.63 / 0.105 | 1.361 / 0.486 |
+| reach | `emr-app` | 6 | 231 | 1.668 / 0.114 | 1.34 / 0.487 |
+| reach | `emr-app` | 10 | 231 | 1.671 / 0.122 | 1.312 / 0.541 |
+| reach | `arr-pri-a-03` | 2 | 24 | 0.741 / 0.072 | 0.416 / 0.057 |
+| reach | `arr-pri-a-03` | 4 | 1,681 | 5.751 / 0.425 | 3.185 / 2.631 |
+| reach | `arr-pri-a-03` | 6 | 2,771 | 7.398 / 0.602 | 6.949 / 6.157 |
+| reach | `arr-pri-a-03` | 10 | 2,771 | 6.447 / 0.597 | 7.711 / 7.037 |
+| raw (4 round trips) | `dc1-host-07` | 2 | 2 | 1.076 / 0.258 | 0.236 / 0.041 |
+| raw (6 round trips) | `dc1-host-07` | 4 | 106 | 2.607 / 0.826 | 0.603 / 0.418 |
+| raw (8 round trips) | `dc1-host-07` | 6 | 107 | 3.935 / 1.309 | 0.844 / 0.645 |
+| raw (8 round trips) | `dc1-host-07` | 10 | 107 | 3.411 / 1.339 | 0.787 / 0.616 |
+| raw (4 round trips) | `emr-app` | 2 | 230 | 3.665 / 1.324 | 1.298 / 1.113 |
+| raw (6 round trips) | `emr-app` | 4 | 231 | 4.043 / 1.937 | 1.498 / 1.316 |
+| raw (6 round trips) | `emr-app` | 6 | 231 | 4.151 / 1.778 | 1.454 / 1.312 |
+| raw (6 round trips) | `emr-app` | 10 | 231 | 4.864 / 1.742 | 1.514 / 1.315 |
+| raw (4 round trips) | `arr-pri-a-03` | 2 | 24 | 1.225 / 0.261 | 0.265 / 0.093 |
+| raw (6 round trips) | `arr-pri-a-03` | 4 | 1,681 | 15.651 / 5.405 | 5.252 / 4.98 |
+| raw (8 round trips) | `arr-pri-a-03` | 6 | 2,771 | 34.121 / 14.591 | 23.484 / 25.56 |
+| raw (9 round trips) | `arr-pri-a-03` | 10 | 2,771 | 36.305 / 15.416 | 29.023 / 28.331 |
+
+Raw-relationship gate: passed (identical to the BFS over the pre-built impact edges, in both systems).
+
+| start | depth | variant | end to end median / p95 (ms) | server median (ms) | counts |
+|---|---|---|---|---|---|
+| `arr-pri-a-03` | 6 | A_falkordb_full | 44.006 / 48.086 | 21.964 | 2,771 / 42 / 968 / 51 |
+| `arr-pri-a-03` | 6 | B_postgres_full | 14.425 / 15.237 | 14.323 | 2,771 / 42 / 968 / 51 |
+| `arr-pri-a-03` | 6 | C_hybrid | 17.599 / 21.927 | 12.369 (FalkorDB 0.506 + PostgreSQL 11.863) | 2,771 / 42 / 968 / 51 |
+| `arr-pri-a-03` | 6 | D_falkordb_counts | 21.888 / 22.199 | 20.834 | 2,771 / 42 / 968 / 51 |
+| `arr-pri-a-03` | 10 | A_falkordb_full | 43.878 / 48.19 | 21.892 | 2,771 / 42 / 968 / 51 |
+| `arr-pri-a-03` | 10 | B_postgres_full | 15.291 / 16.186 | 15.135 | 2,771 / 42 / 968 / 51 |
+| `arr-pri-a-03` | 10 | C_hybrid | 19.198 / 21.313 | 12.341 (FalkorDB 0.478 + PostgreSQL 11.863) | 2,771 / 42 / 968 / 51 |
+| `arr-pri-a-03` | 10 | D_falkordb_counts | 21.997 / 22.209 | 20.808 | 2,771 / 42 / 968 / 51 |
+| `dc1-host-07` | 6 | A_falkordb_full | 6.06 / 7.521 | 1.573 | 107 / 1 / 51 / 51 |
+| `dc1-host-07` | 6 | B_postgres_full | 1.086 / 1.216 | 0.74 | 107 / 1 / 51 / 51 |
+| `dc1-host-07` | 6 | C_hybrid | 2.456 / 2.63 | 0.858 (FalkorDB 0.12 + PostgreSQL 0.738) | 107 / 1 / 51 / 51 |
+| `dc1-host-07` | 6 | D_falkordb_counts | 3.096 / 3.605 | 2.253 | 107 / 1 / 51 / 51 |
+| `dc1-host-07` | 10 | A_falkordb_full | 6.421 / 7.824 | 2.097 | 107 / 1 / 51 / 51 |
+| `dc1-host-07` | 10 | B_postgres_full | 1.035 / 1.173 | 0.696 | 107 / 1 / 51 / 51 |
+| `dc1-host-07` | 10 | C_hybrid | 2.392 / 2.682 | 0.79 (FalkorDB 0.119 + PostgreSQL 0.671) | 107 / 1 / 51 / 51 |
+| `dc1-host-07` | 10 | D_falkordb_counts | 2.879 / 3.026 | 2.061 | 107 / 1 / 51 / 51 |
+
+Hybrid gate (counts of A, B, C, D identical): passed.
+
 ## 268,542 nodes, 883,794 edges (3 regions, 153 hospitals)
 
 Generated in 1.1 s, generator peak RSS 249 MB, CSV 50 MB.
@@ -103,6 +171,74 @@ Change review CHG-HEADLINE (declared + real radius + difference): falkordb media
 | 50 | postgres | 1115.22 | 10.11 | 176.657 | 382.761 | 0 |
 | 100 | falkordb | 745.27 | 126.495 | 210.268 | 293.137 | 0 |
 | 100 | postgres | 1097.75 | 15.266 | 383.29 | 900.487 | 0 |
+
+| load method | insert (s) | indexes (s) | impact layer (s) | total (s) |
+|---|---|---|---|---|
+| FalkorDB batched Cypher | 32.8 | (during insert) | 1.2 | 34.0 |
+| FalkorDB bulk loader (+0.9 s CSV conversion) | 2.4 | 0.3 | 1.2 | 3.9 |
+| PostgreSQL COPY | 0.8 | 0.9 (with ANALYZE) | - | 1.6 |
+
+| query | start | depth | reached | FalkorDB end to end / server (ms) | PostgreSQL end to end / server (ms) |
+|---|---|---|---|---|---|
+| radius | `dc1-host-07` | 2 | 2 | 0.434 / 0.353 | 0.43 / 0.09 |
+| radius | `dc1-host-07` | 4 | 310 | 8.373 / 4.821 | 2.57 / 2.053 |
+| radius | `dc1-host-07` | 6 | 311 | 8.814 / 4.298 | 2.624 / 2.05 |
+| radius | `dc1-host-07` | 10 | 311 | 8.469 / 4.055 | 2.607 / 2.039 |
+| radius | `emr-app` | 2 | 662 | 13.895 / 7.318 | 3.877 / 3.607 |
+| radius | `emr-app` | 4 | 663 | 14.201 / 6.851 | 4.233 / 3.718 |
+| radius | `emr-app` | 6 | 663 | 14.057 / 7.265 | 4.185 / 3.704 |
+| radius | `emr-app` | 10 | 663 | 13.681 / 6.886 | 4.122 / 3.7 |
+| radius | `arr-pri-a-03` | 2 | 24 | 1.635 / 0.279 | 0.697 / 0.117 |
+| radius | `arr-pri-a-03` | 4 | 4,923 | 77.709 / 36.505 | 24.341 / 23.422 |
+| radius | `arr-pri-a-03` | 6 | 8,189 | 131.836 / 60.65 | 48.103 / 46.286 |
+| radius | `arr-pri-a-03` | 10 | 8,189 | 132.264 / 60.45 | 50.156 / 48.748 |
+| reach | `dc1-host-07` | 2 | 2 | 0.855 / 0.106 | 0.398 / 0.018 |
+| reach | `dc1-host-07` | 4 | 310 | 2.148 / 0.141 | 1.596 / 0.413 |
+| reach | `dc1-host-07` | 6 | 311 | 2.455 / 0.157 | 1.841 / 0.569 |
+| reach | `dc1-host-07` | 10 | 311 | 2.318 / 0.183 | 1.804 / 0.629 |
+| reach | `emr-app` | 2 | 662 | 2.105 / 0.215 | 2.647 / 1.16 |
+| reach | `emr-app` | 4 | 663 | 3.48 / 0.217 | 2.493 / 1.233 |
+| reach | `emr-app` | 6 | 663 | 3.141 / 0.197 | 1.363 / 1.125 |
+| reach | `emr-app` | 10 | 663 | 3.094 / 0.185 | 2.516 / 1.087 |
+| reach | `arr-pri-a-03` | 2 | 24 | 1.003 / 0.101 | 0.464 / 0.04 |
+| reach | `arr-pri-a-03` | 4 | 4,923 | 10.288 / 0.73 | 8.688 / 6.728 |
+| reach | `arr-pri-a-03` | 6 | 8,189 | 14.713 / 1.675 | 22.227 / 19.48 |
+| reach | `arr-pri-a-03` | 10 | 8,189 | 15.076 / 1.67 | 24.986 / 21.779 |
+| raw (4 round trips) | `dc1-host-07` | 2 | 2 | 1.401 / 0.356 | 0.532 / 0.081 |
+| raw (6 round trips) | `dc1-host-07` | 4 | 310 | 8.951 / 2.934 | 2.427 / 1.401 |
+| raw (8 round trips) | `dc1-host-07` | 6 | 311 | 5.005 / 2.319 | 2.892 / 2.042 |
+| raw (8 round trips) | `dc1-host-07` | 10 | 311 | 10.025 / 4.233 | 2.661 / 1.879 |
+| raw (4 round trips) | `emr-app` | 2 | 662 | 12.393 / 4.796 | 4.27 / 3.261 |
+| raw (6 round trips) | `emr-app` | 4 | 663 | 15.265 / 6.107 | 4.426 / 3.885 |
+| raw (6 round trips) | `emr-app` | 6 | 663 | 16.31 / 6.605 | 4.689 / 3.808 |
+| raw (6 round trips) | `emr-app` | 10 | 663 | 14.44 / 5.889 | 4.596 / 3.836 |
+| raw (4 round trips) | `arr-pri-a-03` | 2 | 24 | 2.786 / 0.862 | 0.853 / 0.307 |
+| raw (6 round trips) | `arr-pri-a-03` | 4 | 4,923 | 35.697 / 14.334 | 16.218 / 15.312 |
+| raw (8 round trips) | `arr-pri-a-03` | 6 | 8,189 | 84.357 / 39.607 | 70.929 / 71.255 |
+| raw (9 round trips) | `arr-pri-a-03` | 10 | 8,189 | 87.026 / 40.026 | 93.85 / 91.495 |
+
+Raw-relationship gate: passed (identical to the BFS over the pre-built impact edges, in both systems).
+
+| start | depth | variant | end to end median / p95 (ms) | server median (ms) | counts |
+|---|---|---|---|---|---|
+| `arr-pri-a-03` | 6 | A_falkordb_full | 130.654 / 133.585 | 60.684 | 8,189 / 42 / 2,904 / 153 |
+| `arr-pri-a-03` | 6 | B_postgres_full | 46.665 / 47.546 | 46.558 | 8,189 / 42 / 2,904 / 153 |
+| `arr-pri-a-03` | 6 | C_hybrid | 43.495 / 49.209 | 56.448 (FalkorDB 1.294 + PostgreSQL 55.154) | 8,189 / 42 / 2,904 / 153 |
+| `arr-pri-a-03` | 6 | D_falkordb_counts | 56.71 / 74.147 | 55.482 | 8,189 / 42 / 2,904 / 153 |
+| `arr-pri-a-03` | 10 | A_falkordb_full | 131.0 / 135.25 | 60.725 | 8,189 / 42 / 2,904 / 153 |
+| `arr-pri-a-03` | 10 | B_postgres_full | 50.533 / 53.925 | 49.276 | 8,189 / 42 / 2,904 / 153 |
+| `arr-pri-a-03` | 10 | C_hybrid | 43.132 / 47.185 | 56.703 (FalkorDB 1.29 + PostgreSQL 55.413) | 8,189 / 42 / 2,904 / 153 |
+| `arr-pri-a-03` | 10 | D_falkordb_counts | 56.816 / 58.481 | 55.761 | 8,189 / 42 / 2,904 / 153 |
+| `dc1-host-07` | 6 | A_falkordb_full | 7.005 / 7.563 | 3.429 | 311 / 1 / 153 / 153 |
+| `dc1-host-07` | 6 | B_postgres_full | 1.997 / 2.087 | 1.835 | 311 / 1 / 153 / 153 |
+| `dc1-host-07` | 6 | C_hybrid | 3.378 / 3.722 | 1.671 (FalkorDB 0.165 + PostgreSQL 1.506) | 311 / 1 / 153 / 153 |
+| `dc1-host-07` | 6 | D_falkordb_counts | 4.881 / 5.026 | 3.945 | 311 / 1 / 153 / 153 |
+| `dc1-host-07` | 10 | A_falkordb_full | 7.182 / 7.49 | 3.486 | 311 / 1 / 153 / 153 |
+| `dc1-host-07` | 10 | B_postgres_full | 1.934 / 2.119 | 1.816 | 311 / 1 / 153 / 153 |
+| `dc1-host-07` | 10 | C_hybrid | 3.721 / 4.755 | 1.772 (FalkorDB 0.175 + PostgreSQL 1.597) | 311 / 1 / 153 / 153 |
+| `dc1-host-07` | 10 | D_falkordb_counts | 4.56 / 4.78 | 4.1 | 311 / 1 / 153 / 153 |
+
+Hybrid gate (counts of A, B, C, D identical): passed.
 
 ## 535,761 nodes, 1,764,031 edges (6 regions, 306 hospitals)
 
@@ -156,6 +292,74 @@ Change review CHG-HEADLINE (declared + real radius + difference): falkordb media
 | 100 | falkordb | 438.63 | 213.437 | 349.801 | 470.099 | 0 |
 | 100 | postgres | 629.63 | 15.233 | 708.773 | 1508.717 | 0 |
 
+| load method | insert (s) | indexes (s) | impact layer (s) | total (s) |
+|---|---|---|---|---|
+| FalkorDB batched Cypher | 68.1 | (during insert) | 2.2 | 70.3 |
+| FalkorDB bulk loader (+1.8 s CSV conversion) | 4.9 | 0.2 | 2.3 | 7.4 |
+| PostgreSQL COPY | 1.5 | 1.5 (with ANALYZE) | - | 3.1 |
+
+| query | start | depth | reached | FalkorDB end to end / server (ms) | PostgreSQL end to end / server (ms) |
+|---|---|---|---|---|---|
+| radius | `dc1-host-07` | 2 | 2 | 0.533 / 0.479 | 0.541 / 0.092 |
+| radius | `dc1-host-07` | 4 | 616 | 13.152 / 6.869 | 3.913 / 3.471 |
+| radius | `dc1-host-07` | 6 | 617 | 11.986 / 6.869 | 4.028 / 3.708 |
+| radius | `dc1-host-07` | 10 | 617 | 13.321 / 7.121 | 4.169 / 3.74 |
+| radius | `emr-app` | 2 | 1,310 | 23.547 / 13.569 | 7.809 / 7.311 |
+| radius | `emr-app` | 4 | 1,311 | 22.981 / 13.495 | 8.223 / 7.783 |
+| radius | `emr-app` | 6 | 1,311 | 23.626 / 13.43 | 8.122 / 7.764 |
+| radius | `emr-app` | 10 | 1,311 | 23.708 / 13.36 | 8.24 / 7.742 |
+| radius | `arr-pri-a-03` | 2 | 24 | 2.189 / 0.378 | 0.673 / 0.123 |
+| radius | `arr-pri-a-03` | 4 | 9,786 | 147.965 / 72.106 | 51.867 / 52.054 |
+| radius | `arr-pri-a-03` | 6 | 16,316 | 253.182 / 125.785 | 100.402 / 102.721 |
+| radius | `arr-pri-a-03` | 10 | 16,316 | 254.753 / 119.534 | 105.544 / 109.373 |
+| reach | `dc1-host-07` | 2 | 2 | 1.037 / 0.174 | 0.417 / 0.019 |
+| reach | `dc1-host-07` | 4 | 616 | 3.43 / 0.245 | 2.576 / 0.837 |
+| reach | `dc1-host-07` | 6 | 617 | 3.398 / 0.323 | 2.605 / 1.074 |
+| reach | `dc1-host-07` | 10 | 617 | 3.691 / 0.261 | 2.435 / 1.702 |
+| reach | `emr-app` | 2 | 1,310 | 5.107 / 0.335 | 3.021 / 1.969 |
+| reach | `emr-app` | 4 | 1,311 | 4.96 / 0.324 | 3.395 / 2.245 |
+| reach | `emr-app` | 6 | 1,311 | 4.214 / 0.339 | 3.258 / 2.216 |
+| reach | `emr-app` | 10 | 1,311 | 5.687 / 0.345 | 3.308 / 2.205 |
+| reach | `arr-pri-a-03` | 2 | 24 | 1.183 / 0.187 | 0.658 / 0.045 |
+| reach | `arr-pri-a-03` | 4 | 9,786 | 17.489 / 2.673 | 15.602 / 13.821 |
+| reach | `arr-pri-a-03` | 6 | 16,316 | 28.062 / 4.836 | 43.932 / 42.272 |
+| reach | `arr-pri-a-03` | 10 | 16,316 | 28.453 / 3.999 | 48.824 / 47.948 |
+| raw (4 round trips) | `dc1-host-07` | 2 | 2 | 1.258 / 0.316 | 0.422 / 0.132 |
+| raw (6 round trips) | `dc1-host-07` | 4 | 616 | 10.205 / 3.784 | 3.222 / 2.444 |
+| raw (8 round trips) | `dc1-host-07` | 6 | 617 | 13.749 / 5.468 | 4.386 / 3.607 |
+| raw (8 round trips) | `dc1-host-07` | 10 | 617 | 11.922 / 5.51 | 4.526 / 3.619 |
+| raw (4 round trips) | `emr-app` | 2 | 1,310 | 12.718 / 6.094 | 7.379 / 6.576 |
+| raw (6 round trips) | `emr-app` | 4 | 1,311 | 21.721 / 9.488 | 8.527 / 7.863 |
+| raw (6 round trips) | `emr-app` | 6 | 1,311 | 14.4 / 7.296 | 8.401 / 7.87 |
+| raw (6 round trips) | `emr-app` | 10 | 1,311 | 17.609 / 8.673 | 8.489 / 7.847 |
+| raw (4 round trips) | `arr-pri-a-03` | 2 | 24 | 2.534 / 0.761 | 0.614 / 0.282 |
+| raw (6 round trips) | `arr-pri-a-03` | 4 | 9,786 | 71.241 / 27.254 | 33.274 / 31.028 |
+| raw (8 round trips) | `arr-pri-a-03` | 6 | 16,316 | 157.324 / 73.537 | 150.91 / 150.177 |
+| raw (9 round trips) | `arr-pri-a-03` | 10 | 16,316 | 160.937 / 73.941 | 190.097 / 185.339 |
+
+Raw-relationship gate: passed (identical to the BFS over the pre-built impact edges, in both systems).
+
+| start | depth | variant | end to end median / p95 (ms) | server median (ms) | counts |
+|---|---|---|---|---|---|
+| `arr-pri-a-03` | 6 | A_falkordb_full | 276.795 / 286.286 | 127.32 | 16,316 / 42 / 5,808 / 306 |
+| `arr-pri-a-03` | 6 | B_postgres_full | 101.379 / 105.057 | 97.454 | 16,316 / 42 / 5,808 / 306 |
+| `arr-pri-a-03` | 6 | C_hybrid | 87.855 / 125.848 | 185.583 (FalkorDB 2.525 + PostgreSQL 183.058) | 16,316 / 42 / 5,808 / 306 |
+| `arr-pri-a-03` | 6 | D_falkordb_counts | 115.38 / 202.962 | 114.504 | 16,316 / 42 / 5,808 / 306 |
+| `arr-pri-a-03` | 10 | A_falkordb_full | 285.055 / 316.93 | 131.836 | 16,316 / 42 / 5,808 / 306 |
+| `arr-pri-a-03` | 10 | B_postgres_full | 114.997 / 131.495 | 106.95 | 16,316 / 42 / 5,808 / 306 |
+| `arr-pri-a-03` | 10 | C_hybrid | 87.931 / 92.801 | 184.979 (FalkorDB 2.754 + PostgreSQL 182.225) | 16,316 / 42 / 5,808 / 306 |
+| `arr-pri-a-03` | 10 | D_falkordb_counts | 112.904 / 114.325 | 111.67 | 16,316 / 42 / 5,808 / 306 |
+| `dc1-host-07` | 6 | A_falkordb_full | 14.647 / 16.114 | 7.129 | 617 / 1 / 306 / 306 |
+| `dc1-host-07` | 6 | B_postgres_full | 3.797 / 3.974 | 3.662 | 617 / 1 / 306 / 306 |
+| `dc1-host-07` | 6 | C_hybrid | 8.553 / 10.065 | 3.685 (FalkorDB 0.31 + PostgreSQL 3.375) | 617 / 1 / 306 / 306 |
+| `dc1-host-07` | 6 | D_falkordb_counts | 8.534 / 8.788 | 7.589 | 617 / 1 / 306 / 306 |
+| `dc1-host-07` | 10 | A_falkordb_full | 14.625 / 16.011 | 7.128 | 617 / 1 / 306 / 306 |
+| `dc1-host-07` | 10 | B_postgres_full | 3.982 / 4.271 | 3.655 | 617 / 1 / 306 / 306 |
+| `dc1-host-07` | 10 | C_hybrid | 9.005 / 10.071 | 3.704 (FalkorDB 0.332 + PostgreSQL 3.372) | 617 / 1 / 306 / 306 |
+| `dc1-host-07` | 10 | D_falkordb_counts | 8.499 / 8.676 | 7.488 | 617 / 1 / 306 / 306 |
+
+Hybrid gate (counts of A, B, C, D identical): passed.
+
 ## 3,474,840 nodes, 11,444,350 edges (39 regions, 1989 hospitals)
 
 Generated in 11.5 s, generator peak RSS 263 MB, CSV 692 MB.
@@ -207,4 +411,72 @@ Change review CHG-HEADLINE (declared + real radius + difference): falkordb media
 | 50 | postgres | 142.97 | 11.11 | 2286.753 | 3329.255 | 0 |
 | 100 | falkordb | 87.13 | 1173.868 | 1724.895 | 1944.439 | 0 |
 | 100 | postgres | 142.2 | 21.456 | 4401.234 | 7895.391 | 0 |
+
+| load method | insert (s) | indexes (s) | impact layer (s) | total (s) |
+|---|---|---|---|---|
+| FalkorDB batched Cypher | 468.7 | (during insert) | 13.2 | 481.8 |
+| FalkorDB bulk loader (+12.2 s CSV conversion) | 31.1 | 0.3 | 13.3 | 44.7 |
+| PostgreSQL COPY | 10.8 | 12.1 (with ANALYZE) | - | 23.2 |
+
+| query | start | depth | reached | FalkorDB end to end / server (ms) | PostgreSQL end to end / server (ms) |
+|---|---|---|---|---|---|
+| radius | `dc1-host-07` | 2 | 2 | 1.733 / 1.366 | 1.057 / 0.056 |
+| radius | `dc1-host-07` | 4 | 3,982 | 80.215 / 42.348 | 27.931 / 26.514 |
+| radius | `dc1-host-07` | 6 | 3,983 | 80.05 / 42.296 | 29.574 / 27.683 |
+| radius | `dc1-host-07` | 10 | 3,983 | 80.342 / 41.942 | 29.527 / 27.959 |
+| radius | `emr-app` | 2 | 8,438 | 170.723 / 88.537 | 64.699 / 63.974 |
+| radius | `emr-app` | 4 | 8,439 | 171.491 / 89.165 | 66.088 / 65.262 |
+| radius | `emr-app` | 6 | 8,439 | 171.167 / 88.642 | 65.955 / 78.262 |
+| radius | `emr-app` | 10 | 8,439 | 170.632 / 89.06 | 66.695 / 64.663 |
+| radius | `arr-pri-a-03` | 2 | 24 | 3.088 / 1.518 | 1.233 / 0.129 |
+| radius | `arr-pri-a-03` | 4 | 63,279 | 1133.121 / 462.905 | 463.05 / 463.288 |
+| radius | `arr-pri-a-03` | 6 | 105,713 | 1879.912 / 752.71 | 868.207 / 930.835 |
+| radius | `arr-pri-a-03` | 10 | 105,713 | 1881.808 / 753.428 | 907.725 / 927.642 |
+| reach | `dc1-host-07` | 2 | 2 | 2.278 / 1.254 | 0.629 / 0.02 |
+| reach | `dc1-host-07` | 4 | 3,982 | 9.252 / 2.177 | 7.656 / 5.896 |
+| reach | `dc1-host-07` | 6 | 3,983 | 9.351 / 2.168 | 9.458 / 7.599 |
+| reach | `dc1-host-07` | 10 | 3,983 | 9.701 / 2.263 | 9.484 / 7.598 |
+| reach | `emr-app` | 2 | 8,438 | 16.256 / 3.607 | 16.451 / 14.584 |
+| reach | `emr-app` | 4 | 8,439 | 16.245 / 3.437 | 18.689 / 16.398 |
+| reach | `emr-app` | 6 | 8,439 | 16.259 / 3.469 | 18.755 / 16.364 |
+| reach | `emr-app` | 10 | 8,439 | 16.049 / 3.531 | 18.792 / 16.264 |
+| reach | `arr-pri-a-03` | 2 | 24 | 2.504 / 1.238 | 0.674 / 0.045 |
+| reach | `arr-pri-a-03` | 4 | 63,279 | 117.798 / 22.004 | 127.066 / 111.304 |
+| reach | `arr-pri-a-03` | 6 | 105,713 | 201.447 / 38.484 | 336.439 / 318.935 |
+| reach | `arr-pri-a-03` | 10 | 105,713 | 203.258 / 38.098 | 375.192 / 357.137 |
+| raw (4 round trips) | `dc1-host-07` | 2 | 2 | 1.118 / 0.217 | 0.65 / 0.101 |
+| raw (6 round trips) | `dc1-host-07` | 4 | 3,982 | 32.183 / 13.033 | 17.039 / 17.046 |
+| raw (8 round trips) | `dc1-host-07` | 6 | 3,983 | 40.702 / 19.618 | 24.676 / 25.004 |
+| raw (8 round trips) | `dc1-host-07` | 10 | 3,983 | 41.139 / 19.482 | 24.887 / 25.13 |
+| raw (4 round trips) | `emr-app` | 2 | 8,438 | 69.48 / 31.149 | 49.942 / 48.632 |
+| raw (6 round trips) | `emr-app` | 4 | 8,439 | 77.071 / 37.543 | 58.241 / 58.872 |
+| raw (6 round trips) | `emr-app` | 6 | 8,439 | 77.387 / 37.857 | 59.717 / 59.449 |
+| raw (6 round trips) | `emr-app` | 10 | 8,439 | 77.677 / 37.774 | 58.643 / 57.76 |
+| raw (4 round trips) | `arr-pri-a-03` | 2 | 24 | 2.793 / 0.755 | 0.999 / 0.24 |
+| raw (6 round trips) | `arr-pri-a-03` | 4 | 63,279 | 506.82 / 174.657 | 246.212 / 232.46 |
+| raw (8 round trips) | `arr-pri-a-03` | 6 | 105,713 | 1213.75 / 472.719 | 1038.709 / 1067.296 |
+| raw (9 round trips) | `arr-pri-a-03` | 10 | 105,713 | 1267.265 / 457.963 | 1356.12 / 1424.11 |
+
+Raw-relationship gate: passed (identical to the BFS over the pre-built impact edges, in both systems).
+
+| start | depth | variant | end to end median / p95 (ms) | server median (ms) | counts |
+|---|---|---|---|---|---|
+| `arr-pri-a-03` | 6 | A_falkordb_full | 1760.241 / 1793.472 | 750.292 | 105,713 / 42 / 37,752 / 1,989 |
+| `arr-pri-a-03` | 6 | B_postgres_full | 880.92 / 922.579 | 928.603 | 105,713 / 42 / 37,752 / 1,989 |
+| `arr-pri-a-03` | 6 | C_hybrid | 680.841 / 744.237 | 1324.995 (FalkorDB 18.094 + PostgreSQL 1306.901) | 105,713 / 42 / 37,752 / 1,989 |
+| `arr-pri-a-03` | 6 | D_falkordb_counts | 733.801 / 738.544 | 732.021 | 105,713 / 42 / 37,752 / 1,989 |
+| `arr-pri-a-03` | 10 | A_falkordb_full | 1816.238 / 1889.323 | 757.791 | 105,713 / 42 / 37,752 / 1,989 |
+| `arr-pri-a-03` | 10 | B_postgres_full | 943.622 / 1020.367 | 971.268 | 105,713 / 42 / 37,752 / 1,989 |
+| `arr-pri-a-03` | 10 | C_hybrid | 714.504 / 720.023 | 1497.752 (FalkorDB 19.256 + PostgreSQL 1478.496) | 105,713 / 42 / 37,752 / 1,989 |
+| `arr-pri-a-03` | 10 | D_falkordb_counts | 729.529 / 737.682 | 728.161 | 105,713 / 42 / 37,752 / 1,989 |
+| `dc1-host-07` | 6 | A_falkordb_full | 77.849 / 83.216 | 42.149 | 3,983 / 1 / 1,989 / 1,989 |
+| `dc1-host-07` | 6 | B_postgres_full | 29.945 / 31.86 | 28.834 | 3,983 / 1 / 1,989 / 1,989 |
+| `dc1-host-07` | 6 | C_hybrid | 41.36 / 43.035 | 63.955 (FalkorDB 1.924 + PostgreSQL 62.031) | 3,983 / 1 / 1,989 / 1,989 |
+| `dc1-host-07` | 6 | D_falkordb_counts | 51.237 / 51.618 | 50.058 | 3,983 / 1 / 1,989 / 1,989 |
+| `dc1-host-07` | 10 | A_falkordb_full | 77.663 / 83.375 | 42.257 | 3,983 / 1 / 1,989 / 1,989 |
+| `dc1-host-07` | 10 | B_postgres_full | 29.435 / 30.703 | 29.02 | 3,983 / 1 / 1,989 / 1,989 |
+| `dc1-host-07` | 10 | C_hybrid | 40.416 / 42.798 | 63.791 (FalkorDB 1.852 + PostgreSQL 61.939) | 3,983 / 1 / 1,989 / 1,989 |
+| `dc1-host-07` | 10 | D_falkordb_counts | 51.11 / 51.596 | 50.055 | 3,983 / 1 / 1,989 / 1,989 |
+
+Hybrid gate (counts of A, B, C, D identical): passed.
 

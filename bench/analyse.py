@@ -83,6 +83,52 @@ def summary():
                         out.append(f"| {n} | {r['system']} | {r['throughput_qps']} | {r.get('p50_ms')} | "
                                    f"{r.get('p95_ms')} | {r.get('p99_ms')} | {r['errors']} |")
             out.append("")
+        bl, cp = rows(size, "falkordb_bulk_load"), rows(size, "postgres_copy_load")
+        if bl and cp and fl:
+            b, c, f = bl[0]["seconds"], cp[0]["seconds"], fl[0]["seconds"]
+            out += ["| load method | insert (s) | indexes (s) | impact layer (s) | total (s) |", "|---|---|---|---|---|",
+                    f"| FalkorDB batched Cypher | {f['nodes'] + f['edges']:.1f} | (during insert) | {f['impact_build']} | {f['load_total']} |",
+                    f"| FalkorDB bulk loader (+{b['convert_csv']} s CSV conversion) | {b['bulk_insert']} | {b['indexes']} | "
+                    f"{b['impact_build']} | {b['load_total']} |",
+                    f"| PostgreSQL COPY | {c['nodes_copy'] + c['edges_copy']:.1f} | {c['indexes_analyze']} (with ANALYZE) | - | "
+                    f"{c['load_total']} |", ""]
+        raw = [r for r in rows(size, "depth_raw") if "start" in r]
+        srv = rows(size, "server_times")
+        if raw and srv:
+            pick = lambda xs, sysname, kind, start, d: next((r for r in xs if r["system"] == sysname and
+                                                             r.get("kind") == kind and r["start"] == start and r["depth"] == d), None)
+            out += ["| query | start | depth | reached | FalkorDB end to end / server (ms) | PostgreSQL end to end / server (ms) |",
+                    "|---|---|---|---|---|---|"]
+            for kind in ("radius", "reach", "raw"):
+                for start in dict.fromkeys(r["start"] for r in raw):
+                    for d in C.DEPTHS:
+                        if kind == "raw":
+                            f, p = pick(raw, "falkordb", "raw", start, d), pick(raw, "postgres", "raw", start, d)
+                            if f and p:
+                                out.append(f"| raw ({f['round_trips']} round trips) | `{start}` | {d} | {f['reached']:,} | "
+                                           f"{f['median_ms']} / {f['server_median_ms']} | {p['median_ms']} / {p['server_median_ms']} |")
+                        else:
+                            f, p = pick(dep, "falkordb", kind, start, d), pick(dep, "postgres", kind, start, d)
+                            fs, ps = pick(srv, "falkordb", kind, start, d), pick(srv, "postgres", kind, start, d)
+                            if f and p and fs and ps:
+                                out.append(f"| {kind} | `{start}` | {d} | {f['reached']:,} | {f['median_ms']} / "
+                                           f"{fs['server_median_ms']} | {p['median_ms']} / {ps['server_median_ms']} |")
+            gate = [r for r in rows(size, "depth_raw") if r.get("gate")]
+            out += ["", f"Raw-relationship gate: {gate[0]['gate'] if gate else 'not run'} (identical to the BFS over the "
+                        "pre-built impact edges, in both systems).", ""]
+        hy = [r for r in rows(size, "hybrid") if r.get("variant") != "gate"]
+        if hy:
+            out += ["| start | depth | variant | end to end median / p95 (ms) | server median (ms) | counts |",
+                    "|---|---|---|---|---|---|"]
+            for r in hy:
+                part = (f" (FalkorDB {r['server_falkordb_part_ms']} + PostgreSQL {r['server_postgres_part_ms']})"
+                        if r.get("server_postgres_part_ms") is not None else "")
+                c = r["counts"]
+                out.append(f"| `{r['start']}` | {r['depth']} | {r['variant']} | {r['median_ms']} / {r['p95_ms']} | "
+                           f"{r['server_median_ms']}{part} | {c['impacted']:,} / {c['consumers']} / {c['departments']:,} / "
+                           f"{c['hospitals']:,} |")
+            g = [r for r in rows(size, "hybrid") if r.get("variant") == "gate"]
+            out += ["", f"Hybrid gate (counts of A, B, C, D identical): {g[0]['gate'] if g else 'not run'}.", ""]
     return "\n".join(out)
 
 

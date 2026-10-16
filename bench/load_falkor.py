@@ -102,6 +102,22 @@ def load(db, size, log=print):
     for k in list(egroups):
         eflush(k)
     edges_s = time.perf_counter() - t0 - nodes_s
+    fin = finish(g, size)
+    return {"nodes": n, "edges": m, "impact_edges": fin["impact_edges"], "seconds": {
+        "nodes": round(nodes_s, 1), "edges": round(edges_s, 1), "impact_build": fin["impact_build"],
+        "export_impact_edges": fin["export_impact_edges"], "load_total": round(nodes_s + edges_s + fin["impact_build"], 1)}}
+
+
+def finish(g, size, indexes_for=None):
+    """Optional indexes (bulk path), the project's impact rules, and the impact-edge export for PostgreSQL."""
+    d = os.path.join(C.DATA, str(size))
+    t = time.perf_counter()
+    for lbl in indexes_for or []:
+        g.query(f"CREATE INDEX FOR (n:{lbl}) ON (n.bid)")
+    for label, prop in (INDEXES if indexes_for else []):
+        if label in indexes_for:
+            g.query(f"CREATE INDEX FOR (n:{label}) ON (n.{prop})")
+    idx_s = time.perf_counter() - t
     t1 = time.perf_counter()
     impact.build(g)  # the project's impact rules, materialised in Cypher
     impact_s = time.perf_counter() - t1
@@ -114,10 +130,8 @@ def load(db, size, log=print):
             rows = g.query(f"MATCH (a)-[:{t}]->(b) RETURN a.bid, b.bid").result_set
             counts[t] = len(rows)
             w.writerows([a, b, t] for a, b in rows)
-    export_s = time.perf_counter() - t2
-    return {"nodes": n, "edges": m, "impact_edges": counts, "seconds": {
-        "nodes": round(nodes_s, 1), "edges": round(edges_s, 1), "impact_build": round(impact_s, 1),
-        "export_impact_edges": round(export_s, 1), "load_total": round(nodes_s + edges_s + impact_s, 1)}}
+    return {"impact_edges": counts, "indexes": round(idx_s, 1), "impact_build": round(impact_s, 1),
+            "export_impact_edges": round(time.perf_counter() - t2, 1)}
 
 
 def loaded(db, size):

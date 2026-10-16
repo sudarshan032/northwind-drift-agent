@@ -12,7 +12,7 @@ DROP SCHEMA IF EXISTS {s} CASCADE;
 CREATE SCHEMA {s};
 CREATE TABLE {s}.node (id bigint, name text, kind text, label text, site text, type text,
                        patient_safety_impact text, target text, department text, status text);
-CREATE TABLE {s}.edge (src bigint, dst bigint, type text);
+CREATE TABLE {s}.edge (src bigint, dst bigint, type text, health_check boolean);
 """
 INDEXES = [
     "CREATE UNIQUE INDEX ON {s}.node (id)",
@@ -55,8 +55,8 @@ def load(size, log=print):
         _copy(cur, f"COPY {s}.node (id, name, kind, label, site, type, patient_safety_impact, target, department, "
                    "status) FROM STDIN", os.path.join(d, "nodes.csv"), node)
         nodes_s = time.perf_counter() - t0
-        _copy(cur, f"COPY {s}.edge (src, dst, type) FROM STDIN", os.path.join(d, "edges.csv"),
-              lambda r: (int(r[0]), int(r[1]), r[2]))
+        _copy(cur, f"COPY {s}.edge (src, dst, type, health_check) FROM STDIN", os.path.join(d, "edges.csv"),
+              lambda r: (int(r[0]), int(r[1]), r[2], None if r[4] == "" else r[4] == "True"))
         _copy(cur, f"COPY {s}.edge (src, dst, type) FROM STDIN", os.path.join(d, "impact_edges.csv"),
               lambda r: (int(r[0]), int(r[1]), r[2]))
         edges_s = time.perf_counter() - t0 - nodes_s
@@ -74,9 +74,12 @@ def load(size, log=print):
 
 
 def loaded(size):
+    """Node count of the loaded schema; 0 when absent or from before the health_check column."""
     with connect() as c:
         r = c.execute("SELECT to_regclass(%s)", (f"{schema(size)}.node",)).fetchone()[0]
-        return c.execute(f"SELECT count(*) FROM {schema(size)}.node").fetchone()[0] if r else 0
+        col = c.execute("SELECT 1 FROM information_schema.columns WHERE table_schema = %s AND table_name = 'edge' "
+                        "AND column_name = 'health_check'", (schema(size),)).fetchone()
+        return c.execute(f"SELECT count(*) FROM {schema(size)}.node").fetchone()[0] if r and col else 0
 
 
 def disk_bytes(size):

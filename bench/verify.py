@@ -25,8 +25,23 @@ def verify(sizes):
                 problems.append(f"{size}: missing {s}")
                 continue
             r[s] = [json.loads(x) for x in open(p)]
-        if os.path.exists(os.path.join(d, "gate_failure.jsonl")):
-            problems.append(f"{size}: gate_failure.jsonl present")
+        for gf in ("gate_failure.jsonl", "gate_failure_raw.jsonl"):
+            if os.path.exists(os.path.join(d, gf)):
+                problems.append(f"{size}: {gf} present")
+        raw_gate = [x for x in r.get("depth_raw", []) if x.get("gate")]
+        if not raw_gate or raw_gate[0]["gate"] != "passed":
+            problems.append(f"{size}: raw-relationship gate not passed")
+        n_raw = len([x for x in r.get("depth_raw", []) if "start" in x])
+        if n_raw != 2 * len(C.DEPTHS) * (len(C.START_POINTS) + 1):
+            problems.append(f"{size}: {n_raw} timed raw rows")
+        hy = r.get("hybrid", [])
+        if not any(x.get("gate") == "passed" for x in hy) or os.path.exists(os.path.join(d, "gate_failure_hybrid.jsonl")):
+            problems.append(f"{size}: hybrid gate not passed")
+        if len([x for x in hy if x.get("variant") != "gate"]) != 16:
+            problems.append(f"{size}: {len(hy)} hybrid rows")
+        n_srv = len(r.get("server_times", []))
+        if n_srv != 2 * 2 * len(C.DEPTHS) * (len(C.START_POINTS) + 1):
+            problems.append(f"{size}: {n_srv} server-time rows")
         gate = [x for x in r.get("depth", []) if x.get("gate")]
         if not gate or gate[0]["gate"] != "passed":
             problems.append(f"{size}: correctness gate not passed")
@@ -44,6 +59,7 @@ def verify(sizes):
         if len(cr) == 2 and any(cr[0][k] != cr[1][k] for k in ("declared", "real", "hidden", "hospitals_real")):
             problems.append(f"{size}: change review results differ between systems")
         report[size] = {"steps": len(r), "gate": gate[0]["gate"] if gate else None, "timed_rows": len(timed),
+                        "raw_gate": raw_gate[0]["gate"] if raw_gate else None,
                         "max_peak_gb": round(max(peaks) / 2**30, 2) if peaks else None}
     return problems, report
 

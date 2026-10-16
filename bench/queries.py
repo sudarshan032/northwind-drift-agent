@@ -96,3 +96,114 @@ def change_review(radius, name):
 
 def falkor_graph(db, size):
     return db.select_graph(graph_name(size))
+
+
+# ---------------------------------------------------------------- raw relationships (no pre-built impact edges)
+# The real-layer impact rules of graph/impact.py, applied per relationship type while walking:
+#   runs_on, stores_on, netflow : (b)-[:RUNS_ON|STORES_ON|OBSERVED_NETFLOW]->(a)         a fails -> b impacted
+#   hosts_route                 : (a:Application)-[:CONTAINS]->(b:Interface)
+#   contains                    : (b:BusinessService|ServiceOffering)-[:CONTAINS]->(a)
+#   calls                       : (b)-[e:OBSERVED_CALLS]->(a), a not an Interface, not a telemetry sink, not a health check
+#   feeds_route                 : (a)-[e:OBSERVED_CALLS]->(b:Interface), not a health check
+# FalkorDB has no BFS procedure that mixes relationship types and directions with per-hop conditions, so the
+# best shape is one Cypher query per hop (frontier passed as internal ids, sought directly) (the frontier in, the next frontier out, all rules in
+# one UNION); the client keeps the visited set. PostgreSQL does it in one recursive CTE whose recursive term
+# joins the frontier once with a LATERAL union of the rules.
+
+from ingest.config import TELEMETRY_SINKS  # noqa: E402
+
+FALKOR_HOP = """
+UNWIND $f AS i MATCH (a) WHERE id(a) = i WITH a MATCH (a)<-[:RUNS_ON|STORES_ON|OBSERVED_NETFLOW]-(b) WHERE b <> a
+RETURN DISTINCT id(b) AS b
+UNION
+UNWIND $f AS i MATCH (a) WHERE id(a) = i WITH a WHERE a:Application MATCH (a)-[:CONTAINS]->(b:Interface) RETURN DISTINCT id(b) AS b
+UNION
+UNWIND $f AS i MATCH (a) WHERE id(a) = i WITH a MATCH (a)<-[:CONTAINS]-(b:BusinessService) RETURN DISTINCT id(b) AS b
+UNION
+UNWIND $f AS i MATCH (a) WHERE id(a) = i WITH a MATCH (a)<-[:CONTAINS]-(b:ServiceOffering) RETURN DISTINCT id(b) AS b
+UNION
+UNWIND $f AS i MATCH (a) WHERE id(a) = i WITH a WHERE NOT a:Interface AND NOT a.name IN $sinks
+MATCH (a)<-[e:OBSERVED_CALLS]-(b) WHERE b <> a AND NOT coalesce(e.health_check, false) RETURN DISTINCT id(b) AS b
+UNION
+UNWIND $f AS i MATCH (a) WHERE id(a) = i WITH a MATCH (a)-[e:OBSERVED_CALLS]->(b:Interface)
+WHERE b <> a AND NOT coalesce(e.health_check, false) RETURN DISTINCT id(b) AS b
+"""
+
+
+def falkor_raw(g, name, depth):
+    """Frontier BFS over the raw relationships; returns reached names and the summed server time.
+    Frontier nodes are passed as internal ids, which FalkorDB seeks directly (NodeByIdSeek)."""
+    start = g.query("MATCH (f:Component {name: $n}) RETURN id(f)", {"n": name})
+    server = start.run_time_ms
+    if not start.result_set:
+        return {"impacted": set(), "_server_ms": server, "_queries": 1}
+    s = start.result_set[0][0]
+    seen, frontier, q = {s}, [s], 1
+    for _ in range(depth):
+        if not frontier:
+            break
+        r = g.query(FALKOR_HOP, {"f": frontier, "sinks": list(TELEMETRY_SINKS)})
+        server += r.run_time_ms
+        q += 1
+        frontier = [x[0] for x in r.result_set if x[0] not in seen]
+        seen.update(frontier)
+    seen.discard(s)
+    names = g.query("UNWIND $ids AS i MATCH (n) WHERE id(n) = i RETURN n.name", {"ids": list(seen)})
+    server += names.run_time_ms
+    return {"impacted": {x[0] for x in names.result_set}, "_server_ms": server, "_queries": q + 1}
+
+
+PG_RAW = """
+WITH RECURSIVE r(id, d) AS (
+    SELECT id, 0 FROM {s}.node WHERE name = %(name)s AND kind = 'Component'
+  UNION
+    SELECT x.nxt, r.d + 1
+    FROM r JOIN {s}.node a ON a.id = r.id
+    CROSS JOIN LATERAL (
+        SELECT e.src AS nxt FROM {s}.edge e
+         WHERE e.dst = r.id AND e.type IN ('RUNS_ON', 'STORES_ON', 'OBSERVED_NETFLOW')
+      UNION ALL
+        SELECT e.dst FROM {s}.edge e JOIN {s}.node b ON b.id = e.dst AND b.label = 'Interface'
+         WHERE a.label = 'Application' AND e.src = r.id AND e.type = 'CONTAINS'
+      UNION ALL
+        SELECT e.src FROM {s}.edge e JOIN {s}.node b ON b.id = e.src AND b.label IN ('BusinessService', 'ServiceOffering')
+         WHERE e.dst = r.id AND e.type = 'CONTAINS'
+      UNION ALL
+        SELECT e.src FROM {s}.edge e
+         WHERE a.label <> 'Interface' AND NOT a.name = ANY(%(sinks)s) AND e.dst = r.id AND e.type = 'OBSERVED_CALLS'
+           AND NOT coalesce(e.health_check, false)
+      UNION ALL
+        SELECT e.dst FROM {s}.edge e JOIN {s}.node b ON b.id = e.dst AND b.label = 'Interface'
+         WHERE e.src = r.id AND e.type = 'OBSERVED_CALLS' AND NOT coalesce(e.health_check, false)
+    ) x
+    WHERE r.d < %(depth)s AND x.nxt <> r.id
+)
+SELECT coalesce(array_agg(n.name), '{{}}') FROM (SELECT DISTINCT id FROM r) h JOIN {s}.node n USING (id)
+WHERE n.name <> %(name)s OR n.kind <> 'Component'
+"""
+
+
+def pg_raw(cur, size, name, depth):
+    cur.execute(PG_RAW.format(s=schema(size)), {"name": name, "depth": depth, "sinks": list(TELEMETRY_SINKS)},
+                prepare=True)
+    return {"impacted": set(cur.fetchone()[0])}
+
+
+# ---------------------------------------------------------------- server-side times
+
+def falkor_server_ms(g, kind, name, depth):
+    """FalkorDB's own execution time (query statistics), without network and client decoding."""
+    if kind == "raw":
+        return falkor_raw(g, name, depth)["_server_ms"]
+    if kind == "reach":
+        return g.query(FALKOR_REACH, {"name": name, "depth": depth, "rel": "IMPACTS_REAL"}).run_time_ms
+    return g.query(RADIUS % {"term": "AFFECTS_REAL"}, {"name": name, "depth": depth, "rel": "IMPACTS_REAL"}).run_time_ms
+
+
+def pg_server_ms(cur, size, kind, name, depth):
+    """PostgreSQL's execution time from EXPLAIN (ANALYZE, TIMING OFF): runs the query, returns no rows."""
+    sql = {"radius": PG_RADIUS, "reach": PG_REACH, "raw": PG_RAW}[kind].format(s=schema(size))
+    rel, term = LAYERS["real"]
+    cur.execute("EXPLAIN (ANALYZE, TIMING OFF, SUMMARY ON, FORMAT JSON) " + sql,
+                {"name": name, "depth": depth, "rel": rel, "term": term, "sinks": list(TELEMETRY_SINKS)})
+    return cur.fetchone()[0][0]["Execution Time"]

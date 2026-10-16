@@ -28,7 +28,9 @@ PG = {"image": "postgres:18.6", "container": "bench-postgres", "port": 5440, "vo
                    "maintenance_work_mem": "512MB", "max_connections": "250", "random_page_cost": "1.1",
                    "effective_io_concurrency": "200", "jit": "off", "max_wal_size": "4GB",
                    "checkpoint_timeout": "15min", "synchronous_commit": "off", "wal_level": "minimal",
-                   "max_wal_senders": "0", "track_io_timing": "on"}}
+                   "max_wal_senders": "0", "track_io_timing": "on",
+                   # added for the server-time check (16 Oct): measures real prepared executions
+                   "shared_preload_libraries": "pg_stat_statements", "pg_stat_statements.track": "all"}}
 
 DEPTHS = [2, 4, 6, 10]
 RUNS = 20
