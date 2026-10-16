@@ -10,49 +10,33 @@
   "type": "step",
   "n": 1,
   "tool": "findings_by_type",
-  "why": "The symptom describes an unfamiliar app accessing patient records through SMART on FHIR, so I\u2019m checking estate-wide unregistered-app findings.",
+  "why": "The report describes an unfamiliar app accessing patient records through FHIR, so check estate-wide findings for unregistered SMART on FHIR apps.",
   "args": {
    "drift_type": "D14"
   },
   "summary": "1 result",
-  "ms": 248,
-  "cost": 0.000258,
+  "ms": 99,
+  "cost": 5.4e-05,
   "action": false
  },
  {
   "type": "step",
   "n": 2,
   "tool": "unregistered_app_path",
-  "why": "The finding names cardiorisk.example.com; I\u2019m tracing its access path from the initiating group through users and APIs to patient data.",
+  "why": "The D14 finding identifies cardiorisk.example.com as the unregistered app; trace its group, users, API, and patient-data access path.",
   "args": {
    "app": "cardiorisk.example.com"
   },
   "summary": "1 result",
-  "ms": 22,
-  "cost": 6.7e-05,
+  "ms": 26,
+  "cost": 6.8e-05,
   "action": false
  },
  {
   "type": "step",
   "n": 3,
   "tool": "who_to_page",
-  "why": "The observed app path reaches the FHIR API and EMR database; I\u2019m identifying the teams that own and actually resolve these components.",
-  "args": {
-   "components": [
-    "emr-fhir-api",
-    "emr-db-01"
-   ]
-  },
-  "summary": "2 results: emr-db-01, emr-fhir-api",
-  "ms": 21,
-  "cost": 7.2e-05,
-  "action": false
- },
- {
-  "type": "step",
-  "n": 4,
-  "tool": "recall",
-  "why": "Before treating this as a new security issue, I\u2019m checking prior investigation memory for confirmed or rejected facts about the app and its data path.",
+  "why": "The app path establishes the app, FHIR API, and EMR database involved; identify the observed resolver to act on the suspicious access.",
   "args": {
    "components": [
     "cardiorisk.example.com",
@@ -60,25 +44,43 @@
     "emr-db-01"
    ]
   },
+  "summary": "2 results: emr-db-01, emr-fhir-api",
+  "ms": 23,
+  "cost": 7.5e-05,
+  "action": false
+ },
+ {
+  "type": "step",
+  "n": 4,
+  "tool": "recall",
+  "why": "Before escalating the confirmed unregistered-app finding, check prior investigation memory for approval or rejected explanations.",
+  "args": {
+   "components": [
+    "cardiorisk.example.com",
+    "emr-fhir-api",
+    "emr-db-01",
+    "grp-H17-CARD-physician"
+   ]
+  },
   "summary": "0 confirmed facts, 0 rejected, 0 earlier investigations",
   "ms": 42,
-  "cost": 7.5e-05,
+  "cost": 7.6e-05,
   "action": false
  },
  {
   "type": "step",
   "n": 5,
   "tool": "open_ticket",
-  "why": "The open critical D14 finding and observed access path show an unregistered app reading EMR patient data; opening a critical incident for the team responsible for the FHIR API.",
+  "why": "D14 confirms an unregistered app made 18,928 calls over 8 days to emr-fhir-api and emr-db-01; EMR application owners should investigate and contain access urgently.",
   "args": {
    "component": "cardiorisk.example.com",
-   "short_description": "Unregistered app accessing patient records through EMR FHIR API from H17 cardiology users",
+   "short_description": "Unregistered app cardiorisk.example.com accessing patient records through EMR FHIR API",
    "priority": "1 - Critical",
    "assignment_group": "NW-EMR-Apps"
   },
   "summary": "Ticket opened",
   "ms": 20,
-  "cost": 8.7e-05,
+  "cost": 8.9e-05,
   "action": true
  },
  {
@@ -87,9 +89,9 @@
    "risk": "high",
    "root_cause": "cardiorisk.example.com",
    "reasons": [
-    "An open critical D14 finding identifies cardiorisk.example.com as an unregistered SMART on FHIR app reading EMR data via the FHIR API.",
-    "Netflow observed 19 users in grp-H17-CARD-physician launching the app over 8 days, with 18928 API calls and emr-db-01 as data.",
-    "The app has no CMDB record, and the observed path reaches patient records."
+    "The open critical D14 finding identifies cardiorisk.example.com as an unregistered app reading EMR data through the FHIR API.",
+    "Netflow observed 19 users making 18,928 API calls over 8 days, with data from emr-db-01.",
+    "The app has no CMDB record and accesses patient records."
    ],
    "hidden_links": [
     "cardiorisk.example.com -> emr-fhir-api",
@@ -99,17 +101,17 @@
     {
      "team": "NW-EMR-Apps",
      "component": "emr-fhir-api",
-     "why": "Act on the unregistered app's access through the FHIR API."
+     "why": "Owns the FHIR API and should investigate the unregistered app's access."
     },
     {
      "team": "NW-DBA",
      "component": "emr-db-01",
-     "why": "The observed app path reaches this data component."
+     "why": "Owns the database containing data reached through the app's API access."
     }
    ],
    "actions": [
-    "Opened a priority 1 - Critical incident ticket for cardiorisk.example.com assigned to NW-EMR-Apps.",
-    "Recommend investigating the app and its access to patient records."
+    "Opened a priority 1 - Critical incident for cardiorisk.example.com, assigned to NW-EMR-Apps.",
+    "Recommend investigating and containing the unregistered app's access to patient records."
    ],
    "evidence": [
     "findings_by_type",
@@ -126,26 +128,26 @@
    {
     "n": 5,
     "tool": "open_ticket",
-    "why": "The open critical D14 finding and observed access path show an unregistered app reading EMR patient data; opening a critical incident for the team responsible for the FHIR API.",
+    "why": "D14 confirms an unregistered app made 18,928 calls over 8 days to emr-fhir-api and emr-db-01; EMR application owners should investigate and contain access urgently.",
     "args": {
      "component": "cardiorisk.example.com",
-     "short_description": "Unregistered app accessing patient records through EMR FHIR API from H17 cardiology users",
+     "short_description": "Unregistered app cardiorisk.example.com accessing patient records through EMR FHIR API",
      "priority": "1 - Critical",
      "assignment_group": "NW-EMR-Apps"
     },
     "summary": "Ticket opened",
     "ms": 20,
-    "cost": 8.7e-05,
+    "cost": 8.9e-05,
     "action": true
    }
   ]
  },
  {
   "type": "done",
-  "id": "INV-1792170744969121000",
-  "cost": 0.000948,
+  "id": "INV-1792188954435810000",
+  "cost": 0.00081,
   "steps": 5,
   "model": "gpt-6-luna",
-  "ms": 19208
+  "ms": 19366
  }
 ]

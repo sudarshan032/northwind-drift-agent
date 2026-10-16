@@ -849,7 +849,7 @@ def _central(w):
 
     # --- business services: logical groupings (Contains, not traffic-observable)
     w.business = {}
-    for svc, apps_ in (("svc-clinical-documentation", ["emr-app", "emr-fhir-api"]), ("svc-lab-results", ["lis-app", "lis-reporting"]),
+    for svc, apps_ in (("svc-clinical-documentation", ["emr-app", "emr-fhir-api"]), ("svc-lab-results", ["lis-app", "lis-reporting", "labmw-central"]),
                        ("svc-imaging", ["pacs-app", "ris-app"]), ("svc-medication", ["pharm-app"]),
                        ("svc-revenue-cycle", ["billing-app"]), ("svc-scheduling", ["sched-app"]),
                        ("svc-patient-portal", ["portal-app"]), ("svc-analytics", ["dwh-etl-app"]),
@@ -860,6 +860,9 @@ def _central(w):
             w.rel(svc, a, "Contains::Contained by")
     w.ci("svc-emergency-care", "cmdb_ci_service_business", "DC-PRI", w.owners["emr"], crit=1, safety="high",
          description="Emergency care (all hospital Emergency departments)")
+    # Patient monitoring (bedside vitals into the EMR), declared by its service owner; per-hospital offerings below.
+    w.ci("svc-patient-monitoring", "cmdb_ci_service_business", "DC-PRI", w.owners["emr"], crit=1, safety="high",
+         phi=False, description="Patient monitoring (bedside vitals to the EMR, all hospitals)")
 
     # --- enterprise HL7 interfaces (EMR <-> central systems)
     w.interfaces = []
@@ -1134,6 +1137,28 @@ def _hospital(w, s):
              safety="high", description="Bedside device fleet (group)")
         w.rel(name, medseg, CONNECTS)
 
+    # Per-hospital offerings declared by the service owners (truth and CMDB), so the site's lab, imaging and
+    # monitoring routes and applications belong to a business service (connected-components audit, 17 Oct).
+    offerings = (
+        ("lab-results", "svc-lab-results", w.owners["labs"], "low", f"Lab results ({sid})",
+         [f"LAB-RES-{sid}"] + ([apps["labmw"]] if "labmw" in apps else [])),
+        ("imaging", "svc-imaging", w.owners["img"], "low", f"Imaging ({sid})",
+         [f"DICOM-MOD-{sid}"] + ([f"DICOM-FWD-{sid}"] if "pacs-cache" in apps else [])
+         + [apps[k] for k in ("pacs-cache", "mwl") if k in apps]),
+        ("patient-monitoring", "svc-patient-monitoring", site_it, "high", f"Patient monitoring ({sid})",
+         [f"VITALS-{sid}"] + ([apps["monitor-gw"]] if "monitor-gw" in apps else [])),
+    )
+    for slug, parent, owner, safety, label, members in offerings:
+        o = w.ci(f"svc-{lo}-{slug}", "cmdb_ci_service_business", sid, owner, crit=1, safety=safety,
+                 phi=False, description=label)
+        for m in members:
+            w.rel(o["name"], m, "Contains::Contained by")
+        w.rel(parent, o["name"], "Contains::Contained by")
+    # Site applications that belong to an existing service directly: the downtime EMR cache and the file
+    # server serve clinical documentation.
+    for role in ("emr-edge", "fs"):
+        if role in apps:
+            w.rel("svc-clinical-documentation", apps[role], "Contains::Contained by")
     _endpoints(w, s, depts, acc, usr, field, r, inv["ws"], inv["prn"])
     w.site_apps = getattr(w, "site_apps", {})
     w.site_apps[sid] = apps

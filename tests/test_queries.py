@@ -108,3 +108,21 @@ def test_timeout_returns_clear_result(full_graph):
     assert res.get("error") == "query timed out" or res.get("found") is True  # tiny graphs may still finish
     slow = Q.guarded(lambda: (_ for _ in ()).throw(Q.QueryTimeout("x")))()
     assert slow == {"error": "query timed out", "query": "<lambda>"}
+
+
+def test_service_map_offerings(full_graph):
+    """DECISIONS #95: per-hospital Lab results / Imaging / Patient monitoring offerings, declared (so CMDB says and
+    reality agree on them); site routes now reach a business service; the headline is unchanged."""
+    g = full_graph
+    n = lambda q: g.query(q).result_set[0][0]
+    assert n("MATCH (s:Site) WHERE s.type ENDS WITH 'hospital' RETURN count(s)") == 51
+    for slug in ("lab-results", "imaging", "patient-monitoring"):
+        assert n(f"MATCH (o:ServiceOffering) WHERE o.name ENDS WITH '-{slug}' RETURN count(o)") == 51
+    assert n("MATCH (b:BusinessService {name: 'svc-patient-monitoring'}) RETURN b.patient_safety_impact") == "high"
+    for route, svc in (("LAB-RES-H03", "svc-lab-results"), ("DICOM-MOD-H03", "svc-imaging"),
+                       ("VITALS-H03", "svc-patient-monitoring")):
+        for layer in ("declared", "real"):
+            assert svc in Q.radius(g, route, layer)["business_services"], (route, layer)
+    r = Q.change_review(g, "CHG-HEADLINE")
+    assert r["risk"] == "high" and (r["declared_count"], r["real_count"]) == (4, 107)
+    assert Q.change_review(g, "CHG0031513")["risk"] == "low"

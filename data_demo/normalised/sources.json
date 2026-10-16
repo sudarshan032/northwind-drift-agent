@@ -6,8 +6,8 @@
   "raw": "CSV list exports; references as sys_ids (cmdb_rel_ci parent/child/type)",
   "window": "current state",
   "dir": "cmdb_export",
-  "evidence_rows": 15929,
-  "raw_records": 16674,
+  "evidence_rows": 16601,
+  "raw_records": 17346,
   "sample": {
    "raw": {
     "sys_id": "9c617db486704b8851451da810d1e35f",

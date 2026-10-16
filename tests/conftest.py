@@ -32,8 +32,9 @@ def _load(data, graph):
     from ingest.load import Loader
     host, port = os.environ.get("FALKORDB_HOST", "localhost"), int(os.environ.get("FALKORDB_PORT", 6379))
     db = FalkorDB(host=host, port=port)
-    if graph in db.list_graphs():
-        db.select_graph(graph).delete()
+    for name in db.list_graphs():  # the graph and its agent memory graphs (a fresh load starts with no memory)
+        if name == graph or name.startswith(f"{graph}_memory"):
+            db.select_graph(name).delete()
     ld = Loader(data, graph, host=host, port=port)
     ld.load()
     return ld

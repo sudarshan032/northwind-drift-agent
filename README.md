@@ -24,7 +24,7 @@ database moved to the Hyderabad integration team.
 **https://northwind-drift-agent.vercel.app** (Vercel Hobby, function in `bom1` Mumbai; FalkorDB Cloud free tier in
 AWS ap-south-1, the same region).
 
-- It runs the demo subset (all 51 hospitals, the full drift catalogue, 6,482 components) in public mode
+- It runs the demo subset (all 51 hospitals, the full drift catalogue, 6,636 components) in public mode
   (`DEPLOY_MODE=public`): nothing is generated on startup and nothing is written to disk.
 - AI text is **cached only**: answers recorded with free models are bundled read-only (`deploy/llm_cache/`) and
   shown as "Cached AI explanation". Anything not in the bundle shows the rule-based explanation with "No cached AI
@@ -386,6 +386,22 @@ was added afterwards and run once, untouched: **3/4 correct**.
 | H3-access | yes | yes (high) | yes | yes | 6 | $0.0008 | 24.1 s | open_ticket |
 | H4-shadow | yes | yes (medium) | no | yes | 8 | $0.0016 | 28.2 s | open_ticket |
 
+**v2 data** (17 Oct): after the service-map fix below changed the data model (not the agent), all nine
+scenarios were run once more with the same tools and prompt: **7/9 correct** (S5 and H4 miss the expected owner,
+as before).
+
+| Scenario | Root cause | Risk | Owners warned | Grounding | Steps | Cost | Time | Actions taken |
+|---|---|---|---|---|---|---|---|---|
+| S1-headline | yes | yes (high) | yes | yes | 9 | $0.0032 | 35.3 s | add_change_note, request_cab_review |
+| S2-backup | yes | yes (high) | yes | yes | 7 | $0.0010 | 24.2 s | open_ticket |
+| S3-owner | yes | yes (medium) | yes | yes | 8 | $0.0021 | 27.5 s | open_ticket |
+| S4-fhir-app | yes | yes (high) | yes | yes | 5 | $0.0008 | 19.4 s | open_ticket |
+| S5-stale | no | yes (low) | no | yes | 9 | $0.0023 | 30.4 s | add_change_note |
+| H1-protection | yes | yes (high) | yes | yes | 8 | $0.0014 | 26.7 s | open_ticket |
+| H2-residency | yes | yes (high) | yes | yes | 4 | $0.0006 | 16.7 s | open_ticket |
+| H3-access | yes | yes (high) | yes | yes | 6 | $0.0009 | 24.3 s | open_ticket |
+| H4-shadow | yes | yes (medium) | no | yes | 7 | $0.0012 | 25.1 s | open_ticket |
+
 Details, both development runs and what changed: [docs/records/AGENT_EVAL.md](docs/records/AGENT_EVAL.md).
 
 ### Connect an MCP client
@@ -427,6 +443,9 @@ the tool results (shared dependency, changes, path, owners) is shown instead.
 the prompt says to use only those values. Every number and CI name in the reply is then checked against the
 facts; on any mismatch the prose is discarded, the rule-based explanation is shown with a notice, and the
 mismatch is logged.
+
+We used connected components to audit the model; it found no new orphans but revealed unmapped services, which we
+fixed. It is not an agent tool because no decision depends on it.
 
 ## Hackathon tracks
 

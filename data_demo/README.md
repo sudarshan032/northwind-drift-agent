@@ -33,4 +33,4 @@ python -m ingest.generate --seed 42 --out data_demo --subset demo --gzip
   or non-acute sites (shadow-IT and ghost cases that sit at clinics in the full world
   move to community hospitals). Same drift catalogue and headline as the full data.
 
-See `DATA_SPEC.md` in the repository root for the full model.
+See `docs/specs/DATA_SPEC.md` for the full model.

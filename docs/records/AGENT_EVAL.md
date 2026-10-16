@@ -1,5 +1,33 @@
 # Agent evaluation (gpt-6-luna)
 
+## v2 data: all 9 scenarios, run once (gpt-6-luna)
+
+Run 2026-10-17 03:48 IST with `python -m agent.eval`: one live run per scenario (ingest/scenarios.py), against the demo graph, memory graph `northwind_memory_eval` (empty at start). Correct = right root cause, accepted risk, expected owner warned and the verdict passed the grounding checks.
+
+| Scenario | Root cause | Risk | Owners warned | Grounding | Steps | Cost | Time | Actions taken |
+|---|---|---|---|---|---|---|---|---|
+| S1-headline | yes | yes (high) | yes | yes | 9 | $0.0032 | 35.3 s | add_change_note, request_cab_review |
+| S2-backup | yes | yes (high) | yes | yes | 7 | $0.0010 | 24.2 s | open_ticket |
+| S3-owner | yes | yes (medium) | yes | yes | 8 | $0.0021 | 27.5 s | open_ticket |
+| S4-fhir-app | yes | yes (high) | yes | yes | 5 | $0.0008 | 19.4 s | open_ticket |
+| S5-stale | no | yes (low) | no | yes | 9 | $0.0023 | 30.4 s | add_change_note |
+| H1-protection | yes | yes (high) | yes | yes | 8 | $0.0014 | 26.7 s | open_ticket |
+| H2-residency | yes | yes (high) | yes | yes | 4 | $0.0006 | 16.7 s | open_ticket |
+| H3-access | yes | yes (high) | yes | yes | 6 | $0.0009 | 24.3 s | open_ticket |
+| H4-shadow | yes | yes (medium) | no | yes | 7 | $0.0012 | 25.1 s | open_ticket |
+
+**7/9 correct.** Total $0.0135, mean $0.0015 per investigation.
+
+
+**v2 data, honest note.** Between these results and the ones below, the *data model* changed, not the agent: the
+truth model gained per-hospital service offerings (Lab results, Imaging, Patient monitoring, contained in
+svc-lab-results, svc-imaging and a new high-safety svc-patient-monitoring) and maps emr-edge and site file servers
+to svc-clinical-documentation, after a connected-components audit found those routes and apps reaching no business
+service (DECISIONS #95). The drift catalogue and ground truth are unchanged (byte-identical ground_truth.json), and
+the tools and prompt are exactly those of the held-out run. All nine scenarios were run once. S5 and H4 fail the
+same way as before (the agent warned other owners than expected); the other seven are correct.
+
+
 ## Held-out set (gpt-6-luna, run once)
 
 Run 2026-10-16 23:10 IST with `python -m agent.eval`: one live run per scenario (ingest/scenarios.py), against the demo graph, memory graph `northwind_memory_eval` (empty at start). Correct = right root cause, accepted risk, expected owner warned and the verdict passed the grounding checks.

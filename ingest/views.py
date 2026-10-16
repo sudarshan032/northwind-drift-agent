@@ -55,7 +55,7 @@ def fmt_value(v):
 
 def csdm_class(c):
     """CSDM at export: per-site services are Service Offerings of a Business Service."""
-    if c["class"] == "cmdb_ci_service_business" and re.fullmatch(r"svc-h\d\d-ed-critical-results", c["name"]):
+    if c["class"] == "cmdb_ci_service_business" and re.fullmatch(r"svc-h\d\d-(ed-critical-results|lab-results|imaging|patient-monitoring)", c["name"]):
         return "service_offering"
     return c["class"]
 

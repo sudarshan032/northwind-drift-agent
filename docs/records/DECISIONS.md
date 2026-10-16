@@ -434,3 +434,24 @@ Clarified, not changed:
   only (D1-HEADLINE, D10-01, D5-05, D14-01, D2-01/D2-04); no drift counts changed.
 - **Incident** now runs the agent; when no live run or recording exists for a symptom, the earlier saved
   investigation (LangGraph flow, cached AI) is shown under a notice.
+
+## 95. Service map: per-hospital offerings (owner's request, 17 Oct)
+- A read-only connected-components audit (`algo.WCC` on `IMPACTS_REAL`, full data) showed that only the 51 `ORU-CRIT-*`
+  interfaces fed a service offering: 379 of 21,618 components could reach a business service. The per-hospital lab,
+  imaging and vitals routes and their site apps reached none, so changes on them looked harmless in both views.
+- The owner asked to change the truth model (CLAUDE.md otherwise forbids it; the drift catalogue stays untouched):
+  per hospital, "Lab results (Hxx)" (LAB-RES-Hxx + site lab middleware), "Imaging (Hxx)" (DICOM-MOD/-FWD-Hxx + PACS
+  cache + worklist broker), "Patient monitoring (Hxx)" (VITALS-Hxx + monitor gateway, patient_safety_impact high),
+  contained in svc-lab-results, svc-imaging and a new svc-patient-monitoring (high safety); emr-edge, site file
+  servers and labmw-central go into svc-clinical-documentation / svc-lab-results. Declared by service owners, so
+  they are in truth and CMDB alike (structural Contains, no evidence needed). DR copies stay excluded.
+- Offerings are created after every site route exists (CI ids come from names, no randomness is consumed):
+  ground_truth.json is byte-identical; all drift tests unchanged.
+- After: 1,215 of 21,772 components reach a business service (+154 new offering/service CIs). The rest are network
+  gear, endpoints and endpoint groups (no impact rules by design), medical devices (consumers), DR copies, RTLS and
+  nurse-call servers and a few infrastructure apps; the 8 genuine orphans are the known D4/D7 drifts plus standby
+  arrays and backup targets.
+- CHG-HEADLINE unchanged (high, 4 vs 107 components, same 51 hidden links, cached AI still valid); CHG0031513 still low,
+  now 283 components in both views (was 231): 3 business services and 102 offerings, because VITALS routes feed
+  emr-app's new Patient monitoring offerings. No test expected counts changed; one test fixture now also clears a
+  test graph's memory graphs on a fresh load (a leftover rejected fact from an earlier session leaked in).

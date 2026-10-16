@@ -12,24 +12,17 @@
   "rejected": [],
   "investigations": [
    {
-    "id": "INV-1792170795322775000",
-    "kind": "change",
-    "trigger": "CHG0031513",
-    "time": "2026-10-16T17:13:41Z",
-    "risk": "low"
-   },
-   {
-    "id": "INV-1792170764260715000",
+    "id": "INV-1792188973882177000",
     "kind": "change",
     "trigger": "CHG0031249",
-    "time": "2026-10-16T17:13:15Z",
+    "time": "2026-10-16T22:16:44Z",
     "risk": "low"
    },
    {
-    "id": "INV-1792170654683975000",
+    "id": "INV-1792188867482887000",
     "kind": "change",
     "trigger": "CHG-HEADLINE",
-    "time": "2026-10-16T17:11:31Z",
+    "time": "2026-10-16T22:15:02Z",
     "risk": "high"
    }
   ]
@@ -38,106 +31,106 @@
   "type": "step",
   "n": 1,
   "tool": "get_change",
-  "why": "Identify the proposed work and its target components before assessing declared and observed impact.",
+  "why": "Start by identifying the change scope, timing, and target components so I can assess its declared versus observed impact.",
   "args": {
    "change_id": "CHG0031513"
   },
   "summary": "CHG0031513: Planned upgrade on emr-app (scheduled), targets emr-app",
-  "ms": 62,
-  "cost": 4.4e-05,
+  "ms": 22,
+  "cost": 5e-05,
   "action": false
  },
  {
   "type": "step",
   "n": 2,
   "tool": "radius",
-  "why": "Establish the CMDB-declared blast radius for the planned emr-app upgrade.",
+  "why": "The change targets emr-app; establish the CMDB-declared blast radius as the baseline.",
   "args": {
    "component": "emr-app",
    "layer": "declared"
   },
-  "summary": "declared radius: 231 components, 115 interfaces, 25 applications, 124 departments, 51 hospitals, 2 business services, 51 service offerings",
-  "ms": 52,
-  "cost": 5.7e-05,
+  "summary": "declared radius: 283 components, 115 interfaces, 25 applications, 124 departments, 51 hospitals, 3 business services, 102 service offerings",
+  "ms": 55,
+  "cost": 5.8e-05,
   "action": false
  },
  {
   "type": "step",
   "n": 3,
   "tool": "radius",
-  "why": "Compare observed traffic-based reach with the exceptionally broad CMDB radius and identify actual service impacts.",
+  "why": "Compare observed discovery impact with the broad declared radius to identify undocumented clinical exposure or CMDB overstatement.",
   "args": {
    "component": "emr-app",
    "layer": "real"
   },
-  "summary": "real radius: 231 components, 115 interfaces, 25 applications, 124 departments, 51 hospitals, 2 business services, 51 service offerings",
-  "ms": 137,
-  "cost": 0.000435,
+  "summary": "real radius: 283 components, 115 interfaces, 25 applications, 124 departments, 51 hospitals, 3 business services, 102 service offerings",
+  "ms": 83,
+  "cost": 0.000576,
   "action": false
  },
  {
   "type": "step",
   "n": 4,
-  "tool": "recall",
-  "why": "Check prior investigation verdicts and confirmed/rejected facts before making recommendations.",
+  "tool": "hidden_links",
+  "why": "Although declared and observed counts match, check for repeatedly observed dependencies inside the radius that lack CMDB relationships and may change the risk assessment.",
   "args": {
-   "components": [
-    "emr-app"
-   ]
+   "component": "emr-app"
   },
-  "summary": "0 confirmed facts, 0 rejected, 1 earlier investigations",
-  "ms": 46,
-  "cost": 0.000471,
+  "summary": "0 hidden links",
+  "ms": 95,
+  "cost": 0.000647,
   "action": false
  },
  {
   "type": "step",
   "n": 5,
-  "tool": "stale_links",
-  "why": "Declared and observed radii are identical, but check for any CMDB dependencies that inflate the claimed impact.",
-  "args": {
-   "component": "emr-app"
-  },
-  "summary": "Result returned.",
-  "ms": 513,
-  "cost": 0.000136,
-  "action": false
- },
- {
-  "type": "step",
-  "n": 6,
-  "tool": "findings_about",
-  "why": "Review open drift findings on the upgrade target that may change the risk or require remediation.",
+  "tool": "recall",
+  "why": "Check prior investigation memory for confirmed or rejected facts about emr-app before making the change recommendation.",
   "args": {
    "components": [
     "emr-app"
    ]
   },
-  "summary": "1 result",
-  "ms": 212,
-  "cost": 0.000135,
+  "summary": "0 confirmed facts, 0 rejected, 0 earlier investigations",
+  "ms": 42,
+  "cost": 0.000163,
   "action": false
  },
  {
   "type": "step",
-  "n": 7,
+  "n": 6,
   "tool": "changes_on",
-  "why": "Check surrounding scheduled or past work on the same target for coordination risks.",
+  "why": "Identify other past or scheduled changes affecting emr-app that could create collision risk for the planned upgrade.",
   "args": {
    "components": [
     "emr-app"
    ]
   },
   "summary": "1 result: CHG0031513",
-  "ms": 22,
-  "cost": 0.000137,
+  "ms": 26,
+  "cost": 0.000161,
+  "action": false
+ },
+ {
+  "type": "step",
+  "n": 7,
+  "tool": "findings_about",
+  "why": "Check whether open drift findings on the patient-care application impose unresolved risk controls before upgrade.",
+  "args": {
+   "components": [
+    "emr-app"
+   ]
+  },
+  "summary": "1 result",
+  "ms": 130,
+  "cost": 0.000167,
   "action": false
  },
  {
   "type": "step",
   "n": 8,
   "tool": "who_to_page",
-  "why": "Determine the declared and observed support owner to advise on the upgrade and open access finding.",
+  "why": "Determine the responsible and observed resolver teams for emr-app and its open high-severity access-drift finding.",
   "args": {
    "components": [
     "emr-app"
@@ -145,7 +138,18 @@
   },
   "summary": "1 result: emr-app",
   "ms": 21,
-  "cost": 0.00014,
+  "cost": 0.000213,
+  "action": false
+ },
+ {
+  "type": "step",
+  "n": 9,
+  "tool": "protection_check",
+  "why": "Because emr-app handles patient data and its declared and observed radius covers clinical services, verify its backup/replication path before endorsing the upgrade.",
+  "args": {},
+  "summary": "7 results: h02-pacs-cache-db, h17-labmw-db, h26-emr-edge-db and more",
+  "ms": 34,
+  "cost": 0.000177,
   "action": false
  },
  {
@@ -154,31 +158,28 @@
    "risk": "low",
    "root_cause": null,
    "reasons": [
-    "The declared and real radii for emr-app have identical counts and listed impacts, so there is no evidence of hidden impact or a larger real radius.",
-    "The CMDB overstates the impact by including h03-emr-edge -> lis-app, which stale_links reports has no traffic.",
-    "An open high-severity D12 finding reports inactive user u-h03-00043 accessed emr-app; this is a separate access-drift concern to address."
+    "The declared and real impact radii for emr-app match: 283 components, 115 routes, 25 applications, 124 departments, 51 hospitals, 3 business services and 102 service offerings.",
+    "No hidden links were found, so there is no evidence that the change reaches unrecorded services.",
+    "The open high-severity D12 access-drift finding on emr-app is a separate concern; the evidence does not link it to this change."
    ],
    "hidden_links": [],
    "warn": [
     {
      "team": "NW-EMR-Apps",
      "component": "emr-app",
-     "why": "The open D12 access-drift finding concerns emr-app and should be addressed."
+     "why": "An open high-severity access-drift finding reports that user u-h03-00043 accessed emr-app despite inactive_in_hr."
     }
    ],
    "actions": [
-    "Keep the change's impact assessment at the real radius; do not treat the stale emr-app -> lis-app dependency as active impact.",
-    "Address the open D12 finding for emr-app separately.",
-    "Record or confirm the stale dependency correction in the CMDB."
+    "The change is already marked approved and scheduled; no additional change approval action is supported by the impact comparison.",
+    "Recommend that NW-EMR-Apps address the open D12 finding on emr-app."
    ],
    "evidence": [
     "get_change",
     "radius",
-    "stale_links",
+    "hidden_links",
     "findings_about",
-    "changes_on",
-    "who_to_page",
-    "recall"
+    "who_to_page"
    ]
   },
   "valid": true,
@@ -188,10 +189,10 @@
  },
  {
   "type": "done",
-  "id": "INV-1792170875805467000",
-  "cost": 0.0026,
-  "steps": 8,
+  "id": "INV-1792189097183349000",
+  "cost": 0.002964,
+  "steps": 9,
   "model": "gpt-6-luna",
-  "ms": 31760
+  "ms": 26752
  }
 ]

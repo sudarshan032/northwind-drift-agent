@@ -17,6 +17,16 @@ TMP = "northwind_critical_tmp"
 
 
 def compute(data):
+    """On the local FalkorDB (docker compose, no auth), whatever FALKORDB_* the cloud steps have set."""
+    saved = {k: os.environ.pop(k) for k in ("FALKORDB_USERNAME", "FALKORDB_PASSWORD", "FALKORDB_TLS",
+                                            "FALKORDB_HOST", "FALKORDB_PORT") if k in os.environ}
+    try:
+        return _compute(data)
+    finally:
+        os.environ.update(saved)
+
+
+def _compute(data):
     from falkordb import FalkorDB
     from graph import queries as Q
     from ingest.load import Loader

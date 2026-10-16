@@ -54,6 +54,8 @@ def main():
     ap.add_argument("--graph", default=None)
     ap.add_argument("--record", action="store_true")
     ap.add_argument("--held-out", action="store_true", help="run only the held-out scenarios (once, no recording)")
+    ap.add_argument("--all", action="store_true", help="run all scenarios once; results as a new section on top")
+    ap.add_argument("--title", default=None, help="section title for --held-out / --all")
     a = ap.parse_args()
     load_env()
     db = connect()
@@ -63,7 +65,7 @@ def main():
     mcp_tools.configure(lambda: g, lambda: mem)
     llm = OpenAILLM(model=a.model)
     rows, runs = [], {}
-    chosen = [s for s in SCENARIOS if bool(s.get("held_out")) == a.held_out]
+    chosen = SCENARIOS if a.all else [s for s in SCENARIOS if bool(s.get("held_out")) == a.held_out]
     for s in chosen + (EXTRA if a.record and not a.held_out else []):
         t = time.time()
         ev = anyio.run(lambda: guardian.collect(g, mem, s["kind"], s["trigger"], llm, mcp_tools.server,
@@ -78,7 +80,10 @@ def main():
             print(json.dumps({"recorded": s["trigger"], "s": round(time.time() - t, 1)}), flush=True)
     if a.record:
         os.makedirs(RUNS, exist_ok=True)
+        keep = {slug(x["kind"], x["trigger"]) for x in SCENARIOS + EXTRA if not x.get("held_out")}
         for k, ev in runs.items():
+            if k not in keep:  # held-out runs are scored, not recorded as demo runs
+                continue
             with open(os.path.join(RUNS, k + ".json"), "w", encoding="utf-8") as f:
                 json.dump(ev, f, indent=1, default=str)
     ok = sum(1 for r in rows if r["correct"])
@@ -100,8 +105,8 @@ def main():
     for r in rows:
         if r["rejected"] or r["notes"]:
             lines.append(f"- {r['id']}: {r['rejected'] or ''} {'; '.join(r['notes'])}".rstrip())
-    if a.held_out:  # a new section on top; the tuned-set results stay as they are
-        lines[0] = f"## Held-out set ({a.model}, run once)"
+    if a.held_out or a.all:  # a new section on top; earlier results stay as they are
+        lines[0] = a.title or f"## Held-out set ({a.model}, run once)"
         old = open(OUT, encoding="utf-8").read() if os.path.exists(OUT) else "# Agent evaluation\n"
         head, _, rest = old.partition("\n")
         text = head + "\n\n" + "\n".join(lines) + "\n" + rest
