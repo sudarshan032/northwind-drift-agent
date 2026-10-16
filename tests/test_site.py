@@ -29,7 +29,7 @@ def test_overview_and_tour_markup():
     text = re.sub(r"<[^>]+>", "", html)
     assert "Your CMDB says this patch is safe. Your hospital network disagrees." in text
     assert 'id="tour-start"' in html and 'role="dialog"' in html and 'id="tour-next"' in html
-    assert len(re.findall(r'class="flow4"|<li><h3>The (record|evidence|gap|decision)</h3>', html)) == 5
+    assert len(re.findall(r'class="flow4"|<li><h3>The (record|evidence|gap|agent)</h3>', html)) == 5
     assert "uses lrc-db-01, not in CMDB," in html and "all 51 hospitals" in html
     assert js.count("{ title: ") == 5 and 'TABS = ["overview"' in js  # five tour steps, overview first
     for n in ("38 ms", "357 ms", "1,725", "7,895", "714 against 944"):  # measured numbers (bench/RESULTS.md)

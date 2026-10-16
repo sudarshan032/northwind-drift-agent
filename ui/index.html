@@ -32,6 +32,7 @@
   </nav>
   <div class="status">
     <span id="llm-status" class="llm-status">AI status loading</span>
+    <span id="agent-spend" class="llm-status" hidden></span>
     <button class="ghost" type="button" id="reset" hidden title="Undo every approval and restore the demo data">Reset demo</button>
     <button class="ghost" type="button" id="theme" aria-pressed="false">Dark theme</button>
   </div>
@@ -68,8 +69,9 @@
           interface engine, backup and access logs) show what actually happens.</p></li>
         <li><h3>The gap</h3><p>Both go into one FalkorDB graph on the same components. Wherever the evidence and the
           record disagree, that is drift.</p></li>
-        <li><h3>The decision</h3><p>Change review shows the declared impact next to the real one, explains the hidden
-          links, and proposes fixes that a person approves.</p></li>
+        <li><h3>The agent</h3><p>The Change Guardian investigates, decides and acts: it picks graph tools over MCP,
+          shows every step and why, warns owners and flags risky changes, proposes fixes a person approves, and
+          remembers what people confirmed in its own memory graph.</p></li>
       </ol>
     </section>
 
@@ -175,6 +177,25 @@
       </div>
       <p class="verdict" id="verdict"></p>
 
+      <section class="agent" aria-labelledby="agent-head">
+        <div class="agent-top">
+          <h2 id="agent-head">Agent investigation</h2>
+          <button type="button" class="primary" id="agent-run">Ask the agent to review</button>
+        </div>
+        <p class="sub">The Change Guardian picks its own graph tools (served over MCP), says why at each step, then
+          decides, acts and remembers. Notes, CAB flags and alerts are recorded at once; CMDB fixes still wait for a
+          person.</p>
+        <div id="agent-out" class="agent-out" aria-live="polite"></div>
+        <details class="past" id="agent-past-box">
+          <summary>Past investigations and memory</summary>
+          <ul id="agent-past" class="past-list"></ul>
+          <div class="mem-actions">
+            <button type="button" class="ghost" id="reset-data">Reset data, keep memory</button>
+            <button type="button" class="ghost" id="reset-memory">Reset memory</button>
+          </div>
+        </details>
+      </section>
+
       <h2>Impact</h2>
       <table class="compare" id="compare">
         <caption class="sr">Impact counted from the CMDB and from the CMDB plus discovery evidence</caption>
@@ -271,9 +292,9 @@
     <form class="ask" id="incident-form">
       <label for="symptom" class="sr">Symptom</label>
       <input id="symptom" type="text" autocomplete="off" placeholder="ED critical results delayed at H03, H17 and H22">
-      <button type="submit" class="primary">Investigate</button>
+      <button type="submit" class="primary">Ask the agent</button>
     </form>
-    <div id="incident-out" aria-live="polite"></div>
+    <div id="incident-out" class="agent-out" aria-live="polite"></div>
   </section>
 
   <!-- Sources -->

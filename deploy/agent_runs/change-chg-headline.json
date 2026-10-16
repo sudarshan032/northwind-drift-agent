@@ -1,0 +1,109 @@
+[
+ {
+  "type": "start",
+  "kind": "change",
+  "trigger": "CHG-HEADLINE",
+  "model": "FakeLLM",
+  "max_steps": 10
+ },
+ {
+  "type": "step",
+  "n": 1,
+  "tool": "get_change",
+  "why": "find the target",
+  "args": {
+   "change_id": "CHG-HEADLINE"
+  },
+  "summary": "CHG-HEADLINE: Apply ESXi security patch and reboot dc1-host-07 (scheduled), targets dc1-host-07",
+  "ms": 14,
+  "cost": 0.0,
+  "action": false
+ },
+ {
+  "type": "step",
+  "n": 2,
+  "tool": "radius",
+  "why": "real impact",
+  "args": {
+   "component": "dc1-host-07",
+   "layer": "real"
+  },
+  "summary": "real radius: 107 components, 51 interfaces, 1 applications, 51 departments, 51 hospitals, 2 business services, 51 service offerings",
+  "ms": 7,
+  "cost": 0.0,
+  "action": false
+ },
+ {
+  "type": "step",
+  "n": 3,
+  "tool": "hidden_links",
+  "why": "they differ",
+  "args": {
+   "component": "dc1-host-07"
+  },
+  "summary": "51 hidden links, seen by interface_engine",
+  "ms": 13,
+  "cost": 0.0,
+  "action": false
+ },
+ {
+  "type": "step",
+  "n": 4,
+  "tool": "add_change_note",
+  "why": "record the real impact",
+  "args": {
+   "change_id": "CHG-HEADLINE",
+   "note": "51 hospitals"
+  },
+  "summary": "Work note added to the change",
+  "ms": 3,
+  "cost": 0.0,
+  "action": true
+ },
+ {
+  "type": "verdict",
+  "verdict": {
+   "risk": "high",
+   "root_cause": "lrc-db-01",
+   "reasons": [
+    "dc1-host-07 reaches 51 hospitals."
+   ],
+   "hidden_links": [
+    "ORU-CRIT-H01 -> lrc-db-01"
+   ],
+   "warn": [],
+   "actions": [
+    "Work note added."
+   ],
+   "evidence": [
+    "radius"
+   ]
+  },
+  "valid": true,
+  "rejected": null,
+  "stopped": null,
+  "actions_taken": [
+   {
+    "n": 4,
+    "tool": "add_change_note",
+    "why": "record the real impact",
+    "args": {
+     "change_id": "CHG-HEADLINE",
+     "note": "51 hospitals"
+    },
+    "summary": "Work note added to the change",
+    "ms": 3,
+    "cost": 0.0,
+    "action": true
+   }
+  ]
+ },
+ {
+  "type": "done",
+  "id": "INV-1792169583603365000",
+  "cost": 0.0,
+  "steps": 4,
+  "model": "FakeLLM",
+  "ms": 92
+ }
+]

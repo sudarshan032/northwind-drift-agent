@@ -218,3 +218,23 @@ def test_openai_key_fallback_never_leaks(caplog):
     with pytest.raises(L.LLMUnavailable) as e:
         L.OpenAILLM(keys="sk-a-secret", client=FakeHTTP([402])).respond("s", [{"role": "user", "content": "q"}])
     assert "secret" not in str(e.value)
+
+
+def test_scenarios_match_the_drift_data(env, drift_data):
+    """Each scenario's cause and owner are what the graph and ground_truth.json say (no new drift)."""
+    import os
+    from graph import queries as Q
+    from ingest.scenarios import SCENARIOS
+    _, g, _ = env
+    gt = {e["id"]: e for e in json.load(open(os.path.join(drift_data, "ground_truth.json")))}
+    assert json.load(open(os.path.join(drift_data, "scenarios.json"))) == SCENARIOS
+    assert len(SCENARIOS) == 5 and sum(s["kind"] == "incident" for s in SCENARIOS) == 3
+    owner_of = {"S1-headline": "lrc-db-01", "S2-backup": "h02-pacs-cache-db", "S3-owner": "ris-db-01",
+                "S4-fhir-app": "emr-fhir-api", "S5-stale": "sched-db-01"}
+    for s in SCENARIOS:
+        assert all(d in gt for d in s["drift"])
+        cis = {c for d in s["drift"] for c in gt[d]["ci_ids"]} | {k for d in s["drift"] for key in gt[d].get("finding_keys", []) for k in key}
+        assert set(s["root_cause_any"]) & (cis | {"cardiorisk.example.com"}), s["id"]
+        o = Q.who_to_page(g, [owner_of[s["id"]]])[0]
+        assert s["warn"][0] in (o["declared_owner"], o["observed_owner"]), s["id"]
+    assert Q.change_review(g, "CHG0031249")["risk"] == "low" and Q.change_review(g, "CHG-HEADLINE")["risk"] == "high"

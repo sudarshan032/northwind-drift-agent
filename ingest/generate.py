@@ -125,7 +125,7 @@ def generate(seed=SEED, out="data", inject=True, subset=None, command=None, gz=F
     if os.path.isdir(out):
         for sub in SUBDIRS:
             shutil.rmtree(os.path.join(out, sub), ignore_errors=True)
-        for f in ("ground_truth.json", "README.md"):
+        for f in ("ground_truth.json", "scenarios.json", "README.md"):
             if os.path.exists(os.path.join(out, f)):
                 os.remove(os.path.join(out, f))
     os.makedirs(os.path.join(out, "truth"), exist_ok=True)
@@ -135,6 +135,10 @@ def generate(seed=SEED, out="data", inject=True, subset=None, command=None, gz=F
     counts = export.write_all(world, plan, out)
     with open(f"{out}/ground_truth.json", "w", encoding="utf-8", newline="\n") as f:
         json.dump(plan["ground_truth"], f, indent=1, sort_keys=True)
+        f.write("\n")
+    from ingest.scenarios import SCENARIOS  # agent scenarios on existing drifts (ground_truth.json stays a list)
+    with open(f"{out}/scenarios.json", "w", encoding="utf-8", newline="\n") as f:
+        json.dump(SCENARIOS, f, indent=1, sort_keys=True)
         f.write("\n")
     evidence = connect.run(out)
     cmd = command or f"python -m ingest.generate --seed {seed} --out {out}" + \

@@ -360,6 +360,7 @@ async function selectChange(id, push = true) {
   if (current.id !== id) return;
   review = r;
   banner("");
+  if ($("#agent-out").dataset.change !== id) { $("#agent-out").innerHTML = ""; $("#agent-out").dataset.change = id; }
   renderReview(true);
   llmStatus();
 }
@@ -381,6 +382,7 @@ async function selectComponent(name, path = null) {
 
 function renderReview(isChange) {
   const f = review.facts;
+  $(".agent").hidden = !isChange;
   $("#verdict").innerHTML = verdictFor(f, isChange);
   $("#compare tbody").innerHTML = ROWS.map(([k, label]) => {
     const d = f.declared?.[k] ?? 0, r = f.real?.[k] ?? 0, miss = Math.max(0, r - d);
@@ -969,6 +971,12 @@ function stateLine(r) {
 $("#incident-form").onsubmit = async (e) => {
   e.preventDefault();
   const symptom = $("#symptom").value.trim() || $("#symptom").placeholder;
+  const ev = await runAgent("incident", symptom, $("#incident-out"));
+  const v = ev.find((x) => x.type === "verdict");
+  if (v && !v.stopped?.startsWith("no live agent")) return;
+  await classicIncident(symptom);  // no live agent and no recorded run: the earlier cached investigation
+};
+async function classicIncident(symptom) {
   const out = $("#incident-out");
   out.innerHTML = `<span class="skel"></span><span class="skel"></span><span class="skel"></span>`;
   let r;
@@ -980,7 +988,7 @@ $("#incident-form").onsubmit = async (e) => {
     $("#incident-example").onclick = () => { $("#symptom").value = ""; $("#incident-form").requestSubmit(); };
     return;
   }
-  out.innerHTML = `<div class="result">
+  out.innerHTML = `<p class="notice">No live agent run is available for this symptom right now; this is the earlier saved investigation.</p><div class="result">
     <h2>What the agent checked</h2>
     ${r.steps.length ? `<ol class="steps">${r.steps.map((s) => `<li><span class="what">${esc(toolText(s))}</span>
       <span class="tool">Query <span class="id">${esc(s.tool)}</span></span><span class="found">Found: ${esc(s.found || "")}</span></li>`).join("")}</ol>`
@@ -989,7 +997,7 @@ $("#incident-form").onsubmit = async (e) => {
     ${r.paths.length ? `<p class="used">Path: ${r.paths.map(linkPath).join(" ")}</p>` : ""}
     ${r.cis?.length ? `<p class="used">Components used: ${r.cis.map(linkCI).join(" ")}</p>` : ""}</div>`;
   llmStatus();
-};
+}
 
 // ================================================================ chat
 const BY = { graph: "Answered from the graph", cached_ai: "Saved AI answer, checked against the graph",
@@ -1081,6 +1089,99 @@ async function loadScale() {
       <a href="https://github.com/sudarshan032/northwind-drift-agent/blob/master/bench/RESULTS.md">bench/RESULTS.md</a>.</p>`;
   paintScaleCharts();
 }
+
+// ================================================================ agent investigation (AGENT_V2_SPEC 5)
+const usd = (x) => `$${(x || 0) < 0.01 ? (x || 0).toFixed(4) : (x || 0).toFixed(2)}`;
+function stepHTML(e) {
+  return `<li class="${e.action ? "act-step" : ""}"><span class="n">${esc(e.n)}</span>
+    <div><p class="tool"><span class="id">${esc(e.tool)}</span>${e.action ? ` <span class="flag-act">Action</span>` : ""}</p>
+    ${e.why ? `<p class="why">${esc(e.why)}</p>` : ""}<p class="res">${esc(friendly(e.summary))}</p>
+    <p class="meta">${esc(e.ms ?? 0)} ms${e.cost ? `, ${usd(e.cost)}` : ""}</p></div></li>`;
+}
+function verdictHTML(e) {
+  const v = e.verdict || {};
+  const ci = (n) => n ? linkCI(n) : "";
+  const links = v.hidden_links || [];
+  return `<div class="agent-verdict">
+    <h3>Verdict ${riskLabel(v.risk)}</h3>
+    ${e.valid ? "" : `<p class="notice">${esc(e.rejected ? `The agent's verdict was set aside because ${e.rejected}. This is the rule-based review instead.`
+      : e.stopped ? `The agent stopped early (${e.stopped}). This is the rule-based review instead.` : "Rule-based review.")}</p>`}
+    ${v.root_cause ? `<p>Most responsible: ${ci(v.root_cause)}</p>` : ""}
+    ${(v.reasons || []).length ? `<ul class="prose">${v.reasons.map((r) => `<li>${inline(friendly(r))}</li>`).join("")}</ul>` : ""}
+    ${links.length ? `<p class="used">Hidden links (${links.length}): ${links.slice(0, 4).map((l) => `<span class="id">${esc(l)}</span>`).join(", ")}${links.length > 4 ? " and more" : ""}</p>` : ""}
+    ${(v.warn || []).length ? `<table class="data plain"><thead><tr><th scope="col">Warn</th><th scope="col">About</th><th scope="col">Why</th></tr></thead><tbody>${
+      v.warn.map((w) => `<tr><td data-label="Warn">${esc(w.team)}</td><td data-label="About">${ci(w.component)}</td><td data-label="Why">${esc(w.why)}</td></tr>`).join("")}</tbody></table>` : ""}
+    ${(e.actions_taken || []).length ? `<p class="used">Actions taken: ${e.actions_taken.map((a) => `${esc(a.summary)}`).join("; ")}</p>` : ""}
+    ${(v.actions || []).length ? `<p class="used">Recommended: ${v.actions.map(esc).join("; ")}</p>` : ""}</div>`;
+}
+function renderEvent(box, e) {
+  const list = () => box.querySelector("ol.trace") || box.appendChild(Object.assign(document.createElement("ol"), { className: "trace" }));
+  if (e.type === "start") {
+    box.insertAdjacentHTML("beforeend", `<p class="run-head">${e.recorded ? `<span class="flag-rec">Recorded run</span> ` : "Live run, "}model <span class="id">${esc(e.model)}</span>, up to ${esc(e.max_steps)} steps</p>`);
+  } else if (e.type === "notice") box.insertAdjacentHTML("beforeend", `<p class="notice">${esc(e.text)}</p>`);
+  else if (e.type === "memory") {
+    const facts = [...(e.confirmed || []).map((f) => `Confirmed: ${f.statement}`), ...(e.rejected || []).map((f) => `Rejected: ${f.statement}`)];
+    box.insertAdjacentHTML("beforeend", `<div class="memory"><h3>Memory</h3>${facts.length ? `<ul>${facts.slice(0, 5).map((f) => `<li>${esc(f)}</li>`).join("")}</ul>` : ""}
+      ${(e.investigations || []).length ? `<p class="label-muted">${plural(e.investigations.length, "earlier investigation")} of these components.</p>` : ""}</div>`);
+  } else if (e.type === "note") list().insertAdjacentHTML("beforeend", `<li class="note"><span class="n">i</span><p>${esc(cap(e.text))}</p></li>`);
+  else if (e.type === "step") list().insertAdjacentHTML("beforeend", stepHTML(e));
+  else if (e.type === "verdict") box.insertAdjacentHTML("beforeend", verdictHTML(e));
+  else if (e.type === "done") box.insertAdjacentHTML("beforeend", `<p class="label-muted">${plural(e.steps, "step")}, ${usd(e.cost)}, ${((e.ms || 0) / 1000).toFixed(1)} s.</p>`);
+}
+async function runAgent(kind, trigger, box) {
+  box.innerHTML = `<span class="skel"></span>`;
+  let r;
+  try { r = await fetch("/agent/investigate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind, trigger }) }); }
+  catch (e) { box.innerHTML = `<p class="notice">${esc(new ApiError().message || "The agent did not respond.")}</p>`; return []; }
+  if (!r.ok || !r.body) { box.innerHTML = `<p class="notice">The agent could not start (${r.status}).</p>`; return []; }
+  box.innerHTML = "";
+  const reader = r.body.getReader(), dec = new TextDecoder(), events = [];
+  let buf = "";
+  for (;;) {
+    const { value, done } = await reader.read();
+    buf += dec.decode(value || new Uint8Array(), { stream: !done });
+    let i;
+    while ((i = buf.indexOf("\n")) >= 0) {
+      const line = buf.slice(0, i).trim(); buf = buf.slice(i + 1);
+      if (!line) continue;
+      const e = JSON.parse(line); events.push(e); renderEvent(box, e);
+    }
+    if (done) break;
+  }
+  await dataChanged();
+  loadPast();
+  return events;
+}
+async function loadPast() {
+  let rows = [];
+  try { rows = await api("/agent/investigations?limit=10"); } catch (e) { return; }
+  $("#agent-past").innerHTML = rows.length ? rows.map((x) => `<li><button type="button" class="link" data-inv="${esc(x.id)}">${esc(x.trigger)}</button>
+    ${riskLabel(x.verdict?.risk, true)} <span class="label-muted">${esc(when(x.time))}${x.recorded ? ", recorded" : ""}</span></li>`).join("")
+    : `<li class="empty">No investigations yet. Ask the agent to review a change.</li>`;
+  $$("#agent-past [data-inv]").forEach((b) => { b.onclick = async () => {
+    const inv = await api(`/agent/investigations/${enc(b.dataset.inv)}`);
+    const box = $("#agent-out");
+    box.innerHTML = "";
+    renderEvent(box, { type: "start", model: inv.model, max_steps: inv.steps.length + 1, recorded: true });
+    inv.steps.forEach((st) => renderEvent(box, { type: "step", ...st }));
+    renderEvent(box, { type: "verdict", verdict: inv.verdict, valid: true, actions_taken: inv.steps.filter((st) => st.action) });
+    box.scrollIntoView({ block: "nearest" });
+  }; });
+}
+$("#agent-run").onclick = async (e) => {
+  if (current?.kind !== "change") return;
+  e.target.disabled = true;
+  await runAgent("change", current.id, $("#agent-out"));
+  e.target.disabled = false;
+};
+$("#reset-data").onclick = async () => {
+  try { await api("/reset?scope=data", { method: "POST" }); toast("Data reset; the agent's memory was kept"); await dataChanged(); current = null; await route(); }
+  catch (err) { banner(err.message); }
+};
+$("#reset-memory").onclick = async () => {
+  try { await api("/reset?scope=memory", { method: "POST" }); toast("Agent memory cleared"); loadPast(); }
+  catch (err) { banner(err.message); }
+};
 
 // ================================================================ guided tour (SITE_SPEC 2): drives the real UI
 const TOUR = [
@@ -1208,6 +1309,9 @@ function applyState(st) {
   $("#reset").hidden = MODE !== "public";
   $("#incident-note").hidden = MODE !== "public";
   renderLlm(st.llm || {});
+  const ag = st.agent || {};
+  $("#agent-spend").hidden = !ag.cap;
+  $("#agent-spend").textContent = `Agent spend today ${usd(ag.spend_today)} of ${usd(ag.cap)}`;
   renderChips(st.chips || []);
 }
 async function dataChanged() {
@@ -1239,4 +1343,5 @@ $("#reset").onclick = async (e) => {
   }
   applyState(st);
   await route();
+  loadPast();
 })();

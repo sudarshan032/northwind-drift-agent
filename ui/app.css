@@ -345,6 +345,33 @@ a.button { display: inline-flex; align-items: center; text-decoration: none; }
 .tour-actions { display: flex; flex-wrap: wrap; gap: var(--s-8); margin-top: var(--s-8); }
 .tour-actions #tour-exit { margin-left: auto; }
 
+/* agent investigation (AGENT_V2_SPEC 5) */
+.agent { display: grid; gap: var(--s-12); border: var(--line) solid var(--rule); border-left: var(--line-bold) solid var(--declared); padding: var(--s-16) var(--s-24); background: var(--paper); }
+.agent-top { display: flex; align-items: center; justify-content: space-between; gap: var(--s-12); flex-wrap: wrap; }
+.agent-out { display: grid; gap: var(--s-12); }
+.agent-out:empty { display: none; }
+.run-head { font-size: var(--t-13); color: var(--ink-muted); }
+.flag-rec, .flag-act { font-size: var(--t-13); font-weight: var(--w-strong); padding: 0 var(--s-8); border-radius: var(--r-control); border: var(--line) solid currentColor; }
+.flag-rec { color: var(--caution); }
+.flag-act { color: var(--declared); }
+.trace { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s-8); }
+.trace li { display: grid; grid-template-columns: var(--s-32) minmax(0, 1fr); gap: var(--s-12); padding: var(--s-8) 0; border-bottom: var(--line) solid var(--rule); }
+.trace .n { font-weight: var(--w-strong); color: var(--ink-muted); text-align: right; }
+.trace .tool { font-weight: var(--w-strong); }
+.trace .why { color: var(--ink); }
+.trace .res { color: var(--ink-muted); font-size: var(--t-13); overflow-wrap: anywhere; }
+.trace .meta { color: var(--ink-muted); font-size: var(--t-13); }
+.trace li.act-step { border-left: var(--line-bold) solid var(--declared); padding-left: var(--s-8); }
+.trace li.note p { color: var(--caution); font-size: var(--t-13); }
+.memory { border: var(--line) dashed var(--steady); padding: var(--s-12) var(--s-16); background: var(--surface); }
+.memory h3 { color: var(--steady); }
+.memory ul { margin: var(--s-4) 0 0; padding-left: var(--s-24); }
+.agent-verdict { display: grid; gap: var(--s-8); background: var(--surface); border: var(--line) solid var(--rule); padding: var(--s-16); }
+.agent-verdict h3 { display: flex; gap: var(--s-12); align-items: center; }
+.past summary { cursor: pointer; font-weight: var(--w-strong); }
+.past-list { margin: var(--s-8) 0; padding-left: var(--s-24); display: grid; gap: var(--s-4); }
+.mem-actions { display: flex; gap: var(--s-8); flex-wrap: wrap; }
+
 /* loading skeletons (static, no animation) */
 .skel { display: block; background: var(--skeleton); height: var(--s-16); margin: var(--s-8) 0; }
 .skel.wide { height: var(--canvas-min-h); }
