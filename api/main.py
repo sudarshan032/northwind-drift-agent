@@ -7,20 +7,28 @@ NORTHWIND_MODELS, ANTHROPIC_API_KEY.
 The UI is served from ui/ at /.
 """
 
-import json
-import os
-from contextlib import asynccontextmanager
+import time
 
-from fastapi import FastAPI, Header, HTTPException, Query
-from fastapi.responses import FileResponse
-from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+T_IMPORT = time.perf_counter()  # cold-start log line (SITE_SPEC 5.1)
 
-from agent import approval, findings as F, flows
-from agent.llm import NO_KEY, get_llm
+import contextvars  # noqa: E402
+import json  # noqa: E402
+import logging  # noqa: E402
+import os  # noqa: E402
+from contextlib import asynccontextmanager  # noqa: E402
+
+from fastapi import FastAPI, Header, HTTPException, Query, Request  # noqa: E402
+from fastapi.responses import FileResponse  # noqa: E402
+from fastapi.staticfiles import StaticFiles  # noqa: E402
+from pydantic import BaseModel  # noqa: E402
+
+from agent import approval, findings as F, flows  # noqa: E402  (LangGraph loads on a flow's first run)
+from agent.llm import NO_KEY, get_llm  # noqa: E402
 from agent.tools import notifications as read_notifications
-from graph import queries as Q
-from graph.connection import connect
+from graph import queries as Q  # noqa: E402
+from graph.connection import connect  # noqa: E402
+
+log = logging.getLogger("northwind.api")
 
 GRAPH = os.environ.get("NORTHWIND_GRAPH", "northwind")
 PUBLIC = os.environ.get("DEPLOY_MODE", "local") == "public"  # Vercel: no disk writes, cached AI, approvals in the DB
@@ -39,13 +47,108 @@ async def lifespan(app):
 app = FastAPI(title="Northwind drift agent", version="0.1.0", lifespan=lifespan,
               description="CMDB drift detection on FalkorDB (fictional Northwind Health data)")
 _db = None
+IMPORT_MS = (time.perf_counter() - T_IMPORT) * 1000
+_req = contextvars.ContextVar("req", default=None)  # per request: db seconds, ?v=, cache policy
+_cold = [True]
+
+
+class TimedGraph:
+    """The FalkorDB graph handle, adding each query's time to the request's Server-Timing `db` entry."""
+
+    def __init__(self, g):
+        self._g = g
+
+    def __getattr__(self, k):
+        return getattr(self._g, k)
+
+    def query(self, *a, **k):
+        t = time.perf_counter()
+        try:
+            return self._g.query(*a, **k)
+        finally:
+            r = _req.get()
+            if r is not None:
+                r["db"] += time.perf_counter() - t
 
 
 def graph():
     global _db
     if _db is None:
         _db = connect()
-    return _db.select_graph(GRAPH)
+    return TimedGraph(_db.select_graph(GRAPH))
+
+
+# Edge caching (SITE_SPEC 5.3). "versioned": the URL carries the current data version (?v=), so the response
+# can be kept until the version changes; "static": data that only changes with a deployment.
+CACHE = {"versioned": "public, max-age=0, s-maxage=86400, stale-while-revalidate=604800",
+         "static": "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400"}
+
+
+@app.middleware("http")
+async def server_timing(request, call_next):
+    r = {"db": 0.0, "v": request.query_params.get("v"), "cache": None, "stored": None}
+    tok = _req.set(r)
+    t = time.perf_counter()
+    try:
+        resp = await call_next(request)
+    finally:
+        _req.reset(tok)
+    total = (time.perf_counter() - t) * 1000
+    db = r["db"] * 1000
+    resp.headers["Server-Timing"] = (f"db;dur={db:.1f}, compute;dur={max(0.0, total - db):.1f}, total;dur={total:.1f}"
+                                     + (f", stored;desc={r['stored']}" if r["stored"] else ""))
+    if request.method == "GET" and resp.status_code == 200 and r["cache"] in CACHE:
+        resp.headers["Cache-Control"] = CACHE[r["cache"]]
+    elif not request.url.path.startswith("/static/") and request.url.path != "/":
+        resp.headers["Cache-Control"] = "no-store"
+    if _cold[0]:
+        _cold[0] = False
+        log.warning("cold start: imports %.0f ms, first request %s %s %.0f ms (db %.0f ms)", IMPORT_MS,
+                    request.method, request.url.path, total, db)
+    return resp
+
+
+# Stored results (SITE_SPEC 5.2): computed once per data version and kept in FalkorDB as `:Stored` nodes.
+# The version is a timestamp token in a `:Meta` node, replaced on approve, reject, scan and reset; a token
+# is never reused, so edge-cached URLs with an old ?v= can never show newer data under an old key.
+STORE_CAP = 200  # nodes; bounds the space a visitor can fill with distinct component reviews
+DEPLOY = os.environ.get("VERCEL_DEPLOYMENT_ID") or os.environ.get("VERCEL_GIT_COMMIT_SHA") or "local"
+
+
+def version(g):
+    rows = g.query("MATCH (m:Meta {key: 'version'}) RETURN m.v").result_set
+    return rows[0][0] if rows else bump(g)
+
+
+def bump(g):
+    v = str(time.time_ns())
+    g.query("MERGE (m:Meta {key: 'version'}) SET m.v = $v", {"v": v})
+    g.query("MATCH (s:Stored) DELETE s")
+    return v
+
+
+def stored(g, key, fn):
+    """fn() once per data version (and deployment); later calls read the stored JSON."""
+    r = _req.get() or {}
+    v = version(g)
+    if r.get("v") == v:
+        r["cache"] = "versioned"
+    k = f"{DEPLOY}:{key}"
+    hit = g.query("MATCH (s:Stored {key: $k, v: $v}) RETURN s.json LIMIT 1", {"k": k, "v": v}).result_set
+    if hit:
+        r["stored"] = "hit"
+        return json.loads(hit[0][0])
+    val = fn()
+    g.query("OPTIONAL MATCH (s:Stored) WITH count(s) AS n WHERE n < $cap CREATE (:Stored {key: $k, v: $v, json: $j})",
+            {"cap": STORE_CAP, "k": k, "v": v, "j": json.dumps(val, default=str)})
+    r["stored"] = "miss"
+    return val
+
+
+def static_cache():
+    r = _req.get()
+    if r is not None:
+        r["cache"] = "static"
 
 
 def llm():
@@ -80,33 +183,60 @@ def health():
             "llm_message": None if llm() else NO_KEY}
 
 
+@app.get("/api/state")
+def state():
+    """Everything the UI needs to start, in one uncached call: mode, data version, AI status, chat chips."""
+    from agent.answers import CHIPS
+    g = graph()
+    m = llm()
+    status = m.status() if m is not None and hasattr(m, "status") else {"provider": "none", "models": []}
+    return {"mode": "public" if PUBLIC else "local", "version": version(g), "llm": status, "chips": CHIPS}
+
+
 @app.get("/llm")
 def llm_status():
     """Provider, models and remaining free-model requests today (UI header)."""
     m = llm()
+    if PUBLIC:
+        static_cache()  # cached answers only: changes with a deployment
     return m.status() if m is not None and hasattr(m, "status") else {"provider": "none", "models": [],
                                                                        "remaining": None}
 
 
 @app.post("/scan")
 def scan():
-    res = flows.triage(graph(), llm())
+    g = graph()
+    res = flows.triage(g, llm())
+    bump(g)
     return {"total": res["total"], "by_type": res["by_type"], "top": res["top"], "notice": res["notice"],
             "llm": llm() is not None}
 
 
+LIST_FIELDS = ("id", "type", "kind", "severity", "score", "explanation", "action", "status", "resolved", "sources",
+               "subjects", "key")
+
+
 @app.get("/findings")
-def list_findings(status: str | None = None, limit: int = Query(100, le=500)):
-    return F.list_findings(graph(), status, limit)
+def list_findings(status: str | None = None, limit: int = Query(100, le=500), view: str | None = None):
+    """`view=list`: only the fields the findings table shows (SITE_SPEC 5.5); the drawer loads one finding."""
+    g = graph()
+
+    def compute():
+        fs = F.list_findings(g, status, limit)
+        return [{k: f.get(k) for k in LIST_FIELDS} for f in fs] if view == "list" else fs
+    return stored(g, f"findings:{status}:{limit}:{view}", compute)
 
 
 @app.get("/findings/{fid}")
 def get_finding(fid: str):
     g = graph()
-    f = F.get_finding(g, fid)
-    if f is None:
-        raise HTTPException(404, "no such finding")
-    return {**f, "diff": patch_diff(g, f)}
+
+    def compute():
+        f = F.get_finding(g, fid)
+        if f is None:
+            raise HTTPException(404, "no such finding")
+        return {**f, "diff": patch_diff(g, f)}
+    return stored(g, f"finding:{fid}", compute)
 
 
 def patch_diff(g, f):
@@ -142,6 +272,7 @@ def approve(fid: str, d: Decision | None = None):
            else approval.approve(g, DATA, RUNTIME, fid, (d or Decision()).approver))
     if res.get("error"):
         raise HTTPException(404 if res["error"] == "no such finding" else 409, res)
+    bump(g)
     return res
 
 
@@ -153,6 +284,7 @@ def reject(fid: str, d: Decision | None = None):
     res = approval.reject(g, approval.GraphRecords(g) if PUBLIC else RUNTIME, fid, d.approver, d.reason)
     if res.get("error"):
         raise HTTPException(404, res)
+    bump(g)
     return res
 
 
@@ -248,6 +380,7 @@ def sources():
     path = os.path.join(DATA, "normalised", "sources.json")
     if not os.path.exists(path):
         raise HTTPException(404, "run the connectors first (python -m ingest.connect)")
+    static_cache()
     with open(path, encoding="utf-8") as f:
         return json.load(f)
 
@@ -258,6 +391,10 @@ _risk = {}  # change number -> rule-based risk; cleared by approvals and rejecti
 @app.get("/changes")
 def changes():
     g = graph()
+    return stored(g, "changes", lambda: _changes(g))
+
+
+def _changes(g):
     rows = Q.run(g, "MATCH (c:Change)-[:TARGETS]->(x) RETURN c.number AS number, c.short_description AS "
                     "description, c.state AS state, c.start_date AS start_date, x.name AS target "
                     "ORDER BY c.state DESC, c.start_date DESC")
@@ -271,6 +408,16 @@ def changes():
 @app.post("/changes/{cid}/review")
 def change_review(cid: str):
     g = graph()
+    return stored(g, f"review:{cid}", lambda: _change_review(g, cid))
+
+
+@app.get("/changes/{cid}/review")
+def change_review_get(cid: str):
+    """The same review as POST, cacheable at the edge with ?v=<version> (the UI uses this)."""
+    return change_review(cid)
+
+
+def _change_review(g, cid):
     out = flows.change_review(g, cid, llm())
     if out["facts"] is None:
         raise HTTPException(404, f"no change {cid}")
@@ -282,6 +429,10 @@ def change_review(cid: str):
 def component_review(name: str):
     """What breaks if one CI fails: the change-review shape without a change and without the LLM."""
     g = graph()
+    return stored(g, f"component:{name}", lambda: _component_review(g, name))
+
+
+def _component_review(g, name):
     dec, real = check(Q.radius(g, name, "declared")), check(Q.radius(g, name, "real"))
     if not real.get("found"):
         raise HTTPException(404, f"no component {name}")
@@ -304,16 +455,24 @@ def incident(s: Symptom):
 
 @app.get("/radius")
 def radius(component: str, layer: str = Query("real", pattern="^(declared|real)$")):
-    res = check(Q.radius(graph(), component, layer))
-    if not res.get("found"):
-        raise HTTPException(404, f"no component {component}")
-    return res
+    g = graph()
+
+    def compute():
+        res = check(Q.radius(g, component, layer))
+        if not res.get("found"):
+            raise HTTPException(404, f"no component {component}")
+        return res
+    return stored(g, f"radius:{component}:{layer}", compute)
 
 
 @app.get("/subgraph")
 def subgraph(component: str, depth: int = Query(1, ge=1, le=2), limit: int = Query(150, le=300)):
     """Bounded neighbourhood (never the whole graph)."""
     g = graph()
+    return stored(g, f"subgraph:{component}:{depth}:{limit}", lambda: _subgraph(g, component, depth, limit))
+
+
+def _subgraph(g, component, depth, limit):
     edges = check(Q.get_neighbourhood(g, component, depth, limit=limit))
     if not edges:
         raise HTTPException(404, f"no component {component}")
@@ -329,7 +488,8 @@ def subgraph(component: str, depth: int = Query(1, ge=1, le=2), limit: int = Que
 
 @app.get("/critical")
 def critical():
-    return check(Q.critical_nodes(graph()))
+    g = graph()
+    return stored(g, "critical", lambda: check(Q.critical_nodes(g)))
 
 
 @app.get("/notifications")
@@ -368,6 +528,7 @@ def reset_demo():
     g.query("MATCH (f:Finding) DETACH DELETE f")
     impact.build(g)
     res = flows.triage(g, llm())
+    bump(g)
     _risk.clear()
     grounding._names.pop(GRAPH, None)
     return {"status": "reset", "approvals_undone": len(logs), "findings": res["total"]}
@@ -387,16 +548,37 @@ def cron_reset(authorization: str | None = Header(default=None)):
     return reset_demo()
 
 
+_live = []
+
+
+def live_llm():
+    """Public mode: the live model for the small shared allowance (agent.answers), built on first use."""
+    if not _live:
+        from agent.llm import OpenRouterLLM
+        _live.append(OpenRouterLLM(runtime="/tmp/northwind") if os.environ.get("OPENROUTER_API_KEY") else None)
+    return _live[0]
+
+
 @app.post("/chat")
-def chat(m: Message):
-    return flows.chat(graph(), m.message, llm())
+def chat(m: Message, request: Request):
+    if not PUBLIC:
+        return flows.chat(graph(), m.message, llm())
+    from agent import answers
+    ip = (request.headers.get("x-real-ip") or request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+          or (request.client.host if request.client else ""))
+    live = getattr(app.state, "live_llm", None) or live_llm()  # tests inject a FakeLLM
+    return answers.public_chat(graph(), m.message.strip()[:500], llm(), ip, live)
 
 
 @app.get("/hospitals")
 def hospitals(component: str | None = None, layer: str = "real"):
     """Hospitals with coordinates; `in_radius` when `component` is given."""
-    from api.geo import CITY_LATLON
     g = graph()
+    return stored(g, f"hospitals:{component}:{layer}", lambda: _hospitals(g, component, layer))
+
+
+def _hospitals(g, component, layer):
+    from api.geo import CITY_LATLON
     rows = Q.run(g, "MATCH (s:Site) WHERE s.type ENDS WITH 'hospital' RETURN s.id AS id, s.full_name AS name, "
                     "s.city AS city, s.state AS state, s.type AS type ORDER BY id")
     hit = set()
@@ -414,4 +596,5 @@ if os.path.isdir(UI):
 
     @app.get("/")
     def index():
+        static_cache()
         return FileResponse(os.path.join(UI, "index.html"))

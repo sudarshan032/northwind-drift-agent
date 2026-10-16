@@ -100,6 +100,8 @@ def main():
     report["load"] = {"nodes": stats["total_nodes"], "edges": stats["total_edges"],
                       "seconds": round(time.perf_counter() - t, 1), "peak_mb": load_peak}
     g = db.select_graph(a.graph)
+    from deploy import critical
+    critical.store(g, critical.compute(a.data)[0])  # never run algo.betweenness on the cloud
     t = time.perf_counter()
     tri, tri_peak = peak(lambda: flows.triage(g, CachedLLM()))
     report["triage"] = {"findings": tri["total"], "notice": tri["notice"], "seconds": round(time.perf_counter() - t, 1),

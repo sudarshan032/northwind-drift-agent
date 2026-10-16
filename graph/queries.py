@@ -7,6 +7,7 @@ timeout the function returns {"error": "query timed out", ...} instead of
 raising.
 """
 
+import json
 TIMEOUT_MS = 5000
 SERVICE_LABELS = ("BusinessService", "ServiceOffering")  # CSDM: counted separately, both can be high-safety
 LIMIT = 5000
@@ -430,7 +431,12 @@ CRITICAL_LABELS = ["Component"]  # full observed graph is fast (~0.1 s); samplin
 
 @guarded
 def critical_nodes(g, limit=10, timeout=TIMEOUT_MS):
-    """Top components by betweenness on the observed call graph (fixed seed)."""
+    """Top components by betweenness on the observed call graph (fixed seed). A graph that carries a stored
+    result (`:Meta {key: 'critical'}`, written by deploy.critical) answers from it: algo.betweenness closed
+    the FalkorDB Cloud connection and restarted the instance (observed 2026-10-16)."""
+    stored = run(g, "MATCH (m:Meta {key: 'critical'}) RETURN m.json AS j", {}, timeout)
+    if stored:
+        return json.loads(stored[0]["j"])[:limit]
     return run(g, CRITICAL, {"labels": CRITICAL_LABELS, "limit": limit}, timeout)
 
 

@@ -10,17 +10,23 @@ const plural = (n, one, many = `${one}s`) => `${n.toLocaleString()} ${n === 1 ? 
 const cap = (s) => s ? s[0].toUpperCase() + s.slice(1) : s;
 
 class ApiError extends Error {}
+let MODE = "local", VERSION = "";
+// read-only GETs carry the data version, so the edge can cache them until an approval or reset (SITE_SPEC 5.3)
+const vq = (path) => `${path}${path.includes("?") ? "&" : "?"}v=${encodeURIComponent(VERSION)}`;
+const enc = encodeURIComponent;
 async function api(path, opts = {}) {
   let r;
   try {
     r = await fetch(path, { headers: { "Content-Type": "application/json" }, ...opts });
   } catch (e) {
-    throw new ApiError("The API is not reachable. Start the stack with docker compose up, then reload this page.");
+    throw new ApiError(MODE === "public" ? "The demo server did not respond. Check your connection and try again in a moment."
+      : "The API is not reachable. Start the stack with docker compose up, then reload this page.");
   }
   if (!r.ok) {
     let detail = "";
     try { detail = (await r.json()).detail; } catch (e) { /* not JSON */ }
-    if (r.status >= 500) throw new ApiError("FalkorDB is not reachable or a query failed. Start it with docker compose up, then reload.");
+    if (r.status >= 500) throw new ApiError(MODE === "public" ? "The demo database did not answer in time. Please try again in a moment."
+      : "FalkorDB is not reachable or a query failed. Start it with docker compose up, then reload.");
     throw new ApiError(typeof detail === "string" ? detail : `Request failed (${r.status}).`);
   }
   return r.json();
@@ -103,8 +109,18 @@ $("#theme").onclick = () => {
 };
 
 let cachedAI = false;
-const aiLabel = () => cachedAI ? "Cached AI explanation" : "AI explanation";
+const aiLabel = () => cachedAI ? "Saved AI explanation" : "AI explanation";
+function renderLlm(s) {
+  const el = $("#llm-status");
+  cachedAI = s.provider === "cached";
+  if (cachedAI) { el.textContent = `Saved AI answers (${s.cached_answers ?? 0})`; return; }
+  if (s.provider === "none" || !s.models?.length) { el.textContent = "AI explanations off"; return; }
+  const model = s.models[0].replace(/^[^/]+\//, "").replace(/:free$/, "");
+  el.innerHTML = `AI model <span class="id">${esc(model)}</span>` +
+    (s.remaining != null ? `, ${esc(s.remaining)} of ${esc(s.limit)} free requests left today` : "");
+}
 async function llmStatus() {
+  if (MODE === "public") return;  // saved answers only: the count changes with a deployment
   try {
     const s = await api("/llm");
     const el = $("#llm-status");
@@ -117,7 +133,7 @@ async function llmStatus() {
   } catch (e) { $("#llm-status").textContent = "AI status unknown"; }
 }
 
-const TABS = ["change", "findings", "incident", "sources", "chat", "scale"];
+const TABS = ["overview", "change", "findings", "incident", "sources", "chat", "scale"];
 function showTab(tab, focus = false) {
   $("#drawer").hidden = true;
   $("#scrim").hidden = true;
@@ -129,6 +145,7 @@ function showTab(tab, focus = false) {
     $(`#tab-${t}`).hidden = !on;
   }
   if (focus) $(`#tab-btn-${tab}`).focus();
+  if (tab === "change" && (!current || stale)) { stale = false; current?.kind === "ci" ? selectComponent(current.id) : selectChange(current?.id || "CHG-HEADLINE"); }
   if (tab === "findings") loadFindings();
   if (tab === "sources") loadSources();
   if (tab === "scale") loadScale();
@@ -149,6 +166,7 @@ $$(".tabs [role=tab]").forEach((b) => {
 // ---------------------------------------------------------------- tooltip (hover and focus)
 const tipEl = $("#tooltip");
 function showTip(html, x, y) {
+  tipEl.classList.remove("def");
   tipEl.innerHTML = html;
   tipEl.hidden = false;
   const w = tipEl.offsetWidth, h = tipEl.offsetHeight, gap = px("--s-12");
@@ -162,6 +180,48 @@ function tipAt(el, html) {
 }
 const dl = (rows) => `<dl class="kv">${rows.filter(([, v]) => v !== undefined && v !== null && v !== "")
   .map(([k, v]) => `<dt>${esc(k)}</dt><dd>${v}</dd>`).join("")}</dl>`;
+
+// ---------------------------------------------------------------- glossary terms (one shared file, SITE_SPEC 3)
+let GLOSS = { terms: {}, drift_types: {}, sources: {} };
+const glossaryP = fetch("/static/glossary.json").then((r) => r.json()).then((g) => {
+  GLOSS = g;
+  $("#glossary").innerHTML = Object.entries(g.terms).map(([k, [t, d]]) => `<dt id="gl-${k}">${esc(t)}</dt><dd>${esc(d)}</dd>`).join("");
+  $("#definitions").innerHTML = Object.entries(g.terms).map(([k, [t, d]]) => `<span id="def-${k}">${esc(t)}: ${esc(d)}</span>`).join("")
+    + Object.entries(g.drift_types).map(([k, d]) => `<span id="dt-${k}">${esc(d)}</span>`).join("");
+  $$(".term[data-term]").forEach((b) => b.setAttribute("aria-describedby", `def-${b.dataset.term}`));
+}).catch(() => { /* terms stay plain text */ });
+function termHTML(el) {
+  if (el.dataset.term) { const [t, d] = GLOSS.terms[el.dataset.term] || []; return t ? `<strong>${esc(t)}</strong>${esc(d)}` : ""; }
+  const d = GLOSS.drift_types[el.dataset.type];
+  return d ? `<strong>${esc(el.dataset.type)}</strong>${esc(d)}` : "";
+}
+function showTerm(el) {
+  const h = termHTML(el);
+  if (!h) return;
+  tipAt(el, h);
+  tipEl.classList.add("def");
+}
+const termOf = (e) => e.target.closest?.(".term");
+document.addEventListener("mouseover", (e) => { const t = termOf(e); if (t) showTerm(t); });
+document.addEventListener("mouseout", (e) => { if (termOf(e)) hideTip(); });
+document.addEventListener("focusin", (e) => { const t = termOf(e); if (t) showTerm(t); });
+document.addEventListener("focusout", (e) => { if (termOf(e)) hideTip(); });
+document.addEventListener("click", (e) => { const t = termOf(e); if (t) { e.stopPropagation(); tipEl.hidden ? showTerm(t) : hideTip(); } }, true);
+const typeTerm = (t) => `<button type="button" class="term code" data-type="${esc(t)}" aria-describedby="dt-${esc(t)}">${esc(t)}</button>`;
+
+// ---------------------------------------------------------------- visitor-facing notices (never internal wording)
+function noticeText(n, what = "answer") {
+  if (!n) return "";
+  if (n.startsWith("AI explanation discarded (the change")) return `The AI named a change that does not match the evidence, so its ${what} was set aside. Below is a summary of what the graph queries found.`;
+  if (n.startsWith("AI explanation discarded")) return `The AI used a number or name that is not in the evidence, so its ${what} was set aside. Below is a summary from the graph instead.`;
+  if (n.startsWith("No cached")) return `There is no saved AI ${what} for this exact request on the public demo, so this one comes straight from the graph.`;
+  return `The free AI model is not available right now, so this ${what} comes straight from the graph.`;
+}
+function friendly(text) {
+  const t = String(text || "");
+  if (t.startsWith("Rule-based summary: no tool evidence was gathered")) return "No answer could be put together for this from the graph. Try one of the suggested questions, or name a component such as lrc-db-01.";
+  return t.replace(/^Rule-based summary from the tool results\. /, "Summary of what the graph queries found: ");
+}
 
 // ---------------------------------------------------------------- toast
 let toastTimer;
@@ -194,6 +254,7 @@ function closeDrawer() {
 $("#drawer-close").onclick = closeDrawer;
 $("#scrim").onclick = closeDrawer;
 document.addEventListener("keydown", (e) => {
+  if (tourOn && e.key === "Escape") { endTour(); return; }
   if ($("#drawer").hidden) { if (e.key === "Escape") hideTip(); return; }
   if (e.key === "Escape") { closeDrawer(); return; }
   if (e.key !== "Tab") return;
@@ -225,10 +286,15 @@ const REL_TEXT = { confirmed: "In the CMDB, confirmed by evidence", structural: 
 const GROUP_MIN = 6;      // "more than 5 nodes of the same class" (UI_SPEC 4.2)
 const TIER_MAX = 8;       // per tier; the rest fold into one "N more" group so labels never overlap
 
-let changes = [], current = null, review = null, view = "real", model = null, highlight = null;
+let changes = [], current = null, review = null, view = "real", model = null, highlight = null, stale = false;
+let changesP = null;
+function ensureChanges(force = false) {
+  if (force || !changesP) changesP = loadChanges().catch((e) => { changesP = null; throw e; });
+  return changesP;
+}
 
 async function loadChanges() {
-  changes = await api("/changes");
+  changes = await api(vq("/changes"));
   const row = (c) => `<li><button type="button" data-change="${esc(c.number)}">
       <span class="id">${esc(c.number)}</span>${riskLabel(c.risk, true)}
       <span class="target id">${esc(c.target)}</span>
@@ -266,20 +332,33 @@ function skeletonReview() {
   $("#ai-text").innerHTML = `<span class="skel"></span><span class="skel"></span>`;
 }
 
-async function selectChange(id, push = true) {
-  current = { kind: "change", id };
-  $$(".changes button").forEach((b) => b.setAttribute("aria-current", String(b.dataset.change === id)));
-  if (push) history.replaceState(null, "", `#change=${encodeURIComponent(id)}`);
+function changeHead(id) {
   const c = changes.find((x) => x.number === id);
+  $$(".changes button").forEach((b) => b.setAttribute("aria-current", String(b.dataset.change === id)));
   $("#rv-number").textContent = id;
   $("#rv-title").textContent = c?.description || "";
   $("#rv-when").textContent = c ? when(c.start_date) : "";
   $("#rv-risk").innerHTML = riskLabel(c?.risk);
+}
+async function selectChange(id, push = true) {
+  current = { kind: "change", id };
+  highlight = null;
+  if (push) history.replaceState(null, "", `#change=${enc(id)}`);
+  const pr = api(vq(`/changes/${enc(id)}/review`));  // in parallel with the change list
+  pr.catch(() => {});
+  changeHead(id);
   skeletonReview();
-  try {
-    review = await api(`/changes/${encodeURIComponent(id)}/review`, { method: "POST" });
-  } catch (e) { banner(e.message); return; }
+  try { await ensureChanges(); } catch (e) { banner(e.message); }
   if (current.id !== id) return;
+  changeHead(id);
+  let r;
+  try { r = await pr; } catch (e) {
+    const fallback = changes.find((c) => c.number === "CHG-HEADLINE") || changes[0];
+    if (fallback && !changes.some((c) => c.number === id)) return selectChange(fallback.number, push);
+    banner(e.message); return;
+  }
+  if (current.id !== id) return;
+  review = r;
   banner("");
   renderReview(true);
   llmStatus();
@@ -294,7 +373,7 @@ async function selectComponent(name, path = null) {
   $("#rv-when").textContent = "";
   $("#rv-risk").innerHTML = "";
   skeletonReview();
-  try { review = await api(`/components/${encodeURIComponent(name)}/review`); }
+  try { review = await api(vq(`/components/${enc(name)}/review`)); }
   catch (e) { banner(e.message); return; }
   banner("");
   renderReview(false);
@@ -668,9 +747,9 @@ function renderAI(isChange) {
     return;
   }
   const fallback = !review.llm || review.notice;
-  head.textContent = fallback ? "Rule-based explanation" : aiLabel();
+  head.textContent = fallback ? "Explanation from the graph rules" : aiLabel();
   note.hidden = !review.notice;
-  note.textContent = review.notice ? `${review.notice.replace(/, showing/, ". Showing")}.`.replace(/\.\.$/, ".") : "";
+  note.textContent = noticeText(review.notice, "explanation");
   text.innerHTML = md(review.explanation);
   $("#ai-more")?.remove();
   text.classList.remove("clamped");
@@ -701,8 +780,9 @@ function fillSelect(sel, values, label) {
 }
 async function loadFindings() {
   const tb = $("#findings");
-  if (!findings.length) tb.innerHTML = Array.from({ length: 6 }, () => `<tr><td colspan="6"><span class="skel"></span></td></tr>`).join("");
-  try { findings = await api("/findings?limit=500"); }
+  if (!findings.length) tb.innerHTML = Array.from({ length: 6 }, () => `<tr><td colspan="7"><span class="skel"></span></td></tr>`).join("");
+  await glossaryP;
+  try { findings = await api(vq("/findings?limit=500&view=list")); }
   catch (e) { banner(e.message); tb.innerHTML = ""; return; }
   findings.sort((a, b) => SEV_ORDER[a.severity] - SEV_ORDER[b.severity] || b.score - a.score);
   fillSelect($("#f-sev"), Object.keys(SEV_ORDER).filter((s) => findings.some((f) => f.severity === s)).map((s) => [s, cap(s)]), "Severity");
@@ -729,22 +809,23 @@ function renderFindings() {
     : `${rows.length} of ${plural(findings.length, "finding")}`;
   $("#findings").innerHTML = rows.length ? rows.map((f) => `<tr tabindex="0" data-id="${esc(f.id)}">
       <td data-label="Severity"><span class="risk sev ${esc(f.severity)}">${esc(cap(f.severity))}</span></td>
-      <td data-label="Finding"><span class="title">${esc(cap(f.kind))}</span><p class="line2">${esc(firstSentence(f.explanation))}</p></td>
+      <td data-label="Finding"><span class="title">${esc(firstSentence(f.explanation) || cap(f.kind))}</span><p class="line2">${esc(cap(f.kind))}</p></td>
       <td class="id" data-label="Affected CI">${esc(affected(f))}</td>
       <td data-label="Sources"><span class="chips">${(f.sources || []).filter((s) => s !== "cmdb_export").map((s) => `<span class="chip">${esc(srcName(s))}</span>`).join("")}</span></td>
       <td data-label="Proposed action"><span class="act ${f.action === "ticket" ? "ticket" : "cmdb"}">${esc(ACTION[f.action] || f.action)}</span></td>
-      <td data-label="Status">${esc(cap(f.status))}${f.resolved ? ", resolved" : ""}</td></tr>`).join("")
-    : `<tr><td colspan="6" class="empty">${findings.length ? "No findings match these filters." : "No findings yet. Run a drift scan."}</td></tr>`;
+      <td data-label="Status">${esc(cap(f.status))}${f.resolved ? ", resolved" : ""}</td>
+      <td data-label="Type">${typeTerm(f.type)}</td></tr>`).join("")
+    : `<tr><td colspan="7" class="empty">${findings.length ? "No findings match these filters." : "No findings yet. Press “Run drift scan” to look for gaps."}</td></tr>`;
   $$("#findings tr[data-id]").forEach((tr) => {
-    tr.onclick = () => openFinding(tr.dataset.id);
-    tr.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openFinding(tr.dataset.id); } };
+    tr.onclick = (e) => { if (!e.target.closest(".term")) openFinding(tr.dataset.id); };
+    tr.onkeydown = (e) => { if (e.target === tr && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openFinding(tr.dataset.id); } };
   });
 }
 ["#f-sev", "#f-type", "#f-src", "#f-act", "#f-status"].forEach((id) => { $(id).onchange = renderFindings; });
 $("#scan").onclick = async (e) => {
   e.target.disabled = true;
   $("#f-count").textContent = "Scanning the graph";
-  try { const r = await api("/scan", { method: "POST" }); toast(`Scan complete: ${plural(r.total, "finding")}`); findings = []; await loadFindings(); }
+  try { const r = await api("/scan", { method: "POST" }); toast(`Scan complete: ${plural(r.total, "finding")}`); await dataChanged(); findings = []; await loadFindings(); }
   catch (err) { banner(err.message); }
   e.target.disabled = false;
   llmStatus();
@@ -784,7 +865,7 @@ async function openFinding(id) {
   history.replaceState(null, "", `#findings=${encodeURIComponent(id)}`);
   openDrawer("Loading finding", `<span class="skel"></span><span class="skel"></span><span class="skel wide"></span>`);
   let f;
-  try { f = await api(`/findings/${encodeURIComponent(id)}`); }
+  try { f = await api(vq(`/findings/${enc(id)}`)); }
   catch (e) { $("#drawer-body").innerHTML = `<p>${esc(e.message)}</p>`; return; }
   const isTicket = f.action === "ticket";
   const rr = f.evidence?.real_radius;
@@ -811,9 +892,9 @@ async function openFinding(id) {
       try {
         await api(`/findings/${encodeURIComponent(f.id)}/${b.dataset.act}`, { method: "POST", body: JSON.stringify({ approver: "ui" }) });
         toast(b.dataset.act === "reject" ? "Finding rejected" : isTicket ? "Ticket created" : "CMDB updated");
+        await dataChanged();
         await loadFindings();
         openFinding(f.id);
-        loadChanges().then(() => current?.kind === "change" && $$(".changes button").forEach((x) => x.setAttribute("aria-current", String(x.dataset.change === current.id))));
       } catch (e) {
         toast(e.message);
         $$("#drawer-foot button").forEach((x) => { x.disabled = false; });
@@ -827,10 +908,12 @@ let sources = [];
 async function loadSources() {
   const tb = $("#sources");
   if (!sources.length) tb.innerHTML = Array.from({ length: 6 }, () => `<tr><td colspan="7"><span class="skel"></span></td></tr>`).join("");
+  await glossaryP;
   try { sources = await api("/sources"); }
   catch (e) { banner(e.message); tb.innerHTML = ""; return; }
   tb.innerHTML = sources.map((s, i) => `<tr>
-      <th scope="row" data-label="Source"><span>${esc(srcName(s.name))}<br><span class="id label-muted">${esc(s.name)}</span></span></th>
+      <th scope="row" data-label="Source"><span>${esc(srcName(s.name))}<br><span class="id label-muted">${esc(s.name)}</span>
+        ${GLOSS.sources?.[s.name] ? `<span class="line2 plain">In a real hospital: ${esc(GLOSS.sources[s.name][0].toLowerCase() + GLOSS.sources[s.name].slice(1))}</span>` : ""}</span></th>
       <td data-label="What it reveals">${esc(s.reveals)}</td><td data-label="Stands in for">${esc(s.tool)}</td>
       <td class="line2" data-label="Raw format">${esc(s.raw)}</td>
       <td class="num" data-label="Records">${(s.raw_records ?? 0).toLocaleString()}</td><td data-label="Time window">${esc(cap(s.window))}</td>
@@ -869,10 +952,7 @@ function linkPath(p) {
   return `<a href="#ci=${encodeURIComponent(nodes[0])}&path=${encodeURIComponent(nodes.join(","))}" class="id">${esc(nodes.join(" to "))}</a>`;
 }
 function stateLine(r) {
-  if (!r.notice) return "";
-  if (r.notice.startsWith("AI explanation discarded (the change")) return `<p class="notice">The AI answer named a change that does not target the most specific shared dependency, so it was discarded. Showing a rule-based summary of what the tools found.</p>`;
-  if (r.notice.startsWith("AI explanation discarded")) return `<p class="notice">The AI answer used numbers or names that are not in the evidence, so it was discarded. Showing a rule-based summary of what the tools found.</p>`;
-  return `<p class="notice">AI explanation unavailable (free-tier limit or step limit). Showing the rule-based summary of what the tools found.</p>`;
+  return r.notice ? `<p class="notice">${esc(noticeText(r.notice))}</p>` : "";
 }
 $("#incident-form").onsubmit = async (e) => {
   e.preventDefault();
@@ -882,33 +962,51 @@ $("#incident-form").onsubmit = async (e) => {
   let r;
   try { r = await api("/incident", { method: "POST", body: JSON.stringify({ symptom }) }); }
   catch (err) { out.innerHTML = `<p class="notice">${esc(err.message)}</p>`; return; }
+  if (MODE === "public" && !r.steps.length) {
+    out.innerHTML = `<p class="notice">Only the example symptom has a saved AI investigation on this public demo. Try
+      <button type="button" class="link" id="incident-example">${esc($("#symptom").placeholder)}</button>.</p>`;
+    $("#incident-example").onclick = () => { $("#symptom").value = ""; $("#incident-form").requestSubmit(); };
+    return;
+  }
   out.innerHTML = `<div class="result">
     <h2>What the agent checked</h2>
     ${r.steps.length ? `<ol class="steps">${r.steps.map((s) => `<li><span class="what">${esc(toolText(s))}</span>
       <span class="tool">Query <span class="id">${esc(s.tool)}</span></span><span class="found">Found: ${esc(s.found || "")}</span></li>`).join("")}</ol>`
-      : `<p class="empty">No queries ran.</p>`}
-    <h2>Conclusion</h2>${stateLine(r)}<div class="prose">${md(r.answer)}</div>
+      : `<p class="empty">The agent did not need to query the graph.</p>`}
+    <h2>Conclusion</h2>${stateLine(r)}<div class="prose">${md(friendly(r.answer))}</div>
     ${r.paths.length ? `<p class="used">Path: ${r.paths.map(linkPath).join(" ")}</p>` : ""}
     ${r.cis?.length ? `<p class="used">Components used: ${r.cis.map(linkCI).join(" ")}</p>` : ""}</div>`;
   llmStatus();
 };
 
 // ================================================================ chat
-$("#chat-form").onsubmit = async (e) => {
+const BY = { graph: "Answered from the graph", cached_ai: "Saved AI answer, checked against the graph",
+  live_ai: "Live AI answer, checked against the graph" };
+function renderChips(list) {
+  $("#chips").innerHTML = list.map((q) => `<button type="button" class="chip">${esc(q)}</button>`).join("");
+  $$("#chips .chip").forEach((b) => { b.onclick = () => ask(b.textContent); });
+}
+$("#chat-form").onsubmit = (e) => {
   e.preventDefault();
-  const q = $("#question").value.trim() || $("#question").placeholder;
+  ask($("#question").value.trim() || $("#question").placeholder);
   $("#question").value = "";
+};
+async function ask(q) {
   const li = document.createElement("li");
   li.innerHTML = `<p class="q">${esc(q)}</p><div class="a"><span class="skel"></span><span class="skel"></span></div>`;
   $("#conversation").appendChild(li);
   let r;
   try { r = await api("/chat", { method: "POST", body: JSON.stringify({ message: q }) }); }
   catch (err) { $(".a", li).innerHTML = `<p class="notice">${esc(err.message)}</p>`; return; }
-  $(".a", li).innerHTML = `${stateLine(r)}<div class="prose">${md(r.answer)}</div>
+  const by = BY[r.answered_by] || (r.answered_by ? "" : r.notice ? "" : "AI answer, checked against the graph");
+  $(".a", li).innerHTML = `${by ? `<p class="by">${esc(by)}</p>` : ""}${stateLine(r)}<div class="prose">${md(friendly(r.answer))}</div>
+    ${r.examples?.length ? `<div class="chips">${r.examples.map((x) => `<button type="button" class="chip ex">${esc(x)}</button>`).join("")}</div>` : ""}
     ${r.cis?.length ? `<p class="used">Components: ${r.cis.map(linkCI).join(" ")}</p>` : ""}
     ${r.paths?.length ? `<p class="used">Paths: ${r.paths.map(linkPath).join(" ")}</p>` : ""}`;
+  $$(".chip.ex", li).forEach((b) => { b.onclick = () => ask(b.textContent); });
+  li.scrollIntoView({ block: "nearest" });
   llmStatus();
-};
+}
 
 // ================================================================ scale (static benchmark results)
 let scale = null;
@@ -972,25 +1070,141 @@ async function loadScale() {
   paintScaleCharts();
 }
 
+// ================================================================ guided tour (SITE_SPEC 2): drives the real UI
+const TOUR = [
+  { title: "A routine change", text: "A routine EMR upgrade. The CMDB and the evidence agree, so the impact is known: low risk.",
+    go: async () => { await openChange("CHG0031513"); return $("#verdict"); } },
+  { title: "A security patch", text: "A security patch on one server. The CMDB says it only touches lab reporting.",
+    go: async () => { await openChange("CHG-HEADLINE"); return $(".review-head"); } },
+  { title: "What the evidence says", text: "The evidence says otherwise: 51 hospitals' Emergency departments depend on it.",
+    go: async () => { await openChange("CHG-HEADLINE"); return $("#compare"); } },
+  { title: "The missing link", text: "This is the missing link: the interface engine shows every critical-results interface stores messages in lrc-db-01, but nobody recorded it.",
+    go: async () => {
+      await openChange("CHG-HEADLINE");
+      const small = matchMedia("(max-width: 960px)").matches;
+      return (small ? $("#path-list .rel.observed")?.closest("li") : $("#canvas .e-observed_only")?.closest(".edge")) || $(".dep");
+    } },
+  { title: "The fix", text: "The agent proposes adding the 51 missing relationships. Approve it, and the change is re-reviewed with the true impact. Reset demo puts it back.",
+    go: async () => {
+      showTab("findings");
+      history.replaceState(null, "", "#findings");
+      await loadFindings();
+      const f = findings.find((x) => x.type === "D1" && (x.subjects || []).includes("lrc-db-01")) || findings[0];
+      if (f) await openFinding(f.id);
+      return $("#drawer");
+    } },
+];
+let tourOn = false, tourAt = 0, tourTarget = null, tourReturn = null;
+async function openChange(id) {
+  if ($("#tab-change").hidden) showTab("change");
+  if (!$("#drawer").hidden) closeDrawer();
+  if (current?.kind !== "change" || current.id !== id || !review || stale) await selectChange(id);
+  else history.replaceState(null, "", `#change=${enc(id)}`);
+}
+function startTour(i = 0) {
+  tourReturn = document.activeElement;
+  tourOn = true;
+  tourStep(i);
+}
+async function tourStep(i) {
+  tourAt = i;
+  const card = $("#tour"), step = TOUR[i];
+  $("#tour-count").textContent = `Step ${i + 1} of ${TOUR.length}`;
+  $("#tour-title").textContent = step.title;
+  $("#tour-text").textContent = step.text;
+  $("#tour-back").disabled = i === 0;
+  $("#tour-next").textContent = i === TOUR.length - 1 ? "Finish" : "Next";
+  $("#spot").hidden = true;
+  tourTarget = await step.go();
+  if (!tourOn || tourAt !== i) return;
+  (tourTarget?.id === "drawer" ? $("#drawer") : document.body).appendChild(card);  // inside the dialog while it is open
+  card.hidden = false;
+  if (tourTarget && tourTarget.id !== "drawer") tourTarget.scrollIntoView({ block: "center", behavior: "auto" });
+  requestAnimationFrame(placeTour);
+  $("#tour-title").focus();
+}
+function placeTour() {
+  if (!tourOn) return;
+  const card = $("#tour"), spot = $("#spot"), gap = px("--s-16"), t = tourTarget;
+  card.classList.toggle("at-top", t?.id === "drawer");
+  if (!t || t.id === "drawer" || !t.isConnected) {
+    spot.hidden = true;
+    const d = $("#drawer").getBoundingClientRect();
+    card.style.left = `${Math.max(gap, d.left - card.offsetWidth - gap)}px`;
+    card.style.top = `${px("--s-64") * 1.5}px`;
+    return;
+  }
+  const r = t.getBoundingClientRect(), pad = px("--s-4");
+  const top = Math.max(0, r.top - pad), bottom = Math.min(innerHeight, r.bottom + pad);
+  Object.assign(spot.style, { left: `${r.left - pad}px`, top: `${top}px`, width: `${r.width + 2 * pad}px`, height: `${Math.max(0, bottom - top)}px` });
+  spot.hidden = false;
+  const h = card.offsetHeight, w = card.offsetWidth;
+  const y = bottom + gap + h < innerHeight ? bottom + gap : top - gap - h > 0 ? top - gap - h : innerHeight - h - gap;
+  card.style.top = `${y}px`;
+  card.style.left = `${Math.max(gap, Math.min(r.left, innerWidth - w - gap))}px`;
+}
+function endTour() {
+  tourOn = false;
+  $("#tour").hidden = true;
+  $("#spot").hidden = true;
+  document.body.appendChild($("#tour"));
+  (tourReturn?.isConnected ? tourReturn : $("#main")).focus?.();
+}
+$("#tour-next").onclick = () => (tourAt < TOUR.length - 1 ? tourStep(tourAt + 1) : endTour());
+$("#tour-back").onclick = () => { if (tourAt > 0) { if (tourAt === TOUR.length - 1 && !$("#drawer").hidden) closeDrawer(); tourStep(tourAt - 1); } };
+$("#tour-exit").onclick = endTour;
+$("#tour").addEventListener("keydown", (e) => {
+  if (e.key === "ArrowRight") { e.preventDefault(); $("#tour-next").click(); }
+  if (e.key === "ArrowLeft" && tourAt > 0) { e.preventDefault(); $("#tour-back").click(); }
+});
+$("#tour-start").onclick = () => startTour(0);
+$$("[data-tour]").forEach((b) => { b.onclick = () => startTour(Number(b.dataset.tour)); });
+addEventListener("scroll", () => requestAnimationFrame(placeTour), { passive: true });
+
 // ================================================================ routing and start
 async function route() {
   const h = location.hash;
   if (h.startsWith("#ci=")) {
     const params = new URLSearchParams(h.slice(1));
+    current = { kind: "ci", id: params.get("ci") };
     showTab("change");
     await selectComponent(params.get("ci"), params.get("path")?.split(",") || null);
     return;
   }
   const tab = h.slice(1).split("=")[0];
-  if (TABS.includes(tab) && tab !== "change") { showTab(tab); return; }
+  if (!TABS.includes(tab) || tab === "overview") {
+    showTab("overview");
+    (window.requestIdleCallback || setTimeout)(() => ensureChanges().catch(() => {}));  // warm the change list
+    return;
+  }
+  if (tab !== "change") { showTab(tab); return; }
+  const id = h.startsWith("#change=") ? decodeURIComponent(h.slice(8)) : current?.kind === "change" ? current.id : "CHG-HEADLINE";
+  current = { kind: "change", id };  // showTab must not start a second load
   showTab("change");
-  const want = h.startsWith("#change=") ? decodeURIComponent(h.slice(8)) : null;
-  const id = changes.some((c) => c.number === want) ? want : (changes.find((c) => c.number === "CHG-HEADLINE") || changes[0])?.number;
-  if (id && (current?.id !== id || current.kind !== "change")) { highlight = null; await selectChange(id, false); }
+  await selectChange(id, false);
 }
-window.addEventListener("hashchange", () => { if (/^#(ci|change|findings|sources)=|^#(findings|incident|sources|chat|change|scale)$/.test(location.hash)) route(); });
+window.addEventListener("hashchange", () => { if (/^#(ci|change|findings|sources)=|^#(overview|findings|incident|sources|chat|change|scale)?$/.test(location.hash)) route(); });
 let resizeTimer;
-window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { if (model) drawGraph(); }, 150); });
+window.addEventListener("resize", () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => { if (model) drawGraph(); placeTour(); }, 150);
+});
+
+function applyState(st) {
+  MODE = st.mode;
+  VERSION = st.version;
+  $("#reset").hidden = MODE !== "public";
+  $("#incident-note").hidden = MODE !== "public";
+  renderLlm(st.llm || {});
+  renderChips(st.chips || []);
+}
+async function dataChanged() {
+  // approve, reject, scan or reset: new data version, so every cached view is re-fetched on next use
+  try { applyState(await api("/api/state")); } catch (e) { /* keep the old version */ }
+  findings = [];
+  stale = true;
+  ensureChanges(true).then(() => current?.kind === "change" && changeHead(current.id)).catch(() => {});
+}
 
 $("#reset").onclick = async (e) => {
   e.target.disabled = true;
@@ -998,20 +1212,19 @@ $("#reset").onclick = async (e) => {
   try {
     const r = await api("/reset", { method: "POST" });
     toast(`Demo reset: ${plural(r.approvals_undone, "approval")} undone`);
-    findings = [];
-    await loadChanges();
+    await dataChanged();
     current = null;
+    stale = false;
     await route();
   } catch (err) { banner(err.message); }
   e.target.disabled = false;
 };
 
 (async () => {
-  try {
-    const h = await api("/health");
-    $("#reset").hidden = h.mode !== "public";
-  } catch (e) { banner(e.message); return; }
-  await llmStatus();
-  try { await loadChanges(); } catch (e) { banner(e.message); return; }
+  let st = await (window.BOOT || Promise.resolve(null));
+  if (!st) {
+    try { st = await api("/api/state"); } catch (e) { banner(e.message); return; }
+  }
+  applyState(st);
   await route();
 })();

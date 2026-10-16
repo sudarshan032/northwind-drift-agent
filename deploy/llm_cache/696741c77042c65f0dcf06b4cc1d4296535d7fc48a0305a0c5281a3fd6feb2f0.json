@@ -1,0 +1,1 @@
+{"text": "", "tool_calls": [{"id": "call-00c65573-8033-477b-b658-50d00b6f7bd7", "name": "get_component", "input": {"name": "dc1-host-07"}}], "content": [{"type": "tool_use", "id": "call-00c65573-8033-477b-b658-50d00b6f7bd7", "name": "get_component", "input": {"name": "dc1-host-07"}}], "stop_reason": "tool_use", "model": "nvidia/nemotron-3-super-120b-a12b:free"}

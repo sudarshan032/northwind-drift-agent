@@ -19,10 +19,8 @@ import json
 import re
 from typing import TypedDict
 
-from langgraph.graph import END, StateGraph
-
 from agent import findings as F, grounding as G
-from agent.llm import JOB_CAPS, NO_KEY, UNAVAILABLE, LLMUnavailable, capped, notice_of
+from agent.llm import JOB_CAPS, NO_KEY, UNAVAILABLE, Capped, LLMUnavailable, capped, notice_of
 from agent.tools import READ_ONLY, Toolbox
 from graph import queries as Q
 
@@ -30,6 +28,12 @@ GROUNDING = ("Use only the numbers, names, dates and risk levels that appear in 
              "given; never compute, round, estimate or invent counts, component names, dates or paths. If a tool "
              "returns nothing, say so. Every number and name you write is checked against the facts.")
 DISCARDED = "AI explanation discarded (numbers or names not in the facts), showing rule-based explanation"
+
+
+def _lg():
+    """LangGraph, imported on first use: the public site serves stored answers without it (SITE_SPEC 5.4)."""
+    from langgraph.graph import END, StateGraph
+    return END, StateGraph
 
 # --------------------------------------------------------------------------
 # Generic tool-using loop (used by incident and chat)
@@ -54,6 +58,7 @@ def tool_loop(llm, box, system, tool_names, max_steps, question):
     """LangGraph agent loop: model -> (tools -> model)* -> answer. The model
     is told its step budget; the final allowed call has tools disabled and
     gets the gathered evidence as plain text, so it must answer."""
+    END, StateGraph = _lg()
     specs = box.specs(tool_names)
     system = (f"{system} You have at most {max_steps} model calls in this job; tools are disabled on the last one, "
               "so gather evidence early and keep calls few.")
@@ -203,6 +208,7 @@ def triage(g, llm=None, top_n=10):
         F.store(g, s["findings"])
         return {"top": s["findings"][:top_n]}
 
+    END, StateGraph = _lg()
     sg = StateGraph(TriageState)
     for name, fn in (("detect", detect), ("build", build), ("explain", explain), ("store", store)):
         sg.add_node(name, fn)
@@ -268,6 +274,7 @@ def change_review(g, change_id, llm=None):
             return {"explanation": template_review(facts), "notice": DISCARDED, "mismatches": bad}
         return {"explanation": text}
 
+    END, StateGraph = _lg()
     sg = StateGraph(ChangeState)
     sg.add_node("review", review)
     sg.add_node("owners", owners)
@@ -439,8 +446,10 @@ CHAT = ("You answer questions about Northwind Health's IT estate using only the 
         "results you used. If a tool returns nothing, say that nothing was found. Do not modify anything. " + GROUNDING)
 
 
-def chat(g, message, llm=None):
+def chat(g, message, llm=None, max_steps=None):
+    """`max_steps` lowers the call cap (public live answers); the default keeps prewarmed cache keys."""
     if llm is None:
         return {"answer": NO_KEY, "steps": [], "paths": []}
-    return run_loop(capped(llm, "chat"), Toolbox(g), CHAT, message, READ_ONLY, JOB_CAPS["chat"], "chat")
+    n = max_steps or JOB_CAPS["chat"]
+    return run_loop(Capped(llm, n), Toolbox(g), CHAT, message, READ_ONLY, n, "chat")
 

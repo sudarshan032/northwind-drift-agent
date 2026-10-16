@@ -1,0 +1,43 @@
+{
+  "terms": {
+    "cmdb": ["CMDB", "Configuration management database: the official record of every IT system and what depends on what. Change approvers use it to judge what a change will affect."],
+    "ci": ["CI", "Configuration item: one record in the CMDB, such as a server, a database, an application or an interface."],
+    "drift": ["Drift", "A gap between what the CMDB records and what the evidence shows systems actually do, for example a connection that exists but was never recorded."],
+    "blast-radius": ["Blast radius", "Everything that stops working, directly or further down the chain, if one component fails or is taken down for a change."],
+    "declared-observed": ["Declared vs observed", "Declared: written in the CMDB by people. Observed: seen in the evidence from discovery tools. Where the two disagree, that is drift."],
+    "hl7": ["HL7", "The message standard hospitals use to move clinical data, such as lab results and orders, between systems."],
+    "interface": ["Interface", "A feed that carries HL7 messages from one system to another, for example critical lab results to an Emergency department."],
+    "service-offering": ["Service offering", "One concrete part of a business service for one place or group, such as the critical results feed of one hospital's Emergency department."],
+    "business-service": ["Business service", "Something the hospital provides that people notice when it stops, such as Emergency care, Pharmacy or Lab reporting."],
+    "discovery-source": ["Discovery source", "A tool that reports what systems actually do: network scanners, traffic metrics, the interface engine, backup software and access logs."],
+    "change-request": ["Change request", "A planned piece of IT work, such as a patch or an upgrade, that must be reviewed and approved before it happens."]
+  },
+  "drift_types": {
+    "D1": "Undocumented dependency: the evidence shows one system using another, but the CMDB has no such relationship.",
+    "D2": "Stale relationship: the CMDB lists a dependency that no evidence has seen in the observed period, and it is not a failover link.",
+    "D4": "Retired CI still linked: a system marked retired in the CMDB still has relationships.",
+    "D5": "Owner drift: the team recorded as owner is not the team that actually resolves its incidents and makes its changes.",
+    "D6": "Shadow IT: a system found on the network by discovery that is not in the CMDB at all.",
+    "D7": "Ghost CI: a CMDB record in a scanned network that no scan or traffic has ever seen.",
+    "D8": "Attribute drift: a recorded detail (operating system version, serial number or IP address) differs from what discovery reports.",
+    "D9": "Protection-path drift: patient data whose storage never reaches another site, although the CMDB says there is an off-site copy.",
+    "D10": "Backups failing: the CMDB says the system is backed up, but its last successful backup is more than a week old.",
+    "D11": "Data residency: patient data is copied to a location where it must not be stored.",
+    "D12": "Access drift: access that no grant explains, by a disabled account, or admin work outside an approved change window.",
+    "D13": "Naming mismatch: one system known by different names in different tools; matched by serial number or IP, not a real problem.",
+    "D14": "Unregistered app: a third-party app reads patient records through the EMR's FHIR API but is registered nowhere."
+  },
+  "sources": {
+    "cmdb_export": "The hospital's own record, exported from its CMDB tool: what people have declared.",
+    "discovery_scanner": "A network scanner that walks the data centres and clinics and lists every device it can reach.",
+    "apm_otel": "Application monitoring that traces which applications call which databases and services.",
+    "netflow": "Traffic summaries from the network routers: who talks to whom, including medical devices with no software agent.",
+    "interface_engine": "The hub that routes HL7 messages between clinical systems; its configuration shows where messages really go.",
+    "backup_software": "The backup system's job history: what is really backed up, and whether a copy leaves the building.",
+    "storage_telemetry": "The storage arrays' own reports on which volumes are replicated to the other data centre.",
+    "identity_sso": "Single sign-on logs: which staff sign in to which applications, from which workstation.",
+    "db_audit": "Database audit logs: who reads, changes and administers the production databases.",
+    "hr_feed": "The HR system's list of staff and their employment status, to spot accounts of people who have left.",
+    "itsm_history": "The IT service desk's history: which team really fixes incidents and carries out changes on each system."
+  }
+}

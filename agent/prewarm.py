@@ -10,6 +10,7 @@ import os
 
 
 from agent import flows
+from agent.answers import CHIPS
 from agent.llm import get_llm
 from graph.connection import connect
 
@@ -32,6 +33,10 @@ def main():
     if llm is None:
         raise SystemExit("no LLM provider configured (see .env.example)")
     g = connect().select_graph(os.environ.get("NORTHWIND_GRAPH", "northwind"))  # FALKORDB_* incl. cloud auth
+    bundle = os.path.join("deploy", "llm_cache", "models.json")
+    if os.path.exists(bundle) and hasattr(llm, "models"):  # keep the keys of every answer already in the bundle
+        with open(bundle) as f:
+            llm.models = json.load(f)
     if getattr(llm, "cache", None) is not None:  # the model list the cache keys are hashed with (deploy bundle)
         with open(os.path.join(llm.cache.path, "models.json"), "w") as f:
             json.dump(llm.models, f)
@@ -44,6 +49,10 @@ def main():
     r = flows.chat(g, DEMO_QUESTION, llm)
     out["chat"] = {"notice": r["notice"], "mismatches": r["mismatches"], "steps": len(r["steps"]),
                    "answer": r["answer"][:300]}
+    for q in CHIPS:  # the chat's suggested questions (SITE_SPEC 4.1)
+        r = flows.chat(g, q, llm)
+        out[q] = {"notice": r["notice"], "mismatches": r["mismatches"], "tools": [s["tool"] for s in r["steps"]],
+                  "answer": r["answer"][:300]}
     for c in DEMO_CHANGES:
         r = flows.change_review(g, c, llm)
         out[c] = {"notice": r["notice"], "mismatches": r["mismatches"]}

@@ -78,6 +78,8 @@ class Toolbox:
                 res = fn(**args)
             except TypeError as e:
                 res = {"error": f"bad arguments: {e}"}
+            except Exception as e:  # a failed query (e.g. the connection dropped) is a tool error, not a crash
+                res = {"error": f"query failed ({type(e).__name__})"}
         if res in (None, [], {}):
             res = {"result": "no results"}
         self.trace.append({"tool": name, "input": args, "result": res})
