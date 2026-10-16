@@ -60,7 +60,8 @@ def demo_graph(tmp_path_factory):
 def _no_live_llm(monkeypatch):
     """Tests never use a live provider, whatever the shell or .env says."""
     from agent import llm
-    for k in ("LLM_PROVIDER", "OPENROUTER_API_KEY", "ANTHROPIC_API_KEY", "NORTHWIND_MODELS"):
+    for k in ("LLM_PROVIDER", "OPENROUTER_API_KEY", "ANTHROPIC_API_KEY", "NORTHWIND_MODELS", "OPENAI_API_KEYS",
+              "OPENAI_API_KEY"):
         monkeypatch.delenv(k, raising=False)
     llm.get_llm.cache_clear()
     yield

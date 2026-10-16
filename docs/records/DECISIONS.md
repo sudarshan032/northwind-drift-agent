@@ -455,3 +455,14 @@ Clarified, not changed:
   now 283 components in both views (was 231): 3 business services and 102 offerings, because VITALS routes feed
   emr-app's new Patient monitoring offerings. No test expected counts changed; one test fixture now also clears a
   test graph's memory graphs on a fresh load (a leftover rejected fact from an earlier session leaked in).
+
+## 96. One provider: OpenAI for explanations and chat (owner's request, 17 Oct)
+- Default provider is OpenAI `gpt-6-luna` when `OPENAI_API_KEYS`/`OPENAI_API_KEY` is set (OpenRouter, Anthropic and
+  the fake stay selectable with `LLM_PROVIDER`). Same client as the agent: key fallback, pricing, and every call booked
+  against the one daily dollar cap; once it is reached, calls stop (rule-based fallback).
+- `OpenAILLM` caches responses with the key scheme `CachedLLM` reads (model list `["gpt-6-luna"]`), so prewarmed
+  answers bundle for the public site as before; the bundle was rebuilt from the OpenAI cache only (the OpenRouter
+  answers' keys no longer match anything).
+- Public live chat (the small allowance) now uses OpenAI too, under the same dollar cap.
+- Chip 6 ("Which apps are used but not in the CMDB?"): gpt-6-luna repeated the free model's mistake (D1 undocumented
+  dependencies read as unregistered apps), so its saved chain was removed again and the rule answer stays.

@@ -1,1 +1,0 @@
-{"text": "", "tool_calls": [{"id": "call-5b0a69b3-c17a-4eca-8b7d-8d2e0f47a91d", "name": "change_review", "input": {"change_id": "CHG-HEADLINE"}}], "content": [{"type": "tool_use", "id": "call-5b0a69b3-c17a-4eca-8b7d-8d2e0f47a91d", "name": "change_review", "input": {"change_id": "CHG-HEADLINE"}}], "stop_reason": "tool_use", "model": "nvidia/nemotron-3-super-120b-a12b:free"}

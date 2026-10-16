@@ -1,1 +1,0 @@
-{"text": "", "tool_calls": [{"id": "call-00a98953-c77c-4847-a61e-a0f6872ca64b", "name": "search_components", "input": {"text": "ORU-CRIT-H22"}}], "content": [{"type": "tool_use", "id": "call-00a98953-c77c-4847-a61e-a0f6872ca64b", "name": "search_components", "input": {"text": "ORU-CRIT-H22"}}], "stop_reason": "tool_use", "model": "nvidia/nemotron-3-super-120b-a12b:free"}

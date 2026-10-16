@@ -172,7 +172,11 @@ def static_cache():
 
 
 def llm():
-    return getattr(app.state, "llm", None) or get_llm()  # tests inject a FakeLLM via app.state.llm
+    m = getattr(app.state, "llm", None) or get_llm()  # tests inject a FakeLLM via app.state.llm
+    if m is not None and hasattr(m, "over_cap") and getattr(m, "charge", None) is None:
+        from agent import spend
+        m.charge = lambda usd: spend.charge(graph(), usd)  # one daily dollar cap for the agent and these jobs
+    return m
 
 
 def check(res):
@@ -603,8 +607,20 @@ _live = []
 def live_llm():
     """Public mode: the live model for the small shared allowance (agent.answers), built on first use."""
     if not _live:
-        from agent.llm import OpenRouterLLM
-        _live.append(OpenRouterLLM(runtime="/tmp/northwind") if os.environ.get("OPENROUTER_API_KEY") else None)
+        from agent import spend
+        from agent.llm import OpenAILLM, OpenRouterLLM
+        if os.environ.get("OPENAI_API_KEYS") or os.environ.get("OPENAI_API_KEY"):
+            m = OpenAILLM()
+            m.charge = lambda usd: spend.charge(graph(), usd)
+            m.capped = spend.today(graph()) >= spend.cap()
+        elif os.environ.get("OPENROUTER_API_KEY"):
+            m = OpenRouterLLM(runtime="/tmp/northwind")
+        else:
+            m = None
+        _live.append(m)
+    if _live[0] is not None and hasattr(_live[0], "capped"):
+        from agent import spend
+        _live[0].capped = spend.today(graph()) >= spend.cap()  # other instances may have spent today
     return _live[0]
 
 

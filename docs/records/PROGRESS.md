@@ -57,3 +57,4 @@ Re-read this file, RUN_PROMPT.md and DATA_SPEC.md after any context compaction.
 - 2026-10-16 AGENT_V2 eval 4/5 (gpt-6-luna; first run 2/5), recorded runs, preview checked (live run, /mcp 18 tools, memory recall after data reset), merged to master.
 - 2026-10-16 Held-out scenarios H1-H4 run once: 3/4; README tracks section.
 - 2026-10-17 Service-map fix (per-hospital offerings), data regenerated, local and cloud reloaded, eval v2 data 7/9.
+- 2026-10-17 Explanations and chat on OpenAI gpt-6-luna; prewarm $0.0063, all grounded.

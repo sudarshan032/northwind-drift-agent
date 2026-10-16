@@ -215,7 +215,7 @@ function noticeText(n, what = "answer") {
   if (n.startsWith("AI explanation discarded (the change")) return `The AI named a change that does not match the evidence, so its ${what} was set aside. Below is a summary of what the graph queries found.`;
   if (n.startsWith("AI explanation discarded")) return `The AI used a number or name that is not in the evidence, so its ${what} was set aside. Below is a summary from the graph instead.`;
   if (n.startsWith("No cached")) return `There is no saved AI ${what} for this exact request on the public demo, so this one comes straight from the graph.`;
-  return `The free AI model is not available right now, so this ${what} comes straight from the graph.`;
+  return `The AI model is not available right now (or today's budget is used up), so this ${what} comes straight from the graph.`;
 }
 function friendly(text) {
   const t = String(text || "");

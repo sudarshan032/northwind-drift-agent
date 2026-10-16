@@ -33,11 +33,12 @@ def main():
     if llm is None:
         raise SystemExit("no LLM provider configured (see .env.example)")
     g = connect().select_graph(os.environ.get("NORTHWIND_GRAPH", "northwind"))  # FALKORDB_* incl. cloud auth
-    bundle = os.path.join("deploy", "llm_cache", "models.json")
-    if os.path.exists(bundle) and hasattr(llm, "models"):  # keep the keys of every answer already in the bundle
-        with open(bundle) as f:
-            llm.models = json.load(f)
+    if hasattr(llm, "over_cap"):  # OpenAI: book every call against the shared daily dollar cap
+        from agent import spend
+        llm.charge = lambda usd: spend.charge(g, usd)
+    start = __import__("agent.spend", fromlist=["today"]).today(g)
     if getattr(llm, "cache", None) is not None:  # the model list the cache keys are hashed with (deploy bundle)
+        os.makedirs(llm.cache.path, exist_ok=True)
         with open(os.path.join(llm.cache.path, "models.json"), "w") as f:
             json.dump(llm.models, f)
     before = llm.status().get("remaining")
@@ -56,8 +57,12 @@ def main():
     for c in DEMO_CHANGES:
         r = flows.change_review(g, c, llm)
         out[c] = {"notice": r["notice"], "mismatches": r["mismatches"]}
-    llm._key_info = (0, None)  # force a fresh key-info read
+    if hasattr(llm, "_key_info"):
+        llm._key_info = (0, None)  # force a fresh key-info read
     out["requests_remaining"] = {"before": before, "after": llm.status().get("remaining")}
+    from agent import spend
+    out["usd_spent"] = round(spend.today(g) - start, 6)
+    out["switches"] = getattr(llm, "events", [])
     print(json.dumps(out, indent=1))
 
 

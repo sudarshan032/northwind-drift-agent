@@ -462,47 +462,41 @@ fixed. It is not an agent tool because no decision depends on it.
   incidents and implements changes) decides who gets warned, and every hidden link, finding and verdict points back
   to the discovery source that showed it (interface engine, netflow, APM, backup software, ITSM history, ...).
 
-## Using free models
+## AI models and cost
 
-1. Create an account at [openrouter.ai](https://openrouter.ai), then a key under **Settings → API Keys**
-   (`sk-or-v1-...`). No credit card is needed for `:free` models.
-2. Put it in `.env`: `LLM_PROVIDER=openrouter` and `OPENROUTER_API_KEY=sk-or-v1-...`. The API, the Docker stack
-   (`env_file`) and `python -m agent.prewarm` read it; for a local `uvicorn`, export it first
-   (`set -a; . ./.env; set +a`).
-3. Optional: `NORTHWIND_MODELS`, a comma-separated preference list.
+**Default: OpenAI `gpt-6-luna` for everything that uses a model.** The Change Guardian, the finding explanations
+(triage), the change-review explanations, the incident flow and chat all use the same provider (`agent/llm.py`
+`OpenAILLM`, Responses API, reasoning effort `low`, R22). Prices: $0.10 per 1M input tokens, $0.01 cached input,
+$0.50 output.
 
-At startup the API calls OpenRouter's models API and keeps only models whose ID ends in `:free`, whose prompt and
-completion prices are zero and whose `supported_parameters` include `tools`, and logs which are available. If
-none of the listed models qualify it picks the free tool-capable model with the largest context. The kept list
-is sent as OpenRouter's `models` fallback array, so a rate-limited or failing model falls through to the next.
+1. Put one or more keys in `.env`: `OPENAI_API_KEYS=sk-...,sk-...` (a single `OPENAI_API_KEY` also works). The API,
+   the Docker stack (`env_file`), `python -m agent.prewarm` and `python -m agent.eval` read it.
+2. Optional: `AGENT_MODEL` (default `gpt-6-luna`), `AGENT_DAILY_USD` (default `1.00`), `AGENT_VISITOR_RUNS` (default 5).
 
-![Header with the selected free model and the remaining requests](docs/screenshots/demo-1-low.png)
+**Backup keys.** The keys are tried in their fixed order: on a bad key, no credit or a rate limit (HTTP 401, 402,
+403, 429) the next key is used and the trace notes "switched to backup key N". Keys are never printed or logged
+(error bodies are not logged either).
 
-**Limits.** Free models allow 20 requests per minute and 50 per day without purchased credits (1,000 per day with
-at least 10 credits bought). Failed requests count. The agent therefore keeps a persistent daily counter
-(`runtime/llm_budget.json`, `NORTHWIND_DAILY_REQUESTS`) and a one-minute window, never sends a request past
-either, retries at most once after a 429 (waiting `Retry-After`, at most 20 s), and shows the remaining requests
-in the UI header, read from OpenRouter's key-info endpoint (`GET /api/v1/key`, `free_model_daily_requests`).
+**One dollar cap.** Every call is priced from its token counts and booked in FalkorDB (`:AgentSpend`), for the agent
+and the other jobs together and across all keys. When today's total reaches `AGENT_DAILY_USD`, no further call is
+made: jobs fall back to the rule-based explanation, the agent to its recorded run. The header shows "Agent spend
+today".
 
-**Saving requests.** Every response is cached on disk (`runtime/llm_cache/`, keyed by model list plus a hash of
-the prompt, messages and tools), so repeating a demo costs zero requests. Fill the cache once before a demo:
+**Saved answers.** Every response is cached on disk (`runtime/llm_cache_openai/`, keyed by model plus a hash of the
+prompt, messages and tools). `python -m agent.prewarm` fills it once for the demo incident, triage, the demo chat
+question, the six suggested chat questions and both demo change reviews, and prints what it cost; the last run
+(17 Oct, demo graph) cost **$0.0063** and every answer passed the grounding checks (CHG-HEADLINE and CHG0031513
+included). `python -m deploy.bundle_cache --from runtime/llm_cache_openai` copies it to `deploy/llm_cache/`, which
+the public site serves read-only (`CachedLLM`, no model calls). One suggested question ("Which apps are used but not
+in the CMDB?") is answered by a rule over the D6/D14 findings instead, because the model's saved answer misread
+undocumented dependencies as unregistered apps (DECISIONS #93).
 
-```bash
-python -m agent.prewarm                          # local
-docker compose exec api python -m agent.prewarm  # stack
-```
-
-It runs triage, both demo change reviews, the demo incident and the demo chat question, and prints the requests
-used.
-
-**When the budget runs out** or every model fails, the agent shows the rule-based explanation with the notice
-"AI explanation unavailable (free-tier limit), showing rule-based explanation" instead of an error. Detection,
-blast radius and the change review facts and risk never depend on the LLM.
-
-**Privacy.** OpenRouter itself does not log prompts by default, but the providers behind free endpoints may
-retain prompts or train on them; each endpoint has its own data policy, and OpenRouter's privacy settings have a
-separate switch for free endpoints that may train on inputs. That is acceptable here because every prompt holds
-only the synthetic Northwind Health data. Do not send real CMDB or patient data to free models.
+**Other providers (options, not the default).** `LLM_PROVIDER=openrouter` with `OPENROUTER_API_KEY` uses OpenRouter's
+free models (filtered to `:free`, zero price and tool support, sent as a `models` fallback list; 50 requests a day
+without credits, tracked in `runtime/llm_budget.json`; free endpoints may retain or train on prompts, acceptable only
+because the data is synthetic). `ANTHROPIC_API_KEY` uses Claude through the `anthropic` SDK. `LLM_PROVIDER=fake`
+(and every test) uses the scripted fake LLM. Detection, blast radius and the change review facts and risk never
+depend on a model.
 
 ## API
 

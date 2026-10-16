@@ -216,6 +216,8 @@ def take_allowance(g, ip, day=None):
 
 def quota_left(llm):
     """False when the OpenRouter key is at or below the owner's reserve (or its count is unknown)."""
+    if hasattr(llm, "over_cap"):  # OpenAI: the shared daily dollar cap
+        return not llm.over_cap()
     s = llm.status() if hasattr(llm, "status") else {}
     if s.get("provider") != "openrouter":
         return True

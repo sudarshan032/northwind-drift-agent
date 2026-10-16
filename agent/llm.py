@@ -367,15 +367,39 @@ class OpenAILLM:
 
     supports_schema = True
 
-    def __init__(self, keys=None, model=None, client=None, effort="low", timeout=40):
+    def __init__(self, keys=None, model=None, client=None, effort="low", timeout=40, cache=None, charge=None):
+        """`cache`: an on-disk response cache (the same key scheme CachedLLM reads, so prewarmed answers can be
+        bundled for the public site). `charge(usd) -> bool`: books each call against the daily dollar cap shared
+        with the agent; once it returns False, further calls raise LLMUnavailable."""
         import httpx
         raw = keys if keys is not None else (os.environ.get("OPENAI_API_KEYS") or os.environ.get("OPENAI_API_KEY") or "")
         self.keys = [k.strip() for k in (raw.split(",") if isinstance(raw, str) else raw) if k and k.strip()]
         self.model = model or os.environ.get("AGENT_MODEL") or AGENT_MODEL
         self.http = client or httpx.Client(timeout=timeout)
         self.effort, self.key_index, self.events = effort, 0, []
+        self.models, self.cache, self.charge, self.capped = [self.model], cache, charge, False
+
+    def over_cap(self):
+        return self.capped
 
     def respond(self, system, messages, tools=None, tool_choice=None, schema=None):
+        key = None
+        if self.cache is not None and schema is None:
+            msgs, specs = to_openai(system, messages, tools)
+            key = self.cache.key(self.models, system, msgs, specs + ([tool_choice] if tool_choice else []))
+            hit = self.cache.get(key)
+            if hit is not None:
+                return hit
+        if self.capped:
+            raise LLMUnavailable("today's dollar cap for AI calls is reached")
+        reply = self._call(system, messages, tools, tool_choice, schema)
+        if self.charge is not None and not self.charge(reply.cost):
+            self.capped = True
+        if key is not None:
+            self.cache.put(key, reply)
+        return reply
+
+    def _call(self, system, messages, tools, tool_choice, schema):
         body = {"model": self.model, "instructions": system, "input": to_responses(messages),
                 "reasoning": {"effort": self.effort}}
         if tools:
@@ -405,7 +429,8 @@ class OpenAILLM:
         raise LLMUnavailable("no OpenAI key configured")
 
     def status(self):
-        return {"provider": "openai", "models": [self.model], "remaining": None, "keys": len(self.keys)}
+        return {"provider": "openai", "models": [self.model], "remaining": None, "keys": len(self.keys),
+                "capped": self.capped}
 
 
 class CachedLLM:
@@ -513,6 +538,8 @@ def provider():
     p = os.environ.get("LLM_PROVIDER", "").strip().lower()
     if p:
         return p
+    if os.environ.get("OPENAI_API_KEYS") or os.environ.get("OPENAI_API_KEY"):
+        return "openai"  # default: the same provider as the agent
     if os.environ.get("OPENROUTER_API_KEY"):
         return "openrouter"
     return "anthropic" if os.environ.get("ANTHROPIC_API_KEY") else "none"
@@ -523,6 +550,9 @@ def get_llm():
     """The configured LLM, built once (model selection runs at startup), or
     None when no provider is configured (callers degrade)."""
     p = provider()
+    if p == "openai" and (os.environ.get("OPENAI_API_KEYS") or os.environ.get("OPENAI_API_KEY")):
+        runtime = os.environ.get("NORTHWIND_RUNTIME", "runtime")
+        return OpenAILLM(cache=Cache(os.path.join(runtime, "llm_cache_openai")))
     if p == "openrouter" and os.environ.get("OPENROUTER_API_KEY"):
         return OpenRouterLLM()
     if p == "anthropic" and os.environ.get("ANTHROPIC_API_KEY"):
@@ -534,5 +564,6 @@ def get_llm():
     return None
 
 
-NO_KEY = ("Set LLM_PROVIDER and OPENROUTER_API_KEY (free models) or ANTHROPIC_API_KEY (see .env.example) for the "
+NO_KEY = ("Set OPENAI_API_KEYS (default provider), or LLM_PROVIDER=openrouter with OPENROUTER_API_KEY, or "
+          "ANTHROPIC_API_KEY (see .env.example) for the "
           "live agent; detection, radius and change review work without it.")

@@ -248,3 +248,24 @@ def test_scenarios_match_the_drift_data(env, drift_data):
         o = Q.who_to_page(g, [owner_of[s["id"]]])[0]
         assert ({*s["warn"], *s.get("warn_any", [])} & {o["declared_owner"], o["observed_owner"]}), s["id"]
     assert Q.change_review(g, "CHG0031249")["risk"] == "low" and Q.change_review(g, "CHG-HEADLINE")["risk"] == "high"
+
+
+def test_openai_is_default_with_cache_and_cap(monkeypatch, tmp_path):
+    monkeypatch.setenv("OPENAI_API_KEYS", "sk-x-secret")
+    L.get_llm.cache_clear()
+    assert L.provider() == "openai"
+    monkeypatch.setenv("LLM_PROVIDER", "openrouter")
+    assert L.provider() == "openrouter"  # still an option
+    http = FakeHTTP([200, 200])
+    spent = []
+    llm = L.OpenAILLM(keys="sk-x-secret", client=http, cache=L.Cache(str(tmp_path)),
+                      charge=lambda u: spent.append(u) or False)
+    msgs = [{"role": "user", "content": "q"}]
+    assert llm.respond("s", msgs).text == "ok" and llm.over_cap() and len(spent) == 1
+    assert llm.respond("s", msgs).text == "ok" and len(http.keys) == 1  # cached: no second HTTP call
+    with pytest.raises(L.LLMUnavailable):
+        llm.respond("s", [{"role": "user", "content": "other"}])  # cap reached: no call
+    c = L.CachedLLM(str(tmp_path))  # the bundle reads the same keys
+    import json as _j
+    open(tmp_path / "models.json", "w").write(_j.dumps(llm.models))
+    assert L.CachedLLM(str(tmp_path)).respond("s", msgs).text == "ok"

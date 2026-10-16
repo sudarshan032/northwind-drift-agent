@@ -1,1 +1,0 @@
-{"text": "", "tool_calls": [{"id": "call-8c65927f-3c1d-4bfd-82b8-509f2cb7c51f", "name": "critical_nodes", "input": {}}], "content": [{"type": "tool_use", "id": "call-8c65927f-3c1d-4bfd-82b8-509f2cb7c51f", "name": "critical_nodes", "input": {}}], "stop_reason": "tool_use", "model": "nvidia/nemotron-3-super-120b-a12b:free"}

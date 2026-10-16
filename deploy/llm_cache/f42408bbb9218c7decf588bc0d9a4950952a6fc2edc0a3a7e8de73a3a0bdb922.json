@@ -1,1 +1,0 @@
-{"text": "", "tool_calls": [{"id": "call-616f14d9-85a6-497d-acfc-0330a7fba901", "name": "get_component", "input": {"name": "lrc-db-01"}}], "content": [{"type": "tool_use", "id": "call-616f14d9-85a6-497d-acfc-0330a7fba901", "name": "get_component", "input": {"name": "lrc-db-01"}}], "stop_reason": "tool_use", "model": "nvidia/nemotron-3-super-120b-a12b:free"}
