@@ -274,6 +274,43 @@ the reply size, not the database work; D's server time is close to A's.
 - **Loading and memory:** PostgreSQL (COPY 2-2.4x faster than the bulk loader, half the memory at 3.47M nodes);
   FalkorDB stores the graph more compactly on disk.
 
+### Client overhead
+
+FalkorDB's server-side times above are a fraction of its end-to-end times. To see how much is the client,
+FalkorDB was re-measured at 3.47M nodes, depth 10, 20 runs after warm-up, three ways (`bench/client_overhead.py`,
+`results/3500000/client_overhead.jsonl`):
+
+1. **current client**: `falkordb` 1.7.1 on `redis` 8.1.0 with its pure-Python reply parser (hiredis was not
+   installed; every earlier FalkorDB timing in this file was measured this way);
+2. **with hiredis** 3.5.0 (the C reply parser redis-py uses when it is installed), same code, nothing else changed;
+3. **redis-cli** sending the identical `GRAPH.QUERY … --compact` command: the host has no redis-cli, so it ran
+   inside the FalkorDB container (5 batches of `redis-cli -r 20`, the time of an equal `PING` batch subtracted,
+   median of the batch means). This also skips the Docker port-forwarding hop the Python clients go through,
+   and redis-cli still prints the reply, so it is a lower bound on the cost of a real client.
+
+Median end-to-end ms (p95 for the Python clients; FalkorDB's server-side median in brackets):
+
+| Query | Start (reached) | Current client | With hiredis | redis-cli | PostgreSQL end to end (earlier) |
+|---|---|---|---|---|---|
+| traversal only | `arr-pri-a-03` (105,713) | 191 / 197 (36) | **56** / 64 (19) | 50 | 375 |
+| full radius | `arr-pri-a-03` (105,713) | 2,045 / 2,397 (768) | 1,324 / 1,380 (749) | 903 | 908 |
+| traversal only | `dc1-host-07` (3,983) | 9.4 / 11.7 (3.1) | **3.8** / 4.5 (2.4) | 4.4 | 9.5 |
+| full radius | `dc1-host-07` (3,983) | 85 / 90 (44) | 60 / 75 (43) | 59 | 30 |
+
+- **hiredis cuts FalkorDB's client cost by a factor of 3 for traversal replies** (191 → 56 ms for 105,713
+  names), bringing the Python client within 12% of redis-cli. With it, the traversal is 6.7x faster than
+  PostgreSQL end to end at the largest radius (56 vs 375 ms) and 2.5x faster for `dc1-host-07` (3.8 vs 9.5 ms).
+  The PostgreSQL client (`psycopg` with its C extension) already had a compiled parser, so the earlier
+  comparison was tilted against FalkorDB on the client side.
+- **For the full radius, hiredis helps less** (2,045 → 1,324 ms): the remaining gap to redis-cli (903 ms) is the
+  `falkordb` client turning the reply into Python objects (one map per impacted component). Even with the lowest
+  client cost, FalkorDB's full radius ties PostgreSQL at the largest radius (903 vs 908 ms) and stays 2x slower for
+  `dc1-host-07` (59 vs 30 ms): the decoration part of the question is genuinely cheaper in SQL.
+- Server times vary between runs (the reach server median was 36 ms in one process and 19 ms in the other);
+  end-to-end differences of this size are well outside that range.
+- **hiredis is now a project dependency** (`pyproject.toml`), so the app and future benchmark runs use it. The
+  earlier tables are unchanged and remain measured without it.
+
 ## What this benchmark does not cover
 
 - Write-heavy workloads (CMDB updates, evidence ingestion while querying), and the cost of keeping the

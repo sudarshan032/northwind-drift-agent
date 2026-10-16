@@ -49,3 +49,4 @@ Re-read this file, RUN_PROMPT.md and DATA_SPEC.md after any context compaction.
 - 2026-10-16 Benchmark: generator, loaders, runner, analysis; 250k pilot passed the correctness gate; sizes 50k/500k/3.5M; full run started in the background.
 - 2026-10-16 Benchmark verified (gate passed at 4 sizes), charts, RESULTS.md, README, Scale tab, redeploy.
 - 2026-10-16 Session 2 experiments: arm64 check, bulk loader vs COPY, raw relationships, server-side times, hybrid A-D; RESULTS.md + charts; website/README untouched.
+- 2026-10-16 Client overhead measured (current client, hiredis, redis-cli); hiredis added to dependencies.
