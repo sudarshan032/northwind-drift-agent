@@ -91,5 +91,91 @@
   "warn": [
    "NW-DBA"
   ]
+ },
+ {
+  "answer": "h38-pacs-cache-db holds patient data but is only protected by snapshots on arr-h38-01 at the same site; there is no off-site copy, although the CMDB says backup_offsite=true. NW-DBA owns it.",
+  "drift": [
+   "D9-02"
+  ],
+  "held_out": true,
+  "id": "H1-protection",
+  "kind": "incident",
+  "risk_ok": [
+   "high"
+  ],
+  "root_cause_any": [
+   "h38-pacs-cache-db"
+  ],
+  "trigger": "A ransomware drill at H38 asks whether the PACS image cache database can be recovered from an off-site copy; the CMDB says it has one.",
+  "warn": [],
+  "warn_any": [
+   "NW-DBA"
+  ]
+ },
+ {
+  "answer": "An ad-hoc replication copies the PHI analytics volume of dwh-db-01 from stor-usw-01 to stor-cin-01 in cloud-central-india.",
+  "drift": [
+   "D11-01"
+  ],
+  "held_out": true,
+  "id": "H2-residency",
+  "kind": "incident",
+  "risk_ok": [
+   "high"
+  ],
+  "root_cause_any": [
+   "dwh-db-01",
+   "stor-cin-01"
+  ],
+  "trigger": "The privacy office asks whether an analytics extract with patient data is being copied to storage outside the United States.",
+  "warn": [],
+  "warn_any": [
+   "NW-DBA",
+   "NW-Cloud-Platform"
+  ]
+ },
+ {
+  "answer": "A GCC-HYD clinical-apps support account ran admin queries on emr-db-01 outside any approved change window (access drift).",
+  "drift": [
+   "D12-01"
+  ],
+  "held_out": true,
+  "id": "H3-access",
+  "kind": "incident",
+  "risk_ok": [
+   "high"
+  ],
+  "root_cause_any": [
+   "emr-db-01"
+  ],
+  "trigger": "Database audit shows admin queries on the EMR production database last night from an offshore support account, and no change was scheduled.",
+  "warn": [],
+  "warn_any": [
+   "NW-DBA",
+   "NW-SecOps",
+   "HYD-Cybersecurity"
+  ]
+ },
+ {
+  "answer": "VENDOR-RAS-GW, a remote service gateway at H03 (10.103.8.241), is on the network with no CMDB record (shadow IT).",
+  "drift": [
+   "D6-10"
+  ],
+  "held_out": true,
+  "id": "H4-shadow",
+  "kind": "incident",
+  "risk_ok": [
+   "high",
+   "medium"
+  ],
+  "root_cause_any": [
+   "VENDOR-RAS-GW"
+  ],
+  "trigger": "A network scan at H03 found an unknown remote-access gateway next to the imaging network.",
+  "warn": [],
+  "warn_any": [
+   "NW-Site-IT-H03",
+   "NW-SecOps"
+  ]
  }
 ]

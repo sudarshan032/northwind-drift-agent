@@ -232,13 +232,19 @@ def test_scenarios_match_the_drift_data(env, drift_data):
     _, g, _ = env
     gt = {e["id"]: e for e in json.load(open(os.path.join(drift_data, "ground_truth.json")))}
     assert json.load(open(os.path.join(drift_data, "scenarios.json"))) == SCENARIOS
-    assert len(SCENARIOS) == 5 and sum(s["kind"] == "incident" for s in SCENARIOS) == 3
+    tuned = [s for s in SCENARIOS if not s.get("held_out")]
+    held = [s for s in SCENARIOS if s.get("held_out")]
+    assert len(tuned) == 5 and sum(s["kind"] == "incident" for s in tuned) == 3
+    assert len(held) == 4 and {gt[s["drift"][0]]["type"] for s in held} == {"D6", "D9", "D11", "D12"}
     owner_of = {"S1-headline": "lrc-db-01", "S2-backup": "h02-pacs-cache-db", "S3-owner": "ris-db-01",
-                "S4-fhir-app": "emr-fhir-api", "S5-stale": "sched-db-01"}
+                "S4-fhir-app": "emr-fhir-api", "S5-stale": "sched-db-01", "H1-protection": "h38-pacs-cache-db",
+                "H2-residency": "dwh-db-01", "H3-access": "emr-db-01", "H4-shadow": None}
     for s in SCENARIOS:
         assert all(d in gt for d in s["drift"])
         cis = {c for d in s["drift"] for c in gt[d]["ci_ids"]} | {k for d in s["drift"] for key in gt[d].get("finding_keys", []) for k in key}
         assert set(s["root_cause_any"]) & (cis | {"cardiorisk.example.com"}), s["id"]
+        if owner_of[s["id"]] is None:  # shadow IT: no CMDB record, so no recorded owner
+            continue
         o = Q.who_to_page(g, [owner_of[s["id"]]])[0]
-        assert s["warn"][0] in (o["declared_owner"], o["observed_owner"]), s["id"]
+        assert ({*s["warn"], *s.get("warn_any", [])} & {o["declared_owner"], o["observed_owner"]}), s["id"]
     assert Q.change_review(g, "CHG0031249")["risk"] == "low" and Q.change_review(g, "CHG-HEADLINE")["risk"] == "high"

@@ -31,10 +31,11 @@ def score(s, ev):
     verdict = v["verdict"] or {}
     cause_text = " ".join([verdict.get("root_cause") or ""] + list(verdict.get("reasons") or []))
     teams = {w.get("team") for w in verdict.get("warn") or []}
+    owners = all(t in teams for t in s["warn"]) and (not s.get("warn_any") or bool(teams & set(s["warn_any"])))
     notes = [e["text"] for e in ev if e["type"] == "note"]
     return {"id": s["id"], "kind": s["kind"], "root_cause": any(c in cause_text for c in s["root_cause_any"]),
             "risk": verdict.get("risk") in s["risk_ok"], "risk_given": verdict.get("risk"),
-            "owners": all(t in teams for t in s["warn"]), "grounding": v["valid"], "rejected": v["rejected"] or v["stopped"],
+            "owners": owners, "grounding": v["valid"], "rejected": v["rejected"] or v["stopped"],
             "steps": done["steps"], "cost": done["cost"], "seconds": round(done["ms"] / 1000, 1),
             "actions": [a["tool"] for a in v["actions_taken"]], "notes": notes,
             "correct": None}
@@ -52,6 +53,7 @@ def main():
     ap.add_argument("--model", default=os.environ.get("AGENT_MODEL", "gpt-6-luna"))
     ap.add_argument("--graph", default=None)
     ap.add_argument("--record", action="store_true")
+    ap.add_argument("--held-out", action="store_true", help="run only the held-out scenarios (once, no recording)")
     a = ap.parse_args()
     load_env()
     db = connect()
@@ -61,7 +63,8 @@ def main():
     mcp_tools.configure(lambda: g, lambda: mem)
     llm = OpenAILLM(model=a.model)
     rows, runs = [], {}
-    for s in SCENARIOS + (EXTRA if a.record else []):
+    chosen = [s for s in SCENARIOS if bool(s.get("held_out")) == a.held_out]
+    for s in chosen + (EXTRA if a.record and not a.held_out else []):
         t = time.time()
         ev = anyio.run(lambda: guardian.collect(g, mem, s["kind"], s["trigger"], llm, mcp_tools.server,
                                                 charge=lambda u: spend.charge(g, u)))
@@ -97,8 +100,15 @@ def main():
     for r in rows:
         if r["rejected"] or r["notes"]:
             lines.append(f"- {r['id']}: {r['rejected'] or ''} {'; '.join(r['notes'])}".rstrip())
+    if a.held_out:  # a new section on top; the tuned-set results stay as they are
+        lines[0] = f"## Held-out set ({a.model}, run once)"
+        old = open(OUT, encoding="utf-8").read() if os.path.exists(OUT) else "# Agent evaluation\n"
+        head, _, rest = old.partition("\n")
+        text = head + "\n\n" + "\n".join(lines) + "\n" + rest
+    else:
+        text = "\n".join(lines) + "\n"
     with open(OUT, "w", encoding="utf-8") as f:
-        f.write("\n".join(lines) + "\n")
+        f.write(text)
     print(f"{ok}/{len(rows)} correct, ${total:.4f}")
 
 
