@@ -6,14 +6,18 @@ the full context of each run); nothing was dropped. Where PostgreSQL is faster, 
 
 **Short answer.** Inside the database, FalkorDB's traversal is much faster: for the largest radius (105,713
 components at 3.47M nodes) one BFS takes 38 ms in FalkorDB against 357 ms for PostgreSQL's recursive query,
-and it is 2-13x faster server side in every traversal case measured. End to end from a Python client the gap shrinks (203 vs 375
-ms), because decoding FalkorDB's result in Python costs more than the query. On the full blast-radius question
-as the app asks it (traversal plus consumers, departments, hospitals), PostgreSQL is 2-3x faster end to end at
-every size and on most cases server side too; FalkorDB is faster server side only at the largest radius (753 vs
-928 ms). Splitting the job (FalkorDB traverses, PostgreSQL joins attributes) is the fastest end to end for big
-radii (714 vs 944 ms at 3.47M); for small radii PostgreSQL alone wins. PostgreSQL also loads faster (23 s with
-COPY vs 45 s with FalkorDB's bulk loader), sustains more queries per second and needs less memory; FalkorDB has
-the steadier tail latency under load.
+and it is 2-13x faster server side in every traversal case measured. End to end from Python, with compiled reply
+parsers on both sides (hiredis for FalkorDB, psycopg's C extension for PostgreSQL), the traversal is 56 vs 375 ms
+(6.7x); measured without hiredis (slower client) it was 203 vs 375 ms, because decoding FalkorDB's reply in pure
+Python cost more than the query. On the full blast-radius question as the app asks it (traversal plus consumers,
+departments, hospitals), PostgreSQL is faster end to end: with hiredis 1,324 vs 908 ms at the largest radius and
+60 vs 30 ms for `dc1-host-07`; measured without hiredis (slower client) 2-3x at every size. Server side PostgreSQL
+is also faster in most full-radius cases; FalkorDB is faster server side only at the largest radius (753 vs 928
+ms). Splitting the job (FalkorDB traverses, PostgreSQL joins attributes) was the fastest end to end for big radii
+(714 vs 944 ms at 3.47M, measured without hiredis (slower client)); for small radii PostgreSQL alone wins.
+PostgreSQL also loads faster (23 s with COPY vs 45 s with FalkorDB's bulk loader), sustains more queries per
+second and needs less memory; FalkorDB has the steadier tail latency under load (concurrency measured without
+hiredis (slower client)).
 
 ## Setup
 
@@ -149,14 +153,19 @@ time; it was not used.
 ## Findings
 
 1. **Traversal alone: FalkorDB wins once the radius is large.** From a few thousand components reached,
-   one BFS call beats the recursive query, and the gap widens with size (1.2x at 2.8k reached, 1.8x at 106k).
+   one BFS call beats the recursive query, and the gap widens with size (end to end measured without hiredis
+   (slower client): 1.2x at 2.8k reached, 1.8x at 106k; with hiredis 6.7x at 106k, 56 vs 375 ms, compiled
+   clients on both sides).
    For small radii (hundreds of components) PostgreSQL's index lookups are as fast or faster.
-2. **The full question: PostgreSQL wins end to end at every size (2-3x).** Two reasons, both measured: the
+2. **The full question: PostgreSQL wins end to end at every size** (2-3x measured without hiredis (slower
+   client); with hiredis at 3.47M still 1,324 vs 908 ms at the busiest array). Two reasons, both measured: the
    decoration after the BFS (consumers, departments and hospitals for every node reached) is relatively slower
    in FalkorDB's Cypher than as set-based SQL joins, and the Python client spends a large share decoding
-   FalkorDB's nested result (at 3.47M: 756 ms in the database, 1,882 ms end to end). At the largest size
+   FalkorDB's nested result (at 3.47M: 756 ms in the database, 1,882 ms end to end measured without hiredis
+   (slower client); 1,324 ms with hiredis). At the largest size
    FalkorDB's server-side time is below PostgreSQL's end-to-end time.
-3. **Under concurrency, FalkorDB has the steadier tail, PostgreSQL the higher throughput.**
+3. **Under concurrency, FalkorDB has the steadier tail, PostgreSQL the higher throughput** (FalkorDB clients
+   measured without hiredis (slower client)).
 4. **Memory is FalkorDB's limit on a laptop.** 3.47M nodes need 2.6 GB of RAM in FalkorDB; 5M did not fit
    the 4 GB container. PostgreSQL ran in about half the memory, but needed six times the disk.
 5. **The first pilot found a real bug in the project's radius query** (two aggregations grouped by the whole
@@ -260,17 +269,21 @@ the reply size, not the database work; D's server time is close to A's.
 ### Which tool for which job (from the measurements only)
 
 - **"Which components are reached if X fails?" on large radii (thousands of components and up):** FalkorDB. Its
-  BFS is 9x faster than the recursive query inside the database at 3.47M nodes and stays ahead end to end.
+  BFS is 9x faster than the recursive query inside the database at 3.47M nodes and stays ahead end to end
+  (56 vs 375 ms with hiredis, compiled clients on both sides; 203 vs 375 ms measured without hiredis (slower
+  client)).
 - **The same question for small radii (hundreds of components):** either; PostgreSQL is as fast or slightly
   faster end to end because there is little to traverse and its replies are cheap to decode.
 - **The full blast-radius report (traversal plus attributes, departments, hospitals):** PostgreSQL alone for
   small radii; FalkorDB traversal plus PostgreSQL joins (hybrid C) for large ones (fastest end to end from 269k
-  nodes up at the busiest array: 714 vs 944 ms at 3.47M). FalkorDB alone is the slowest end to end at every size
-  unless it returns only counts.
+  nodes up at the busiest array: 714 vs 944 ms at 3.47M, measured without hiredis (slower client)). FalkorDB
+  alone is the slowest end to end at every size unless it returns only counts (measured without hiredis (slower
+  client); with hiredis its full radius at 3.47M is 1,324 ms, still behind PostgreSQL's 908-944 ms).
 - **Rules evaluated while walking raw relationships (no pre-built impact layer):** close; FalkorDB wins big
   radii, PostgreSQL small ones. Pre-building the impact edges helps both systems far more than the choice of
   database (12x for FalkorDB, 4x for PostgreSQL server side at the largest radius).
-- **Many concurrent users:** PostgreSQL for throughput and median latency, FalkorDB for a steadier p95 and p99.
+- **Many concurrent users:** PostgreSQL for throughput and median latency, FalkorDB for a steadier p95 and p99
+  (FalkorDB measured without hiredis (slower client)).
 - **Loading and memory:** PostgreSQL (COPY 2-2.4x faster than the bulk loader, half the memory at 3.47M nodes);
   FalkorDB stores the graph more compactly on disk.
 

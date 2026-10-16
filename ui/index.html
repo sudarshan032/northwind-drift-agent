@@ -108,13 +108,16 @@
       <ul class="points">
         <li><h3>Walking dependencies</h3><p>At 3.47 million nodes, finding the 105,713 components that depend on the
           busiest storage array takes 38 ms inside FalkorDB against 357 ms for a tuned PostgreSQL recursive query,
-          about 9 times faster (56 against 375 ms end to end from Python).</p></li>
+          about 9 times faster. End to end from Python, with compiled clients on both sides, it is 56 against 375
+          ms.</p></li>
         <li><h3>Steady under load</h3><p>With 100 clients asking at once, FalkorDB's slowest answers stay lower:
           p95 1,725 ms and p99 1,944 ms against 4,401 and 7,895 ms. PostgreSQL keeps the higher throughput (142
-          against 87 queries a second) and the lower median.</p></li>
+          against 87 queries a second) and the lower median. FalkorDB measured without hiredis (slower
+          client).</p></li>
         <li><h3>Each tool for its job</h3><p>The graph walks, SQL describes: FalkorDB finding the components and
-          PostgreSQL adding their details was fastest end to end for big radii (714 against 944 ms); for the full
-          question on small radii, PostgreSQL alone is faster.</p></li>
+          PostgreSQL adding their details was fastest end to end for big radii (714 against 944 ms, measured
+          without hiredis (slower client)); for the full question, PostgreSQL alone is faster than FalkorDB
+          alone (1,324 against 908 ms at the largest radius, with hiredis).</p></li>
       </ul>
       <p class="label-muted">Measured on one laptop with identical answers from both systems. Method and every table:
         <a href="https://github.com/sudarshan032/northwind-drift-agent/blob/master/bench/RESULTS.md">bench/RESULTS.md</a>.</p>
