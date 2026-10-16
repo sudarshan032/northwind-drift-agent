@@ -11,6 +11,7 @@ dependencies = [
     "uvicorn==0.54.0",
     "httpx==0.28.1",
     "hiredis==3.5.0",  # C reply parser for redis-py: 3x faster FalkorDB client decoding (bench client_overhead)
+    "mcp>=2.3,<3",
 ]
 
 [dependency-groups]

@@ -60,6 +60,8 @@ class Reply:
     content: list = field(default_factory=list)
     stop_reason: str = "end_turn"
     model: str = ""
+    usage: dict = field(default_factory=dict)  # input / cached / output tokens (OpenAILLM)
+    cost: float = 0.0                          # US dollars for this call (OpenAILLM)
 
 
 # --------------------------------------------------------------------------
@@ -292,6 +294,118 @@ class OpenRouterLLM:
         return {"provider": "openrouter", "models": self.models,
                 "remaining": local if remote is None else min(local, remote),
                 "limit": (info or {}).get("limit", self.budget.daily), "source": "openrouter /key" if info else "local"}
+
+
+# --------------------------------------------------------------------------
+# OpenAI (Responses API) with visible key fallback
+# --------------------------------------------------------------------------
+
+OPENAI = "https://api.openai.com/v1"
+AGENT_MODEL = "gpt-6-luna"
+# $ per 1M tokens: input, cached input, output (developers.openai.com/api/docs/models/gpt-6-luna; RESEARCH_NOTES R22)
+PRICES = {"gpt-6-luna": (0.10, 0.01, 0.50)}
+SWITCH_STATUS = {401, 402, 403, 429}  # bad key, no credit, forbidden, rate limit or quota: try the next key
+
+
+def price(model, usage):
+    p_in, p_cached, p_out = PRICES.get(model, PRICES[AGENT_MODEL])
+    cached = usage.get("cached", 0)
+    return ((usage.get("input", 0) - cached) * p_in + cached * p_cached + usage.get("output", 0) * p_out) / 1e6
+
+
+def to_responses(messages):
+    """Anthropic-block conversation -> Responses API input items. An assistant turn that came from OpenAI
+    carries its raw output items (reasoning, function calls) in an `openai_items` block; they go back verbatim."""
+    out = []
+    for m in messages:
+        c = m["content"]
+        if isinstance(c, str):
+            out.append({"role": m["role"], "content": c})
+            continue
+        blocks = [b if isinstance(b, dict) else b.model_dump() for b in c]
+        raw = next((b["items"] for b in blocks if b["type"] == "openai_items"), None)
+        if raw is not None:
+            out += raw
+            continue
+        for b in blocks:
+            if b["type"] == "text":
+                out.append({"role": m["role"], "content": b["text"]})
+            elif b["type"] == "tool_use":
+                out.append({"type": "function_call", "call_id": b["id"], "name": b["name"],
+                            "arguments": json.dumps(b["input"])})
+            elif b["type"] == "tool_result":
+                out.append({"type": "function_call_output", "call_id": b["tool_use_id"], "output": b["content"]})
+    return out
+
+
+def from_responses(body, model):
+    items = body.get("output") or []
+    text = "".join(c.get("text", "") for it in items if it.get("type") == "message"
+                   for c in it.get("content") or [] if c.get("type") == "output_text")
+    calls = []
+    for it in items:
+        if it.get("type") == "function_call":
+            try:
+                args = json.loads(it.get("arguments") or "{}")
+            except ValueError:
+                args = {}
+            calls.append({"id": it["call_id"], "name": it["name"], "input": args if isinstance(args, dict) else {}})
+    u = body.get("usage") or {}
+    usage = {"input": u.get("input_tokens", 0), "cached": (u.get("input_tokens_details") or {}).get("cached_tokens", 0),
+             "output": u.get("output_tokens", 0)}
+    content = ([{"type": "text", "text": text}] if text else []) + [
+        {"type": "tool_use", "id": c["id"], "name": c["name"], "input": c["input"]} for c in calls] + [
+        {"type": "openai_items", "items": items}]
+    return Reply(text=text, tool_calls=calls, content=content, stop_reason="tool_use" if calls else "end_turn",
+                 model=body.get("model", model), usage=usage, cost=price(model, usage))
+
+
+class OpenAILLM:
+    """OpenAI Responses API (raw httpx). Keys from OPENAI_API_KEYS (comma-separated, in a fixed order) or
+    OPENAI_API_KEY. On a bad key, no credit or a rate limit it moves to the next key and records
+    "switched to backup key N" in `events` (never the key). `schema` asks for a strict JSON-schema answer."""
+
+    supports_schema = True
+
+    def __init__(self, keys=None, model=None, client=None, effort="low", timeout=40):
+        import httpx
+        raw = keys if keys is not None else (os.environ.get("OPENAI_API_KEYS") or os.environ.get("OPENAI_API_KEY") or "")
+        self.keys = [k.strip() for k in (raw.split(",") if isinstance(raw, str) else raw) if k and k.strip()]
+        self.model = model or os.environ.get("AGENT_MODEL") or AGENT_MODEL
+        self.http = client or httpx.Client(timeout=timeout)
+        self.effort, self.key_index, self.events = effort, 0, []
+
+    def respond(self, system, messages, tools=None, tool_choice=None, schema=None):
+        body = {"model": self.model, "instructions": system, "input": to_responses(messages),
+                "reasoning": {"effort": self.effort}}
+        if tools:
+            body["tools"] = [{"type": "function", "name": t["name"], "description": t["description"],
+                              "parameters": t["input_schema"]} for t in tools]
+            body["parallel_tool_calls"] = False
+            if tool_choice:
+                body["tool_choice"] = tool_choice
+        if schema:
+            body["text"] = {"format": {"type": "json_schema", "name": "verdict", "schema": schema, "strict": True}}
+        while self.key_index < len(self.keys):
+            try:
+                r = self.http.post(f"{OPENAI}/responses", json=body,
+                                   headers={"Authorization": f"Bearer {self.keys[self.key_index]}"})
+            except Exception as e:  # network: no key switch, the job falls back
+                raise LLMUnavailable(f"OpenAI unreachable ({type(e).__name__})") from None
+            if r.status_code in SWITCH_STATUS:
+                if self.key_index + 1 < len(self.keys):
+                    self.key_index += 1
+                    self.events.append(f"switched to backup key {self.key_index}")
+                    log.warning("OpenAI HTTP %s: switched to backup key %s", r.status_code, self.key_index)
+                    continue
+                raise LLMUnavailable(f"OpenAI HTTP {r.status_code} on every configured key")
+            if r.status_code != 200:  # the error body can quote part of the key: never logged
+                raise LLMUnavailable(f"OpenAI HTTP {r.status_code}")
+            return from_responses(r.json(), self.model)
+        raise LLMUnavailable("no OpenAI key configured")
+
+    def status(self):
+        return {"provider": "openai", "models": [self.model], "remaining": None, "keys": len(self.keys)}
 
 
 class CachedLLM:

@@ -168,7 +168,9 @@ class TriageState(TypedDict, total=False):
     notice: str
 
 
-def triage(g, llm=None, top_n=10):
+def triage(g, llm=None, top_n=10, rejected=None):
+    """`rejected`: finding id -> evidence hash from the memory graph; a finding a person rejected stays rejected
+    (not re-raised as open) unless its evidence changed (AGENT_V2_SPEC 4)."""
     job = capped(llm, "triage")
 
     def detect(s):
@@ -206,6 +208,11 @@ def triage(g, llm=None, top_n=10):
 
     def store(s):
         F.store(g, s["findings"])
+        if rejected:
+            from agent.memory import evidence_hash
+            for f in s["findings"]:
+                if f["id"] in rejected and rejected[f["id"]] == evidence_hash(f["evidence"]):
+                    F.set_fields(g, f["id"], status="rejected", suppressed="rejected by a person earlier")
         return {"top": s["findings"][:top_n]}
 
     END, StateGraph = _lg()

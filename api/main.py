@@ -12,6 +12,7 @@ import time
 T_IMPORT = time.perf_counter()  # cold-start log line (SITE_SPEC 5.1)
 
 import contextvars  # noqa: E402
+import datetime  # noqa: E402
 import json  # noqa: E402
 import logging  # noqa: E402
 import os  # noqa: E402
@@ -76,6 +77,24 @@ def graph():
     if _db is None:
         _db = connect()
     return TimedGraph(_db.select_graph(GRAPH))
+
+
+def memory(user=None):
+    """The agent's memory graph (agent.memory), next to the CMDB graph in the same FalkorDB."""
+    from agent.memory import Memory
+    graph()
+    return Memory(TimedDB(_db), user)
+
+
+class TimedDB:
+    def __init__(self, db):
+        self._db = db
+
+    def select_graph(self, name):
+        return TimedGraph(self._db.select_graph(name))
+
+    def list_graphs(self):
+        return self._db.list_graphs()
 
 
 # Edge caching (SITE_SPEC 5.3). "versioned": the URL carries the current data version (?v=), so the response
@@ -190,7 +209,10 @@ def state():
     g = graph()
     m = llm()
     status = m.status() if m is not None and hasattr(m, "status") else {"provider": "none", "models": []}
-    return {"mode": "public" if PUBLIC else "local", "version": version(g), "llm": status, "chips": CHIPS}
+    from agent import spend
+    return {"mode": "public" if PUBLIC else "local", "version": version(g), "llm": status, "chips": CHIPS,
+            "agent": {"spend_today": round(spend.today(g), 4), "cap": spend.cap(), "live": agent_llm() is not None,
+                      "model": getattr(agent_llm(), "model", None)}}
 
 
 @app.get("/llm")
@@ -206,7 +228,7 @@ def llm_status():
 @app.post("/scan")
 def scan():
     g = graph()
-    res = flows.triage(g, llm())
+    res = flows.triage(g, llm(), rejected=memory().rejected())
     bump(g)
     return {"total": res["total"], "by_type": res["by_type"], "top": res["top"], "notice": res["notice"],
             "llm": llm() is not None}
@@ -272,6 +294,7 @@ def approve(fid: str, d: Decision | None = None):
            else approval.approve(g, DATA, RUNTIME, fid, (d or Decision()).approver))
     if res.get("error"):
         raise HTTPException(404 if res["error"] == "no such finding" else 409, res)
+    learn(g, fid, "approve", (d or Decision()).approver)
     bump(g)
     return res
 
@@ -284,8 +307,27 @@ def reject(fid: str, d: Decision | None = None):
     res = approval.reject(g, approval.GraphRecords(g) if PUBLIC else RUNTIME, fid, d.approver, d.reason)
     if res.get("error"):
         raise HTTPException(404, res)
+    learn(g, fid, "reject", d.approver, d.reason)
     bump(g)
     return res
+
+
+def learn(g, fid, decision, approver, comment=""):
+    """Human feedback -> a confirmed or rejected Fact in the memory graph (AGENT_V2_SPEC 4)."""
+    from agent.memory import evidence_hash
+    f = F.get_finding(g, fid)
+    if f is None:
+        return
+    n, subj = len(f.get("keys") or [f.get("key")]), (f.get("subjects") or ["?"])
+    verb = "confirmed" if decision == "approve" else "rejected"
+    date = datetime.date.today().isoformat()
+    what = (f"{n} hidden link{'s' if n != 1 else ''} to {subj[0]}" if f["type"] == "D1"
+            else f"the {f['kind']} finding on {subj[0]}")
+    try:
+        memory().feedback(fid, decision, approver, comment, names=subj,
+                          statement=f"A person {verb} {what} ({fid}) on {date}.", evidence=evidence_hash(f["evidence"]))
+    except Exception as e:  # memory is best effort; the approval itself stands
+        log.warning("memory feedback failed (%s)", type(e).__name__)
 
 
 UI_NAMES = {"BusinessService": "Business Service", "ServiceOffering": "Service Offering", "Application": "Application",
@@ -513,9 +555,15 @@ def api_health():
             "components": n, "latency_ms": round((time.perf_counter() - t) * 1000)}
 
 
-def reset_demo():
+def reset_demo(scope="all"):
     """Public mode: undo every approval (newest first) from the undo log in the graph, drop the records and
-    findings, rebuild the impact layer and re-run triage, so the demo is back in its loaded state."""
+    findings, rebuild the impact layer and re-run triage, so the demo is back in its loaded state.
+    scope: "all" (data and agent memory), "data" (keep memory: the agent can recall what people approved),
+    "memory" (agent memory only)."""
+    if scope in ("all", "memory"):
+        memory().reset()
+    if scope == "memory":
+        return {"status": "reset", "scope": "memory", "approvals_undone": 0}
     if not PUBLIC:
         raise HTTPException(409, "reset is only available in public mode; reload the local stack instead")
     from agent import grounding
@@ -527,16 +575,16 @@ def reset_demo():
     g.query("MATCH (r:Record) DELETE r")
     g.query("MATCH (f:Finding) DETACH DELETE f")
     impact.build(g)
-    res = flows.triage(g, llm())
+    res = flows.triage(g, llm(), rejected=memory().rejected())
     bump(g)
     _risk.clear()
     grounding._names.pop(GRAPH, None)
-    return {"status": "reset", "approvals_undone": len(logs), "findings": res["total"]}
+    return {"status": "reset", "scope": scope, "approvals_undone": len(logs), "findings": res["total"]}
 
 
 @app.post("/reset")
-def reset():
-    return reset_demo()
+def reset(scope: str = Query("all", pattern="^(all|data|memory)$")):
+    return reset_demo(scope)
 
 
 @app.get("/cron/reset")
@@ -590,6 +638,132 @@ def _hospitals(g, component, layer):
         r["in_radius"] = r["id"] in hit
     return rows
 
+
+# ---------------------------------------------------------------- agent v2 (AGENT_V2_SPEC)
+RUNS = os.path.join(os.path.dirname(__file__), "..", "deploy", "agent_runs")
+_agent = []
+
+
+def agent_llm():
+    """The live agent model (OpenAI, keys in OPENAI_API_KEYS / OPENAI_API_KEY), or None. Tests inject one."""
+    if getattr(app.state, "agent_llm", None) is not None:
+        return app.state.agent_llm
+    if not _agent:
+        from agent.llm import OpenAILLM
+        has = os.environ.get("OPENAI_API_KEYS") or os.environ.get("OPENAI_API_KEY")
+        _agent.append(OpenAILLM() if has else None)
+    return _agent[0]
+
+
+def run_slug(kind, trigger):
+    import re
+    return f"{kind}-" + re.sub(r"[^a-z0-9]+", "-", trigger.lower()).strip("-")[:80]
+
+
+def recorded(kind, trigger):
+    path = os.path.join(RUNS, run_slug(kind, trigger) + ".json")
+    if os.path.exists(path):
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    return None
+
+
+class Investigate(BaseModel):
+    kind: str = "change"  # change | incident
+    trigger: str
+    user: str | None = None
+
+
+def _ip(request):
+    return (request.headers.get("x-real-ip") or request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+            or (request.client.host if request.client else ""))
+
+
+@app.post("/agent/investigate")
+async def agent_investigate(body: Investigate, request: Request):
+    """Run the Change Guardian; streams one JSON event per line (start, memory, note, step, verdict, done)."""
+    from fastapi.responses import StreamingResponse
+    from agent import guardian, mcp_tools, spend
+    if body.kind not in ("change", "incident") or not body.trigger.strip():
+        raise HTTPException(422, "kind must be change or incident, with a trigger")
+    trigger = body.trigger.strip()[:300]
+    g, mem = graph(), memory(body.user)
+    mcp_tools.configure(graph, lambda: mem)
+    live = agent_llm()
+    ok, why = (False, "off") if live is None else spend.start(g, _ip(request))
+
+    async def events():
+        if ok:
+            async for e in guardian.investigate(g, mem, body.kind, trigger, live, mcp_tools.server,
+                                                charge=lambda usd: spend.charge(g, usd)):
+                yield json.dumps(e, default=str) + "\n"
+        else:
+            run = recorded(body.kind, trigger)
+            yield json.dumps({"type": "notice", "text": spend.MESSAGES[why] if run else
+                              spend.MESSAGES[why].replace("this shows the recorded run instead",
+                                                          "here is the rule-based review")}) + "\n"
+            if run:
+                for e in run:
+                    if e["type"] == "start":
+                        yield json.dumps({**e, "recorded": True}) + "\n"
+                        m = guardian.memory_context(g, mem, body.kind, trigger)  # memory is live, not recorded
+                        if m and (m["confirmed"] or m["rejected"] or m["investigations"]):
+                            yield json.dumps({"type": "memory", **m}, default=str) + "\n"
+                    elif e["type"] != "memory":
+                        yield json.dumps({**e, "recorded": True}, default=str) + "\n"
+            else:
+                v = guardian.rule_verdict(g, body.kind, trigger, [])
+                yield json.dumps({"type": "verdict", "verdict": v, "valid": False, "rejected": None,
+                                  "stopped": "no live agent", "actions_taken": []}) + "\n"
+        bump(g)  # actions write notes, flags and tickets
+
+    return StreamingResponse(events(), media_type="application/x-ndjson",
+                             headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"})
+
+
+@app.get("/agent/investigations")
+def agent_investigations(user: str | None = None, limit: int = Query(20, le=100)):
+    return memory(user).investigations(limit)
+
+
+@app.get("/agent/investigations/{iid}")
+def agent_investigation(iid: str, user: str | None = None):
+    inv = memory(user).investigation(iid)
+    if inv is None:
+        raise HTTPException(404, "no such investigation")
+    return inv
+
+
+@app.get("/agent/actions")
+def agent_actions(change: str | None = None):
+    from agent.actions import Actions
+    return Actions(graph()).taken(change)
+
+
+@app.get("/agent/memory")
+def agent_memory(components: str, user: str | None = None):
+    return memory(user).recall([c for c in components.split(",") if c])
+
+
+class MCPApp:
+    """The read-only MCP server over streamable HTTP, stateless with JSON responses, one session manager per
+    request (Vercel functions keep no task group between requests)."""
+
+    async def __call__(self, scope, receive, send):
+        from mcp.server.transport_security import TransportSecuritySettings
+        from agent import mcp_tools
+        mcp_tools.configure(graph, memory)
+        sub = mcp_tools.server.streamable_http_app(
+            streamable_http_path="/", stateless_http=True, json_response=True,
+            transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False))
+        async with mcp_tools.server._lowlevel_server._session_manager.run():
+            await sub({**scope, "path": "/", "root_path": ""}, receive, send)
+
+
+from starlette.routing import Route  # noqa: E402
+
+app.router.routes.append(Route("/mcp", endpoint=MCPApp(), methods=["GET", "POST", "DELETE"]))  # no 307 to /mcp/
+app.mount("/mcp", MCPApp())
 
 if os.path.isdir(UI):
     app.mount("/static", StaticFiles(directory=UI), name="static")
