@@ -395,3 +395,24 @@ a.button { display: inline-flex; align-items: center; text-decoration: none; }
   .tour { left: var(--s-16) !important; right: var(--s-16); bottom: var(--s-16); top: auto !important; width: auto; }
   .tour.at-top { top: var(--s-16) !important; bottom: auto; }
 }
+
+/* phones (SITE pass, 16 Oct): every tab visible, compact header, full-width filters, readable chart titles */
+@media (max-width: 960px) {
+  .top { row-gap: var(--s-8); }
+  .tabs { flex-wrap: wrap; overflow: visible; gap: 0 var(--s-4); }
+  .tabs [role="tab"] { padding-left: var(--s-8); padding-right: var(--s-8); }
+  .status { gap: var(--s-8); flex-wrap: wrap; }
+  .llm-status { flex: 1 1 auto; min-width: 0; }
+  .filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-12); }
+  .filters select { width: 100%; }
+  .filters #scan { grid-column: 1 / -1; }
+  .chart figcaption { position: sticky; left: 0; max-width: calc(100vw - 2 * var(--s-16)); }
+  .chart figcaption h2 { white-space: normal; }
+  .actions > * { flex: 1 1 100%; justify-content: center; }
+  .ask { flex-wrap: wrap; }
+  .ask input { flex-basis: 100%; }
+  .ask button { flex: 1 1 100%; }
+  .suggest .chip { flex: 1 1 100%; }
+  .data.findings tr.more-findings { display: block; }
+  .data.findings .more-findings td { display: block; text-align: center; }
+}

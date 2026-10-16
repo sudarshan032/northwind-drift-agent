@@ -771,7 +771,7 @@ function renderAI(isChange) {
 // ================================================================ findings
 const SEV_ORDER = { critical: 0, high: 1, medium: 2, low: 3 };
 const ACTION = { cmdb_patch: "CMDB update", ticket: "Ticket" };
-let findings = [];
+let findings = [], findingsAll = false;
 function fillSelect(sel, values, label) {
   const keep = sel.value;
   sel.innerHTML = `<option value="">All</option>` + values.map(([v, l]) => `<option value="${esc(v)}">${esc(l ?? v)}</option>`).join("");
@@ -811,7 +811,10 @@ function renderFindings() {
     && (!v("#f-status") || f.status === v("#f-status")));
   $("#f-count").textContent = rows.length === findings.length ? plural(findings.length, "finding")
     : `${rows.length} of ${plural(findings.length, "finding")}`;
-  $("#findings").innerHTML = rows.length ? rows.map((f) => `<tr tabindex="0" data-id="${esc(f.id)}">
+  const PAGE = 20;  // phones: the full list is ~10,000 px tall, so show 20 and a button for the rest
+  const cut = matchMedia("(max-width: 960px)").matches && !findingsAll && rows.length > PAGE + 5;
+  const shown = cut ? rows.slice(0, PAGE) : rows;
+  $("#findings").innerHTML = shown.length ? shown.map((f) => `<tr tabindex="0" data-id="${esc(f.id)}">
       <td data-label="Severity"><span class="risk sev ${esc(f.severity)}">${esc(cap(f.severity))}</span></td>
       <td data-label="Finding"><span class="title">${esc(firstSentence(f.explanation) || cap(f.kind))}</span><p class="line2">${esc(cap(f.kind))}</p></td>
       <td class="id" data-label="Affected CI">${esc(affected(f))}</td>
@@ -820,6 +823,11 @@ function renderFindings() {
       <td data-label="Status">${esc(cap(f.status))}${f.resolved ? ", resolved" : ""}</td>
       <td data-label="Type">${typeTerm(f.type)}</td></tr>`).join("")
     : `<tr><td colspan="7" class="empty">${findings.length ? "No findings match these filters." : "No findings yet. Press “Run drift scan” to look for gaps."}</td></tr>`;
+  if (cut) {
+    $("#findings").insertAdjacentHTML("beforeend", `<tr class="more-findings"><td colspan="7">
+      <button type="button" class="ghost" id="findings-all">Show all ${rows.length} findings</button></td></tr>`);
+    $("#findings-all").onclick = () => { findingsAll = true; renderFindings(); };
+  }
   $$("#findings tr[data-id]").forEach((tr) => {
     tr.onclick = (e) => { if (!e.target.closest(".term")) openFinding(tr.dataset.id); };
     tr.onkeydown = (e) => { if (e.target === tr && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openFinding(tr.dataset.id); } };
