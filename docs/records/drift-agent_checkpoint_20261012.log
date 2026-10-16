@@ -4,7 +4,7 @@ CHECKPOINT LOG FILE
 [2026-10-12 15:06:46.072] [SESSION_START] Session initiated
 [2026-10-12 15:06:46.072] [NOTE] Project: drift-agent (CMDB drift agent on FalkorDB, hackathon)
 [2026-10-12 15:06:46.072] [NOTE] Log file: drift-agent_checkpoint_20261012.log
-[2026-10-12 15:06:46.072] [NOTE] Working dir: /Users/siddh/Downloads/graph_hacks
+[2026-10-12 15:06:46.072] [NOTE] Working dir: ~/graph_hacks
 ================================================================================
 
 [2026-10-12 15:06:46.072] [USER] Pasted full build spec: CMDB drift agent on FalkorDB (declared CMDB vs observed OTel traces, drift scan, blast radius, change review, LangGraph agent, FastAPI, Cytoscape UI). Spec says: no implementation before Oct 15 12:01 AM IST (hackathon rule).
@@ -20,7 +20,7 @@ CHECKPOINT LOG FILE
 [2026-10-12 15:06:46.072] [CLAUDE] Re-reviewed revised spec, found 2 more issues and fixed them in saved file.
 [2026-10-12 15:06:46.072] [FIX] Stale query: added AND coalesce(a.status,'')<>'retired' AND coalesce(b.status,'')<>'retired' - otherwise retired service's no-traffic edges count as stale and break 'exactly 2 stale' test.
 [2026-10-12 15:06:46.072] [FIX] Both blast-radius queries: added WHERE up <> f - call cycles could list the failed node as affected by itself.
-[2026-10-12 15:06:46.072] [CHANGE] Created /Users/siddh/Downloads/graph_hacks/SPEC.md: revised spec verbatim plus the 2 fixes above.
+[2026-10-12 15:06:46.072] [CHANGE] Created ~/graph_hacks/SPEC.md: revised spec verbatim plus the 2 fixes above.
 [2026-10-12 15:06:46.072] [NOTE] Open offer to user: set reminder for Oct 15 12:01 AM IST to start Day 1 from SPEC.md.
 [2026-10-12 15:06:46.072] [USER] /checkpoint-logger
 [2026-10-12 15:06:46.072] [CHANGE] Created checkpoint log drift-agent_checkpoint_20261012.log
