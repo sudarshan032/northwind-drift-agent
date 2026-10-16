@@ -67,11 +67,15 @@ def test_mcp_lists_and_calls_tools(env):
             tools = {t.name: t for t in (await c.list_tools()).tools}
             r = await c.call_tool("radius", {"component": "dc1-host-07", "layer": "real"})
             bad = await c.call_tool("radius", {"component": "dc1-host-07", "layer": "sideways"})
+            for name, args in (("get_component", {"name": "lrc-db-01"}), ("get_neighbourhood", {"name": "emr-app"}),
+                               ("stale_links", {"component": "sched-db-01"}), ("findings_by_type", {"drift_type": "D14"})):
+                assert not (await c.call_tool(name, args)).is_error, name
             return tools, json.loads(r.content[0].text), bad.is_error
     tools, res, bad = anyio.run(go)
     want = {"radius", "hidden_links", "impact_path", "who_to_page", "protection_check", "access_check",
             "shared_dependencies", "changes_on", "critical_nodes", "get_component", "get_neighbourhood",
-            "search_components", "recall", "get_change", "findings_about", "unregistered_app_path"}
+            "search_components", "recall", "get_change", "findings_about", "unregistered_app_path", "stale_links",
+            "findings_by_type"}
     assert set(tools) == want and all(len(t.description) > 30 for t in tools.values())
     assert not set(tools) & set(A.SPECS)  # action tools are not on the public MCP server
     assert res["counts"]["hospitals"] == 51 and bad

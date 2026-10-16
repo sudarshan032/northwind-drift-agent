@@ -1,0 +1,211 @@
+[
+ {
+  "type": "start",
+  "kind": "incident",
+  "trigger": "Tickets about slow RIS database queries wait for days in the NW-Imaging-Systems queue, who say the database is not theirs; radiology worklists are late at several hospitals.",
+  "model": "gpt-6-luna",
+  "max_steps": 10
+ },
+ {
+  "type": "step",
+  "n": 1,
+  "tool": "search_components",
+  "why": "Identify the RIS database and related components named in the incident symptom.",
+  "args": {
+   "text": "RIS"
+  },
+  "summary": "14 results: ADT-EMR-RIS, MDM-RIS-EMR, ORM-EMR-RIS and more",
+  "ms": 24,
+  "cost": 4.5e-05,
+  "action": false
+ },
+ {
+  "type": "step",
+  "n": 2,
+  "tool": "shared_dependencies",
+  "why": "Determine the observed dependencies that could explain delayed radiology worklists across hospitals.",
+  "args": {
+   "routes": [
+    "ris-app"
+   ]
+  },
+  "summary": "Nothing found.",
+  "ms": 22,
+  "cost": 9.3e-05,
+  "action": false
+ },
+ {
+  "type": "step",
+  "n": 3,
+  "tool": "changes_on",
+  "why": "Check whether recent or scheduled changes could explain slow RIS database queries and late worklists.",
+  "args": {
+   "components": [
+    "ris-app",
+    "ris-db-01",
+    "dc1-vm-risdb01"
+   ]
+  },
+  "summary": "1 result: CHG0031235",
+  "ms": 22,
+  "cost": 6.2e-05,
+  "action": false
+ },
+ {
+  "type": "step",
+  "n": 4,
+  "tool": "findings_about",
+  "why": "Look for recorded drift or performance-related findings affecting the RIS database path.",
+  "args": {
+   "components": [
+    "ris-app",
+    "ris-db-01",
+    "dc1-vm-risdb01"
+   ]
+  },
+  "summary": "2 results",
+  "ms": 108,
+  "cost": 7e-05,
+  "action": false
+ },
+ {
+  "type": "step",
+  "n": 5,
+  "tool": "who_to_page",
+  "why": "Find the actual resolving team for the database and application, given tickets are misrouted to NW-Imaging-Systems.",
+  "args": {
+   "components": [
+    "ris-db-01",
+    "ris-app"
+   ]
+  },
+  "summary": "2 results: ris-app, ris-db-01",
+  "ms": 21,
+  "cost": 8.9e-05,
+  "action": false
+ },
+ {
+  "type": "step",
+  "n": 6,
+  "tool": "recall",
+  "why": "Check prior investigation context and confirmed or rejected ownership/dependency facts before recommending action.",
+  "args": {
+   "components": [
+    "ris-db-01",
+    "ris-app"
+   ]
+  },
+  "summary": "0 confirmed facts, 0 rejected, 0 earlier investigations",
+  "ms": 40,
+  "cost": 7e-05,
+  "action": false
+ },
+ {
+  "type": "step",
+  "n": 7,
+  "tool": "notify_owner",
+  "why": "The tickets are reaching the wrong queue; notify the observed database owner so it can investigate the likely bottleneck.",
+  "args": {
+   "team": "NW-DBA",
+   "component": "ris-db-01",
+   "reason": "Open D5 owner-drift evidence says ris-db-01 is actually resolved by NW-DBA (evidence count 10), while the CMDB routes it to NW-Imaging-Systems. Slow RIS database queries and delayed worklists point to this database path; route investigation to the observed owner."
+  },
+  "summary": "Notified NW-DBA",
+  "ms": 19,
+  "cost": 0.0001,
+  "action": true
+ },
+ {
+  "type": "step",
+  "n": 8,
+  "tool": "open_ticket",
+  "why": "The RIS database has an open critical owner-drift finding and is the reported source of slow queries; assign to its observed resolver, NW-DBA.",
+  "args": {
+   "component": "ris-db-01",
+   "short_description": "Investigate slow RIS database queries causing delayed radiology worklists across hospitals; correct misrouted ownership",
+   "priority": "2 - High",
+   "assignment_group": "NW-DBA"
+  },
+  "summary": "Ticket opened",
+  "ms": 20,
+  "cost": 0.000105,
+  "action": true
+ },
+ {
+  "type": "verdict",
+  "verdict": {
+   "risk": "medium",
+   "root_cause": "ris-db-01",
+   "reasons": [
+    "Slow RIS database queries and late radiology worklists indicate a degraded clinical service.",
+    "Open critical D5 evidence records owner drift: ris-db-01 is observed as owned by NW-DBA, not the CMDB-listed NW-Imaging-Systems.",
+    "The evidence identifies an open stale relationship between ris-app and sched-db-01, but does not establish it as the cause."
+   ],
+   "hidden_links": [],
+   "warn": [
+    {
+     "team": "NW-DBA",
+     "component": "ris-db-01",
+     "why": "Observed owner of ris-db-01; notified and assigned the investigation ticket."
+    }
+   ],
+   "actions": [
+    "Notified NW-DBA about the owner drift and slow RIS database queries.",
+    "Opened a priority 2 - High ticket for ris-db-01 assigned to NW-DBA.",
+    "Recommend correcting the CMDB owner for ris-db-01 to NW-DBA."
+   ],
+   "evidence": [
+    "search_components",
+    "shared_dependencies",
+    "changes_on",
+    "findings_about",
+    "who_to_page",
+    "recall",
+    "notify_owner",
+    "open_ticket"
+   ]
+  },
+  "valid": true,
+  "rejected": null,
+  "stopped": null,
+  "actions_taken": [
+   {
+    "n": 7,
+    "tool": "notify_owner",
+    "why": "The tickets are reaching the wrong queue; notify the observed database owner so it can investigate the likely bottleneck.",
+    "args": {
+     "team": "NW-DBA",
+     "component": "ris-db-01",
+     "reason": "Open D5 owner-drift evidence says ris-db-01 is actually resolved by NW-DBA (evidence count 10), while the CMDB routes it to NW-Imaging-Systems. Slow RIS database queries and delayed worklists point to this database path; route investigation to the observed owner."
+    },
+    "summary": "Notified NW-DBA",
+    "ms": 19,
+    "cost": 0.0001,
+    "action": true
+   },
+   {
+    "n": 8,
+    "tool": "open_ticket",
+    "why": "The RIS database has an open critical owner-drift finding and is the reported source of slow queries; assign to its observed resolver, NW-DBA.",
+    "args": {
+     "component": "ris-db-01",
+     "short_description": "Investigate slow RIS database queries causing delayed radiology worklists across hospitals; correct misrouted ownership",
+     "priority": "2 - High",
+     "assignment_group": "NW-DBA"
+    },
+    "summary": "Ticket opened",
+    "ms": 20,
+    "cost": 0.000105,
+    "action": true
+   }
+  ]
+ },
+ {
+  "type": "done",
+  "id": "INV-1792170715907537000",
+  "cost": 0.001108,
+  "steps": 8,
+  "model": "gpt-6-luna",
+  "ms": 29060
+ }
+]

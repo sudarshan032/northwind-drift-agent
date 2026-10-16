@@ -1,0 +1,151 @@
+[
+ {
+  "type": "start",
+  "kind": "incident",
+  "trigger": "Security noticed an unfamiliar app reading patient records through the EMR's FHIR API, launched by cardiology users at H17.",
+  "model": "gpt-6-luna",
+  "max_steps": 10
+ },
+ {
+  "type": "step",
+  "n": 1,
+  "tool": "findings_by_type",
+  "why": "The symptom describes an unfamiliar app accessing patient records through SMART on FHIR, so I\u2019m checking estate-wide unregistered-app findings.",
+  "args": {
+   "drift_type": "D14"
+  },
+  "summary": "1 result",
+  "ms": 248,
+  "cost": 0.000258,
+  "action": false
+ },
+ {
+  "type": "step",
+  "n": 2,
+  "tool": "unregistered_app_path",
+  "why": "The finding names cardiorisk.example.com; I\u2019m tracing its access path from the initiating group through users and APIs to patient data.",
+  "args": {
+   "app": "cardiorisk.example.com"
+  },
+  "summary": "1 result",
+  "ms": 22,
+  "cost": 6.7e-05,
+  "action": false
+ },
+ {
+  "type": "step",
+  "n": 3,
+  "tool": "who_to_page",
+  "why": "The observed app path reaches the FHIR API and EMR database; I\u2019m identifying the teams that own and actually resolve these components.",
+  "args": {
+   "components": [
+    "emr-fhir-api",
+    "emr-db-01"
+   ]
+  },
+  "summary": "2 results: emr-db-01, emr-fhir-api",
+  "ms": 21,
+  "cost": 7.2e-05,
+  "action": false
+ },
+ {
+  "type": "step",
+  "n": 4,
+  "tool": "recall",
+  "why": "Before treating this as a new security issue, I\u2019m checking prior investigation memory for confirmed or rejected facts about the app and its data path.",
+  "args": {
+   "components": [
+    "cardiorisk.example.com",
+    "emr-fhir-api",
+    "emr-db-01"
+   ]
+  },
+  "summary": "0 confirmed facts, 0 rejected, 0 earlier investigations",
+  "ms": 42,
+  "cost": 7.5e-05,
+  "action": false
+ },
+ {
+  "type": "step",
+  "n": 5,
+  "tool": "open_ticket",
+  "why": "The open critical D14 finding and observed access path show an unregistered app reading EMR patient data; opening a critical incident for the team responsible for the FHIR API.",
+  "args": {
+   "component": "cardiorisk.example.com",
+   "short_description": "Unregistered app accessing patient records through EMR FHIR API from H17 cardiology users",
+   "priority": "1 - Critical",
+   "assignment_group": "NW-EMR-Apps"
+  },
+  "summary": "Ticket opened",
+  "ms": 20,
+  "cost": 8.7e-05,
+  "action": true
+ },
+ {
+  "type": "verdict",
+  "verdict": {
+   "risk": "high",
+   "root_cause": "cardiorisk.example.com",
+   "reasons": [
+    "An open critical D14 finding identifies cardiorisk.example.com as an unregistered SMART on FHIR app reading EMR data via the FHIR API.",
+    "Netflow observed 19 users in grp-H17-CARD-physician launching the app over 8 days, with 18928 API calls and emr-db-01 as data.",
+    "The app has no CMDB record, and the observed path reaches patient records."
+   ],
+   "hidden_links": [
+    "cardiorisk.example.com -> emr-fhir-api",
+    "emr-fhir-api -> emr-db-01"
+   ],
+   "warn": [
+    {
+     "team": "NW-EMR-Apps",
+     "component": "emr-fhir-api",
+     "why": "Act on the unregistered app's access through the FHIR API."
+    },
+    {
+     "team": "NW-DBA",
+     "component": "emr-db-01",
+     "why": "The observed app path reaches this data component."
+    }
+   ],
+   "actions": [
+    "Opened a priority 1 - Critical incident ticket for cardiorisk.example.com assigned to NW-EMR-Apps.",
+    "Recommend investigating the app and its access to patient records."
+   ],
+   "evidence": [
+    "findings_by_type",
+    "unregistered_app_path",
+    "who_to_page",
+    "recall",
+    "open_ticket"
+   ]
+  },
+  "valid": true,
+  "rejected": null,
+  "stopped": null,
+  "actions_taken": [
+   {
+    "n": 5,
+    "tool": "open_ticket",
+    "why": "The open critical D14 finding and observed access path show an unregistered app reading EMR patient data; opening a critical incident for the team responsible for the FHIR API.",
+    "args": {
+     "component": "cardiorisk.example.com",
+     "short_description": "Unregistered app accessing patient records through EMR FHIR API from H17 cardiology users",
+     "priority": "1 - Critical",
+     "assignment_group": "NW-EMR-Apps"
+    },
+    "summary": "Ticket opened",
+    "ms": 20,
+    "cost": 8.7e-05,
+    "action": true
+   }
+  ]
+ },
+ {
+  "type": "done",
+  "id": "INV-1792170744969121000",
+  "cost": 0.000948,
+  "steps": 5,
+  "model": "gpt-6-luna",
+  "ms": 19208
+ }
+]

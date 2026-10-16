@@ -1,0 +1,197 @@
+[
+ {
+  "type": "start",
+  "kind": "change",
+  "trigger": "CHG0031513",
+  "model": "gpt-6-luna",
+  "max_steps": 10
+ },
+ {
+  "type": "memory",
+  "confirmed": [],
+  "rejected": [],
+  "investigations": [
+   {
+    "id": "INV-1792170795322775000",
+    "kind": "change",
+    "trigger": "CHG0031513",
+    "time": "2026-10-16T17:13:41Z",
+    "risk": "low"
+   },
+   {
+    "id": "INV-1792170764260715000",
+    "kind": "change",
+    "trigger": "CHG0031249",
+    "time": "2026-10-16T17:13:15Z",
+    "risk": "low"
+   },
+   {
+    "id": "INV-1792170654683975000",
+    "kind": "change",
+    "trigger": "CHG-HEADLINE",
+    "time": "2026-10-16T17:11:31Z",
+    "risk": "high"
+   }
+  ]
+ },
+ {
+  "type": "step",
+  "n": 1,
+  "tool": "get_change",
+  "why": "Identify the proposed work and its target components before assessing declared and observed impact.",
+  "args": {
+   "change_id": "CHG0031513"
+  },
+  "summary": "CHG0031513: Planned upgrade on emr-app (scheduled), targets emr-app",
+  "ms": 62,
+  "cost": 4.4e-05,
+  "action": false
+ },
+ {
+  "type": "step",
+  "n": 2,
+  "tool": "radius",
+  "why": "Establish the CMDB-declared blast radius for the planned emr-app upgrade.",
+  "args": {
+   "component": "emr-app",
+   "layer": "declared"
+  },
+  "summary": "declared radius: 231 components, 115 interfaces, 25 applications, 124 departments, 51 hospitals, 2 business services, 51 service offerings",
+  "ms": 52,
+  "cost": 5.7e-05,
+  "action": false
+ },
+ {
+  "type": "step",
+  "n": 3,
+  "tool": "radius",
+  "why": "Compare observed traffic-based reach with the exceptionally broad CMDB radius and identify actual service impacts.",
+  "args": {
+   "component": "emr-app",
+   "layer": "real"
+  },
+  "summary": "real radius: 231 components, 115 interfaces, 25 applications, 124 departments, 51 hospitals, 2 business services, 51 service offerings",
+  "ms": 137,
+  "cost": 0.000435,
+  "action": false
+ },
+ {
+  "type": "step",
+  "n": 4,
+  "tool": "recall",
+  "why": "Check prior investigation verdicts and confirmed/rejected facts before making recommendations.",
+  "args": {
+   "components": [
+    "emr-app"
+   ]
+  },
+  "summary": "0 confirmed facts, 0 rejected, 1 earlier investigations",
+  "ms": 46,
+  "cost": 0.000471,
+  "action": false
+ },
+ {
+  "type": "step",
+  "n": 5,
+  "tool": "stale_links",
+  "why": "Declared and observed radii are identical, but check for any CMDB dependencies that inflate the claimed impact.",
+  "args": {
+   "component": "emr-app"
+  },
+  "summary": "Result returned.",
+  "ms": 513,
+  "cost": 0.000136,
+  "action": false
+ },
+ {
+  "type": "step",
+  "n": 6,
+  "tool": "findings_about",
+  "why": "Review open drift findings on the upgrade target that may change the risk or require remediation.",
+  "args": {
+   "components": [
+    "emr-app"
+   ]
+  },
+  "summary": "1 result",
+  "ms": 212,
+  "cost": 0.000135,
+  "action": false
+ },
+ {
+  "type": "step",
+  "n": 7,
+  "tool": "changes_on",
+  "why": "Check surrounding scheduled or past work on the same target for coordination risks.",
+  "args": {
+   "components": [
+    "emr-app"
+   ]
+  },
+  "summary": "1 result: CHG0031513",
+  "ms": 22,
+  "cost": 0.000137,
+  "action": false
+ },
+ {
+  "type": "step",
+  "n": 8,
+  "tool": "who_to_page",
+  "why": "Determine the declared and observed support owner to advise on the upgrade and open access finding.",
+  "args": {
+   "components": [
+    "emr-app"
+   ]
+  },
+  "summary": "1 result: emr-app",
+  "ms": 21,
+  "cost": 0.00014,
+  "action": false
+ },
+ {
+  "type": "verdict",
+  "verdict": {
+   "risk": "low",
+   "root_cause": null,
+   "reasons": [
+    "The declared and real radii for emr-app have identical counts and listed impacts, so there is no evidence of hidden impact or a larger real radius.",
+    "The CMDB overstates the impact by including h03-emr-edge -> lis-app, which stale_links reports has no traffic.",
+    "An open high-severity D12 finding reports inactive user u-h03-00043 accessed emr-app; this is a separate access-drift concern to address."
+   ],
+   "hidden_links": [],
+   "warn": [
+    {
+     "team": "NW-EMR-Apps",
+     "component": "emr-app",
+     "why": "The open D12 access-drift finding concerns emr-app and should be addressed."
+    }
+   ],
+   "actions": [
+    "Keep the change's impact assessment at the real radius; do not treat the stale emr-app -> lis-app dependency as active impact.",
+    "Address the open D12 finding for emr-app separately.",
+    "Record or confirm the stale dependency correction in the CMDB."
+   ],
+   "evidence": [
+    "get_change",
+    "radius",
+    "stale_links",
+    "findings_about",
+    "changes_on",
+    "who_to_page",
+    "recall"
+   ]
+  },
+  "valid": true,
+  "rejected": null,
+  "stopped": null,
+  "actions_taken": []
+ },
+ {
+  "type": "done",
+  "id": "INV-1792170875805467000",
+  "cost": 0.0026,
+  "steps": 8,
+  "model": "gpt-6-luna",
+  "ms": 31760
+ }
+]

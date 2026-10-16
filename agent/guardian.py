@@ -32,16 +32,23 @@ For a change review the usual route is: get_change; radius of each target in the
 they differ, hidden_links and the evidence source of each; who_to_page for the newly reached components (owners in
 the CMDB vs observed); if an impacted component holds patient data, protection_check or findings_about; recall memory
 about the target and the impacted components (mention facts people confirmed; never re-raise what they rejected);
-changes_on the shared components. Then act where the graph supports it: add_change_note with the real impact,
+changes_on the shared components. Compare the declared and real counts in both directions: when the CMDB
+claims a much larger radius than the evidence shows, call stale_links (dependencies with no traffic) and say the
+CMDB overstates the impact. Then act where the graph supports it: add_change_note with the real impact,
 request_cab_review when the real risk is higher than recorded, notify_owner for owners who must be warned
 (prefer the observed owner when it differs), propose_cmdb_fix for hidden links that should be recorded.
 
 For an incident: find the affected components (search_components), what they share (shared_dependencies), recent
-changes on it (changes_on), open findings about it (findings_about), who owns it (who_to_page), recall memory; then
-open_ticket or notify_owner for the team that should act.
+changes on it (changes_on), open findings about it (findings_about, or findings_by_type for estate-wide problems such
+as an unregistered app (D14), failing backups (D10) or access drift (D12)), who owns it (who_to_page), recall memory;
+then open_ticket or notify_owner for the team that should act. The root cause is the component (or app) whose
+problem explains the symptom.
 
-Risk: high when the real impact reaches patient-safety services the CMDB does not connect to the target (or patient
-data is exposed or unprotected); medium when the real impact is larger than recorded; low otherwise.
+Risk for a change: high when the real impact reaches patient-safety services the CMDB does not connect to the
+target; medium when the real impact is larger than recorded; low when it is not (also when the CMDB overstates it).
+Risk for an incident: high when patient data is exposed, unprotected or cannot be restored, or a patient-safety
+service is down; medium when a clinical service is degraded or slowed (for example tickets routed to the wrong team);
+low when no service is affected.
 Use only numbers and names that appear in tool results. You have at most {steps} model calls; the last one has no
 tools and must give the verdict, so gather evidence early and keep calls few."""
 

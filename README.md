@@ -365,7 +365,17 @@ evidence}`. Every step streams to the "Agent investigation" panel (tool, why, re
 - **Evaluation.** `python -m agent.eval` runs the agent live on five scenarios (`ingest/scenarios.py`); results
   in [docs/records/AGENT_EVAL.md](docs/records/AGENT_EVAL.md).
 
-<!-- EVAL_TABLE -->
+Evaluation (gpt-6-luna, run 2, live, 16 Oct): **4/5 correct**, about $0.002 per investigation.
+
+| Scenario | Root cause | Risk | Owners warned | Grounding | Steps | Cost | Time | Actions taken |
+|---|---|---|---|---|---|---|---|---|
+| S1-headline | yes | yes (high) | yes | yes | 9 | $0.0032 | 36.9 s | add_change_note, request_cab_review |
+| S2-backup | yes | yes (high) | yes | yes | 7 | $0.0010 | 24.5 s | open_ticket |
+| S3-owner | yes | yes (medium) | yes | yes | 8 | $0.0011 | 29.1 s | notify_owner, open_ticket |
+| S4-fhir-app | yes | yes (high) | yes | yes | 5 | $0.0009 | 19.2 s | open_ticket |
+| S5-stale | yes | yes (low) | no | yes | 9 | $0.0021 | 31.0 s | add_change_note |
+
+Run 1 of the first version scored 2/5; both runs and what changed are in AGENT_EVAL.md.
 
 ### Connect an MCP client
 

@@ -1,0 +1,226 @@
+[
+ {
+  "type": "start",
+  "kind": "change",
+  "trigger": "CHG0031249",
+  "model": "gpt-6-luna",
+  "max_steps": 10
+ },
+ {
+  "type": "memory",
+  "confirmed": [],
+  "rejected": [],
+  "investigations": [
+   {
+    "id": "INV-1792170715907537000",
+    "kind": "incident",
+    "trigger": "Tickets about slow RIS database queries wait for days in the NW-Imaging-Systems queue, who say the database is not theirs; radiology worklists are late at several hospitals.",
+    "time": "2026-10-16T17:12:24Z",
+    "risk": "medium"
+   }
+  ]
+ },
+ {
+  "type": "step",
+  "n": 1,
+  "tool": "get_change",
+  "why": "Identify the requested work, its state, and target components before assessing its impact.",
+  "args": {
+   "change_id": "CHG0031249"
+  },
+  "summary": "CHG0031249: Index maintenance / patching on sched-db-01 (closed), targets sched-db-01",
+  "ms": 22,
+  "cost": 4.7e-05,
+  "action": false
+ },
+ {
+  "type": "step",
+  "n": 2,
+  "tool": "radius",
+  "why": "Establish the CMDB-declared blast radius of the database targeted by CHG0031249.",
+  "args": {
+   "component": "sched-db-01",
+   "layer": "declared"
+  },
+  "summary": "declared radius: 487 components, 6 interfaces, 24 applications, 69 departments, 21 hospitals, 3 business services, 0 service offerings",
+  "ms": 80,
+  "cost": 6.8e-05,
+  "action": false
+ },
+ {
+  "type": "step",
+  "n": 3,
+  "tool": "radius",
+  "why": "Compare observed traffic-based impact with the unusually broad declared radius to determine the real change risk.",
+  "args": {
+   "component": "sched-db-01",
+   "layer": "real"
+  },
+  "summary": "real radius: 6 components, 2 interfaces, 2 applications, 0 departments, 0 hospitals, 2 business services, 0 service offerings",
+  "ms": 21,
+  "cost": 0.000485,
+  "action": false
+ },
+ {
+  "type": "step",
+  "n": 4,
+  "tool": "stale_links",
+  "why": "The declared radius spans 21 hospitals while discovery observes none; identify unsupported CMDB dependencies that inflate the impact.",
+  "args": {
+   "component": "sched-db-01"
+  },
+  "summary": "Result returned.",
+  "ms": 547,
+  "cost": 0.000135,
+  "action": false
+ },
+ {
+  "type": "step",
+  "n": 5,
+  "tool": "recall",
+  "why": "Check prior confirmed or rejected findings about the target and actual observed consumers before recommending action.",
+  "args": {
+   "components": [
+    "sched-db-01",
+    "sched-app",
+    "portal-app",
+    "svc-patient-portal",
+    "svc-scheduling"
+   ]
+  },
+  "summary": "0 confirmed facts, 0 rejected, 1 earlier investigations",
+  "ms": 44,
+  "cost": 0.000117,
+  "action": false
+ },
+ {
+  "type": "step",
+  "n": 6,
+  "tool": "changes_on",
+  "why": "Check for other past or scheduled changes on the observed consumers that could conflict with this maintenance.",
+  "args": {
+   "components": [
+    "sched-db-01",
+    "portal-app",
+    "sched-app"
+   ]
+  },
+  "summary": "1 result: CHG0031249",
+  "ms": 22,
+  "cost": 0.000114,
+  "action": false
+ },
+ {
+  "type": "step",
+  "n": 7,
+  "tool": "hidden_links",
+  "why": "Check for repeated observed dependencies around the database that the CMDB omits, despite the broad declared radius being mostly stale.",
+  "args": {
+   "component": "sched-db-01"
+  },
+  "summary": "1 hidden links, seen by apm_otel",
+  "ms": 283,
+  "cost": 0.000122,
+  "action": false
+ },
+ {
+  "type": "step",
+  "n": 8,
+  "tool": "who_to_page",
+  "why": "Identify responsible teams for the database and its observed consumers, including any discrepancy between CMDB and resolving owners.",
+  "args": {
+   "components": [
+    "sched-db-01",
+    "portal-app",
+    "sched-app"
+   ]
+  },
+  "summary": "3 results: portal-app, sched-app, sched-db-01",
+  "ms": 107,
+  "cost": 0.000156,
+  "action": false
+ },
+ {
+  "type": "step",
+  "n": 9,
+  "tool": "add_change_note",
+  "why": "Document the evidence-based impact and significant CMDB discrepancies on the existing change record.",
+  "args": {
+   "change_id": "CHG0031249",
+   "note": "Discovery shows sched-db-01's real impact is sched-app and portal-app, via SIU-SCHED-EMR and ADT-EMR-SCHED, reaching svc-scheduling and svc-patient-portal; it does not reach hospitals or departments. The declared radius of 21 hospitals is overstated: dwh-etl-app and ris-app links are stale. Discovery also observed portal-app -> sched-app (25,533 calls across 14 days, apm_otel), an undocumented dependency. Change is already closed/approved; record this actual impact and correct the dependency/ownership records."
+  },
+  "summary": "Work note added to the change",
+  "ms": 40,
+  "cost": 0.000214,
+  "action": true
+ },
+ {
+  "type": "verdict",
+  "verdict": {
+   "risk": "low",
+   "root_cause": null,
+   "reasons": [
+    "The real radius is 6 components, 2 routes, 2 applications and 2 business services; it reaches sched-app, portal-app, svc-scheduling and svc-patient-portal, but no hospitals or departments.",
+    "The declared radius is much larger, including 21 hospitals, and overstates impact; stale_links identified dwh-etl-app and ris-app dependencies with no traffic.",
+    "The observed portal-app -> sched-app dependency is undocumented and was seen 25,533 times across 14 days by apm_otel.",
+    "CHG0031249 is already closed and approved; the evidence does not establish a patient-safety service impact."
+   ],
+   "hidden_links": [
+    "portal-app -> sched-app"
+   ],
+   "warn": [
+    {
+     "team": "HYD-Cloud-Ops",
+     "component": "portal-app",
+     "why": "Observed owner differs from declared owner NW-Digital-Portal; the component is in the real impact radius."
+    },
+    {
+     "team": "NW-Access-Scheduling",
+     "component": "sched-app",
+     "why": "sched-app is in the real impact radius."
+    }
+   ],
+   "actions": [
+    "Recorded a change note describing the real impact, the overstated declared radius, the stale links, and the observed undocumented dependency.",
+    "Recommend proposing a CMDB fix to record portal-app -> sched-app and reconciling portal-app's ownership to the observed owner HYD-Cloud-Ops.",
+    "Treat the change as already completed; use the recorded impact and dependency corrections in future reviews."
+   ],
+   "evidence": [
+    "get_change",
+    "radius",
+    "stale_links",
+    "recall",
+    "changes_on",
+    "hidden_links",
+    "who_to_page",
+    "add_change_note"
+   ]
+  },
+  "valid": true,
+  "rejected": null,
+  "stopped": null,
+  "actions_taken": [
+   {
+    "n": 9,
+    "tool": "add_change_note",
+    "why": "Document the evidence-based impact and significant CMDB discrepancies on the existing change record.",
+    "args": {
+     "change_id": "CHG0031249",
+     "note": "Discovery shows sched-db-01's real impact is sched-app and portal-app, via SIU-SCHED-EMR and ADT-EMR-SCHED, reaching svc-scheduling and svc-patient-portal; it does not reach hospitals or departments. The declared radius of 21 hospitals is overstated: dwh-etl-app and ris-app links are stale. Discovery also observed portal-app -> sched-app (25,533 calls across 14 days, apm_otel), an undocumented dependency. Change is already closed/approved; record this actual impact and correct the dependency/ownership records."
+    },
+    "summary": "Work note added to the change",
+    "ms": 40,
+    "cost": 0.000214,
+    "action": true
+   }
+  ]
+ },
+ {
+  "type": "done",
+  "id": "INV-1792170764260715000",
+  "cost": 0.002142,
+  "steps": 9,
+  "model": "gpt-6-luna",
+  "ms": 31015
+ }
+]

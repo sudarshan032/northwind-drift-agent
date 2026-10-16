@@ -1,0 +1,179 @@
+[
+ {
+  "type": "start",
+  "kind": "incident",
+  "trigger": "Radiology at H02 needs the PACS image cache database restored after a disk fault, but the backup console has shown a failed job for it every night this week.",
+  "model": "gpt-6-luna",
+  "max_steps": 10
+ },
+ {
+  "type": "step",
+  "n": 1,
+  "tool": "search_components",
+  "why": "Find the affected radiology PACS cache and related components from the incident report.",
+  "args": {
+   "text": "PACS"
+  },
+  "summary": "25 results: dc1-vm-pacs01, dc1-vm-pacs02, dc1-vm-pacs03 and more",
+  "ms": 28,
+  "cost": 4.7e-05,
+  "action": false
+ },
+ {
+  "type": "step",
+  "n": 2,
+  "tool": "shared_dependencies",
+  "why": "Identify dependencies shared by the affected H02 database that could explain failed backups.",
+  "args": {
+   "routes": [
+    "h02-pacs-cache-db"
+   ]
+  },
+  "summary": "Nothing found.",
+  "ms": 22,
+  "cost": 0.000129,
+  "action": false
+ },
+ {
+  "type": "step",
+  "n": 3,
+  "tool": "changes_on",
+  "why": "Check for recent changes to the affected database or its H02 PACS application.",
+  "args": {
+   "components": [
+    "h02-pacs-cache-db",
+    "h02-pacs-cache"
+   ]
+  },
+  "summary": "Nothing found.",
+  "ms": 22,
+  "cost": 6.3e-05,
+  "action": false
+ },
+ {
+  "type": "step",
+  "n": 4,
+  "tool": "findings_about",
+  "why": "Check for open backup, protection, or configuration findings on the affected H02 PACS components.",
+  "args": {
+   "components": [
+    "h02-pacs-cache-db",
+    "h02-pacs-cache"
+   ]
+  },
+  "summary": "1 result",
+  "ms": 126,
+  "cost": 6.6e-05,
+  "action": false
+ },
+ {
+  "type": "step",
+  "n": 5,
+  "tool": "who_to_page",
+  "why": "Determine the CMDB and observed support owners for the failed H02 PACS database backup and application.",
+  "args": {
+   "components": [
+    "h02-pacs-cache-db",
+    "h02-pacs-cache"
+   ]
+  },
+  "summary": "2 results: h02-pacs-cache, h02-pacs-cache-db",
+  "ms": 22,
+  "cost": 8.3e-05,
+  "action": false
+ },
+ {
+  "type": "step",
+  "n": 6,
+  "tool": "recall",
+  "why": "Check prior investigation notes for confirmed causes or rejected hypotheses before assigning action.",
+  "args": {
+   "components": [
+    "h02-pacs-cache-db",
+    "h02-pacs-cache"
+   ]
+  },
+  "summary": "0 confirmed facts, 0 rejected, 0 earlier investigations",
+  "ms": 43,
+  "cost": 7.4e-05,
+  "action": false
+ },
+ {
+  "type": "step",
+  "n": 7,
+  "tool": "open_ticket",
+  "why": "The open critical D10 finding confirms h02-pacs-cache-db backups have failed since 2026-10-04, and NW-DBA is the observed owner.",
+  "args": {
+   "component": "h02-pacs-cache-db",
+   "short_description": "Critical: PACS cache database backup failing; restore readiness at risk after disk fault",
+   "priority": "1 - Critical",
+   "assignment_group": "NW-DBA"
+  },
+  "summary": "Ticket opened",
+  "ms": 23,
+  "cost": 9.2e-05,
+  "action": true
+ },
+ {
+  "type": "verdict",
+  "verdict": {
+   "risk": "high",
+   "root_cause": "h02-pacs-cache-db",
+   "reasons": [
+    "The database backup has not succeeded since 2026-10-04T13:52:00Z.",
+    "A critical open finding identifies failing backups for h02-pacs-cache-db.",
+    "Missing backups threaten restoration of PACS cache data needed for imaging studies and patient diagnosis and treatment.",
+    "No shared dependencies or recent changes were found."
+   ],
+   "hidden_links": [],
+   "warn": [
+    {
+     "team": "NW-DBA",
+     "component": "h02-pacs-cache-db",
+     "why": "The database backup is failing and restore readiness is at risk after the disk fault."
+    }
+   ],
+   "actions": [
+    "Opened a priority 1 - Critical incident ticket assigned to NW-DBA.",
+    "Recommend restoring backup success and verifying restore readiness."
+   ],
+   "evidence": [
+    "search_components",
+    "shared_dependencies",
+    "changes_on",
+    "findings_about",
+    "who_to_page",
+    "recall",
+    "open_ticket"
+   ]
+  },
+  "valid": true,
+  "rejected": null,
+  "stopped": null,
+  "actions_taken": [
+   {
+    "n": 7,
+    "tool": "open_ticket",
+    "why": "The open critical D10 finding confirms h02-pacs-cache-db backups have failed since 2026-10-04, and NW-DBA is the observed owner.",
+    "args": {
+     "component": "h02-pacs-cache-db",
+     "short_description": "Critical: PACS cache database backup failing; restore readiness at risk after disk fault",
+     "priority": "1 - Critical",
+     "assignment_group": "NW-DBA"
+    },
+    "summary": "Ticket opened",
+    "ms": 23,
+    "cost": 9.2e-05,
+    "action": true
+   }
+  ]
+ },
+ {
+  "type": "done",
+  "id": "INV-1792170691438324000",
+  "cost": 0.000988,
+  "steps": 7,
+  "model": "gpt-6-luna",
+  "ms": 24466
+ }
+]

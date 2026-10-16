@@ -40,9 +40,9 @@ def _box():
     return Toolbox(_graph())
 
 
-def _run(name, **args):
+def _run(tool, **args):
     box = _box()
-    return box.text(box.call(name, args))
+    return box.text(box.call(tool, args))
 
 
 @server.tool(description="Blast radius if a component fails or is taken down: layer 'declared' uses only the "
@@ -137,6 +137,30 @@ def findings_about(components: list[str]) -> str:
     rows = [{k: f.get(k) for k in ("id", "type", "kind", "severity", "status", "action", "explanation", "subjects")}
             for f in F.list_findings(box.g, None, 500) if want & set(f.get("subjects") or [])
             or (f.get("key") and want & set(map(str, f["key"])))]
+    return box.text(rows or {"result": "no findings"})
+
+
+@server.tool(description="Stale links around a component: CMDB dependencies (parent depends on child) inside its "
+                         "declared radius with no traffic seen in the observed period, i.e. links that make the CMDB "
+                         "overstate the impact. Compare with radius declared vs real.")
+def stale_links(component: str) -> str:
+    box = _box()
+    r = Q.radius(box.g, component, "declared")
+    if not r.get("found"):
+        return json.dumps({"error": f"no component {component}"})
+    names = {component} | {x["name"] for x in r["impacted"]}
+    rows = [{"parent": k[1], "child": k[2], "relationship": k[3]} for k in (x["key"] for x in Q.detect(box.g, "D2"))
+            if k[1] in names or k[2] in names]
+    return box.text({"component": component, "stale_links": rows, "count": len(rows)})
+
+
+@server.tool(description="Open drift findings of one type across the estate (D1 undocumented dependency, D2 stale "
+                         "relationship, D5 owner drift, D6 shadow IT, D9 protection-path drift, D10 backups failing, "
+                         "D11 data residency, D12 access drift, D14 unregistered SMART on FHIR app).")
+def findings_by_type(drift_type: str) -> str:
+    box = _box()
+    rows = [{k: f.get(k) for k in ("id", "type", "kind", "severity", "status", "explanation", "subjects", "key")}
+            for f in F.list_findings(box.g, None, 500) if f.get("type") == drift_type]
     return box.text(rows or {"result": "no findings"})
 
 
