@@ -46,3 +46,4 @@ Re-read this file, RUN_PROMPT.md and DATA_SPEC.md after any context compaction.
 - 2026-10-16 Grounding + final no-tools loop step; prewarm used 11 requests; master fast-forwarded to realism (0c851fe); fresh clone + docker compose up --build: CHG-HEADLINE high without keys.
 - 2026-10-16 UI redesign (UI_SPEC): tokens, SVG dependency view with grouping, all screens, axe 0 violations, demo recorded; 93 tests.
 - 2026-10-16 Public deployment on Vercel + FalkorDB Cloud (deploy branch); 97 tests.
+- 2026-10-16 Benchmark: generator, loaders, runner, analysis; 250k pilot passed the correctness gate; sizes 50k/500k/3.5M; full run started in the background.

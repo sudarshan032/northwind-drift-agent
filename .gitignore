@@ -8,3 +8,10 @@ data/*
 runtime/
 .env
 .vercel
+
+# benchmark data and live run state
+bench/data/
+bench/logs/
+bench/STATUS.json
+bench/DONE
+bench/FAILED

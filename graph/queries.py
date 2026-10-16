@@ -47,24 +47,20 @@ def guarded(fn):
 RADIUS = """
 MATCH (f:Component {name: $name})
 CALL algo.bfs(f, $depth, $rel) YIELD nodes
-WITH f, nodes
 UNWIND nodes AS n
-WITH f, collect(DISTINCT n) AS hit
-UNWIND hit AS n
+WITH DISTINCT n
 OPTIONAL MATCH (n)-[:%(term)s]->(t)
 OPTIONAL MATCH (n)-[:IN_DEPARTMENT]->(nd:Department)
 OPTIONAL MATCH (n)-[:LOCATED_AT]->(ns:Site)
-WITH f, hit, collect(DISTINCT t) AS term, collect(DISTINCT nd) AS ndepts, collect(DISTINCT ns) AS nsites
-WITH f, hit, [x IN term WHERE NOT x:Department] AS consumers,
-     [x IN term WHERE x:Department] + ndepts AS depts, nsites
-UNWIND (CASE WHEN size(depts) = 0 THEN [null] ELSE depts END) AS d
+UNWIND [CASE WHEN t:Department THEN t END, nd] AS d
 OPTIONAL MATCH (ds:Site)-[:CONTAINS]->(d)
-WITH f, hit, consumers, nsites, collect(DISTINCT d) AS depts, collect(DISTINCT ds) AS dsites
+UNWIND [ds, ns] AS s
+WITH collect(DISTINCT n) AS hit, collect(DISTINCT CASE WHEN NOT t:Department THEN t.name END) AS consumers,
+     collect(DISTINCT d.id) AS departments,
+     collect(DISTINCT CASE WHEN s.type ENDS WITH 'hospital' THEN s.id END) AS hospitals
 RETURN [x IN hit | {name: x.name, label: [l IN labels(x) WHERE l <> 'Component'][0],
                     safety: x.patient_safety_impact}] AS impacted,
-       [x IN consumers | x.name] AS consumers,
-       [x IN depts | x.id] AS departments,
-       [x IN dsites + nsites WHERE x.type ENDS WITH 'hospital' | x.id] AS hospitals
+       consumers, departments, hospitals
 """
 
 
@@ -74,7 +70,7 @@ def radius(g, name, layer="real", depth=10, timeout=TIMEOUT_MS):
     up = {"declared": "DECLARED", "real": "REAL"}[layer]
     rows = run(g, RADIUS % {"term": f"AFFECTS_{up}"}, {"name": name, "depth": depth, "rel": f"IMPACTS_{up}"},
                timeout)
-    if not rows:
+    if not rows or not rows[0]["impacted"]:  # one aggregate row even for an unknown name
         if not run(g, "MATCH (c:Component {name: $name}) RETURN c.name LIMIT 1", {"name": name}, timeout):
             return {"component": name, "layer": layer, "found": False}
         rows = [{"impacted": [], "consumers": [], "departments": [], "hospitals": []}]  # exists, impacts nothing
