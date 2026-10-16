@@ -36,13 +36,17 @@ def main():
         with open(os.path.join(llm.cache.path, "models.json"), "w") as f:
             json.dump(llm.models, f)
     before = llm.status().get("remaining")
-    out = {"triage": flows.triage(g, llm)["notice"]}
+    out = {}
+    r = flows.incident(g, DEMO_SYMPTOM, llm)  # most important answer first, while the quota is fresh
+    out["incident"] = {"notice": r["notice"], "mismatches": r["mismatches"], "steps": len(r["steps"]),
+                       "likely_cause": r.get("likely_cause"), "answer": r["answer"]}
+    out["triage"] = flows.triage(g, llm)["notice"]
+    r = flows.chat(g, DEMO_QUESTION, llm)
+    out["chat"] = {"notice": r["notice"], "mismatches": r["mismatches"], "steps": len(r["steps"]),
+                   "answer": r["answer"][:300]}
     for c in DEMO_CHANGES:
         r = flows.change_review(g, c, llm)
         out[c] = {"notice": r["notice"], "mismatches": r["mismatches"]}
-    for job, r in (("incident", flows.incident(g, DEMO_SYMPTOM, llm)), ("chat", flows.chat(g, DEMO_QUESTION, llm))):
-        out[job] = {"notice": r["notice"], "mismatches": r["mismatches"], "steps": len(r["steps"]),
-                    "answer": r["answer"][:160]}
     llm._key_info = (0, None)  # force a fresh key-info read
     out["requests_remaining"] = {"before": before, "after": llm.status().get("remaining")}
     print(json.dumps(out, indent=1))

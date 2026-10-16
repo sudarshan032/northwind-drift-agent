@@ -1,0 +1,1 @@
+{"text": "", "tool_calls": [{"id": "call-56434817-8658-4388-b172-6ab922595329", "name": "search_components", "input": {"text": "H22"}}], "content": [{"type": "tool_use", "id": "call-56434817-8658-4388-b172-6ab922595329", "name": "search_components", "input": {"text": "H22"}}], "stop_reason": "tool_use", "model": "nvidia/nemotron-3-super-120b-a12b:free"}
