@@ -658,6 +658,7 @@ def _hospitals(g, component, layer):
 
 # ---------------------------------------------------------------- agent v2 (AGENT_V2_SPEC)
 RUNS = os.path.join(os.path.dirname(__file__), "..", "deploy", "agent_runs")
+REPLAY_PACE_S = float(os.environ.get("AGENT_REPLAY_PACE_S", "0.7"))  # seconds per step in a tour replay
 _agent = []
 
 
@@ -689,6 +690,7 @@ class Investigate(BaseModel):
     kind: str = "change"  # change | incident
     trigger: str
     user: str | None = None
+    replay: bool = False  # the guided tour: always the recorded run, never a visitor's live run
 
 
 def _ip(request):
@@ -707,15 +709,31 @@ async def agent_investigate(body: Investigate, request: Request):
     g, mem = graph(), memory(body.user)
     mcp_tools.configure(graph, lambda: mem)
     live = agent_llm()
-    ok, why = (False, "off") if live is None else spend.start(g, _ip(request))
+    run = recorded(body.kind, trigger)
+    if body.replay and run:
+        ok, why = False, "tour"
+    else:
+        ok, why = (False, "off") if live is None else spend.start(g, _ip(request))
 
     async def events():
         if ok:
             async for e in guardian.investigate(g, mem, body.kind, trigger, live, mcp_tools.server,
                                                 charge=lambda usd: spend.charge(g, usd)):
                 yield json.dumps(e, default=str) + "\n"
+        elif why == "tour":  # paced like a live stream, without waiting on the model
+            import asyncio
+            for e in run:
+                if e["type"] == "heartbeat":
+                    continue
+                if e["type"] == "start":
+                    yield json.dumps({**e, "recorded": True}) + "\n"
+                    m = guardian.memory_context(g, mem, body.kind, trigger)
+                    if m and (m["confirmed"] or m["rejected"] or m["investigations"]):
+                        yield json.dumps({"type": "memory", **m}, default=str) + "\n"
+                elif e["type"] != "memory":
+                    yield json.dumps({**e, "recorded": True}, default=str) + "\n"
+                await asyncio.sleep(REPLAY_PACE_S if e["type"] in ("step", "note") else 0.2)
         else:
-            run = recorded(body.kind, trigger)
             yield json.dumps({"type": "notice", "text": spend.MESSAGES[why] if run else
                               spend.MESSAGES[why].replace("this shows the recorded run instead",
                                                           "here is the rule-based review")}) + "\n"

@@ -269,3 +269,56 @@ def test_openai_is_default_with_cache_and_cap(monkeypatch, tmp_path):
     import json as _j
     open(tmp_path / "models.json", "w").write(_j.dumps(llm.models))
     assert L.CachedLLM(str(tmp_path)).respond("s", msgs).text == "ok"
+
+
+def test_heartbeat_while_the_model_is_slow(env):
+    import time as _t
+    _, g, mem = env
+    slow = lambda s, m, t: (_t.sleep(0.5), {"tool": "hidden_links", "input": {"component": "dc1-host-07",
+                                                                            "why": "x"}})[1]
+    final = lambda s, m, t: (_t.sleep(0.5), {"text": json.dumps(VERDICT)})[1]
+    ev = run(g, mem, "change", "CHG-HEADLINE", L.FakeLLM([slow, {"text": "enough evidence"}, final]), heartbeat_s=0.1)
+    types = [e["type"] for e in ev]
+    assert types.count("heartbeat") >= 4 and types[-2:] == ["verdict", "done"]
+    assert ev[-2]["valid"], (ev[-2]["rejected"], ev[-2]["stopped"])
+    first_step = types.index("step")
+    assert "heartbeat" in types[:first_step]  # sent while waiting on the model, before the step it produced
+
+
+def test_tour_replay_never_uses_live_runs(env, monkeypatch):
+    client, g, _ = env
+    g.query("MATCH (s:AgentSpend) DELETE s")
+    monkeypatch.setattr(M, "REPLAY_PACE_S", 0.01)
+    M.app.state.agent_llm = script()
+    try:
+        r = client.post("/agent/investigate", json={"kind": "change", "trigger": "CHG-HEADLINE", "replay": True},
+                        headers={"x-real-ip": "192.0.2.9"})
+    finally:
+        M.app.state.agent_llm = None
+    lines = [json.loads(x) for x in r.text.splitlines()]
+    assert lines[0]["type"] == "start" and lines[0]["recorded"] and all(e.get("recorded") for e in lines
+                                                                         if e["type"] in ("step", "verdict"))
+    assert not any(e["type"] in ("notice", "heartbeat") for e in lines)
+    assert not g.query("MATCH (s:AgentSpend) WHERE s.key STARTS WITH 'visitor:' RETURN s").result_set  # no run booked
+    assert M.recorded("change", "CHG-HEADLINE")[0]["model"] == "gpt-6-luna"  # the committed recording
+
+
+def test_stream_carries_heartbeats_and_ui_ignores_them(env, monkeypatch):
+    """A slow model through the real endpoint: heartbeat lines arrive while waiting; the UI has no branch for them."""
+    import time as _t
+    client, g, _ = env
+    g.query("MATCH (s:AgentSpend) DELETE s")
+    monkeypatch.setattr(Gd, "HEARTBEAT_S", 0.1)
+    slow = lambda s, m, t: (_t.sleep(0.4), {"tool": "get_change", "input": {"change_id": "CHG-HEADLINE", "why": "x"}})[1]
+    M.app.state.agent_llm = L.FakeLLM([slow, {"text": "enough"},
+                                       lambda s, m, t: (_t.sleep(0.4), {"text": json.dumps({**VERDICT, "reasons": [
+                                           "CHG-HEADLINE targets dc1-host-07."], "hidden_links": []})})[1]])
+    try:
+        lines = [json.loads(x) for x in client.post("/agent/investigate", json={
+            "kind": "change", "trigger": "CHG-HEADLINE"}).text.splitlines()]
+    finally:
+        M.app.state.agent_llm = None
+    types = [e["type"] for e in lines]
+    assert types.count("heartbeat") >= 4 and types[-2:] == ["verdict", "done"]
+    js = open("ui/app.js", encoding="utf-8").read()
+    assert '"heartbeat"' not in js.split("function renderEvent")[1].split("async function runAgent")[0]

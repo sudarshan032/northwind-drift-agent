@@ -1145,10 +1145,10 @@ function renderEvent(box, e) {
   else if (e.type === "verdict") box.insertAdjacentHTML("beforeend", verdictHTML(e));
   else if (e.type === "done") box.insertAdjacentHTML("beforeend", `<p class="label-muted">${plural(e.steps, "step")}, ${usd(e.cost)}, ${((e.ms || 0) / 1000).toFixed(1)} s.</p>`);
 }
-async function runAgent(kind, trigger, box) {
+async function runAgent(kind, trigger, box, replay = false) {
   box.innerHTML = `<span class="skel"></span>`;
   let r;
-  try { r = await fetch("/agent/investigate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind, trigger }) }); }
+  try { r = await fetch("/agent/investigate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind, trigger, replay }) }); }
   catch (e) { box.innerHTML = `<p class="notice">${esc(new ApiError().message || "The agent did not respond.")}</p>`; return []; }
   if (!r.ok || !r.body) { box.innerHTML = `<p class="notice">The agent could not start (${r.status}).</p>`; return []; }
   box.innerHTML = "";
@@ -1228,7 +1228,7 @@ const TOUR = [
   { title: "The agent investigates", text: "The agent picks graph tools over MCP one step at a time and says why.",
     go: async () => {
       await openChange("CHG-HEADLINE");
-      if (!tourRun) { $("#agent-out").innerHTML = ""; tourRun = runAgent("change", "CHG-HEADLINE", $("#agent-out")); }
+      if (!tourRun) { $("#agent-out").innerHTML = ""; tourRun = runAgent("change", "CHG-HEADLINE", $("#agent-out"), true); }
       for (let t = 0; t < 40 && !$("#agent-out .trace li:nth-child(2)") && !$("#agent-out .agent-verdict"); t++) {
         await new Promise((r) => setTimeout(r, 500));  // show the trace once the first steps have streamed in
       }
@@ -1237,7 +1237,7 @@ const TOUR = [
   { title: "It acts and remembers", text: "It wrote a note on the change and asked the change board to review it. Approvals and rejections go into its memory graph for next time.",
     go: async () => {
       await openChange("CHG-HEADLINE");
-      if (!tourRun) tourRun = runAgent("change", "CHG-HEADLINE", $("#agent-out"));
+      if (!tourRun) tourRun = runAgent("change", "CHG-HEADLINE", $("#agent-out"), true);
       await tourRun;
       return $("#agent-out .agent-verdict") || $("#agent-out");
     },

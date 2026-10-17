@@ -11,6 +11,7 @@ shown in the trace. Each finished investigation is written to the memory graph (
 `investigate()` is an async generator of events (start, memory, note, step, verdict, done), streamed to the UI.
 """
 
+import asyncio
 import json
 import re
 import time
@@ -183,8 +184,23 @@ def memory_context(g, memory, kind, trigger):
     return memory.recall(sorted(names)) if names else None
 
 
+HEARTBEAT_S = 5
+
+
+async def beat(make, every=None):
+    """Await make() and yield ("heartbeat", None) every `every` seconds while waiting, then ("result", value).
+    Keeps the stream alive through proxies and clients while the model or a tool is slow."""
+    task = asyncio.ensure_future(make())
+    while True:
+        done, _ = await asyncio.wait({task}, timeout=every or HEARTBEAT_S)
+        if done:
+            yield "result", task.result()
+            return
+        yield "heartbeat", None
+
+
 async def investigate(g, memory, kind, trigger, llm, mcp_server, *, max_steps=MAX_STEPS, charge=None, user=None,
-                      deadline_s=45):
+                      deadline_s=45, heartbeat_s=None):
     """Run one investigation; yields events. `charge(usd) -> bool` books each call's cost (False: cap reached)."""
     from mcp import Client
     t0 = time.perf_counter()
@@ -209,7 +225,12 @@ async def investigate(g, memory, kind, trigger, llm, mcp_server, *, max_steps=MA
             n += 1
             seen = len(getattr(llm, "events", []))
             try:
-                reply = await anyio.to_thread.run_sync(lambda: llm.respond(system, messages, specs))
+                async for tag, val in beat(lambda: anyio.to_thread.run_sync(lambda: llm.respond(system, messages, specs)),
+                                            heartbeat_s):
+                    if tag == "heartbeat":
+                        yield {"type": "heartbeat"}
+                    else:
+                        reply = val
             except LLMUnavailable as e:
                 stop_reason = f"model unavailable ({e})"
                 break
@@ -231,7 +252,11 @@ async def investigate(g, memory, kind, trigger, llm, mcp_server, *, max_steps=MA
                     res = acts.call(call["name"], args)
                     text = json.dumps(res, default=str)
                 else:
-                    r = await client.call_tool(call["name"], args)
+                    async for tag, val in beat(lambda: client.call_tool(call["name"], args), heartbeat_s):
+                        if tag == "heartbeat":
+                            yield {"type": "heartbeat"}
+                        else:
+                            r = val
                     text = "".join(getattr(c, "text", "") for c in r.content)
                     try:
                         res = json.loads(text)
@@ -253,8 +278,12 @@ async def investigate(g, memory, kind, trigger, llm, mcp_server, *, max_steps=MA
         prompt = f"{trigger_text(kind, trigger)}\n\nEvidence (tool results):\n{evidence or '(none)'}\n\n{FINAL}"
         try:
             kw = {"schema": VERDICT_SCHEMA} if getattr(llm, "supports_schema", False) else {}
-            reply = await anyio.to_thread.run_sync(lambda: llm.respond(system, [{"role": "user", "content": prompt[:60000]}],
-                                                                       None, **kw))
+            async for tag, val in beat(lambda: anyio.to_thread.run_sync(
+                    lambda: llm.respond(system, [{"role": "user", "content": prompt[:60000]}], None, **kw)), heartbeat_s):
+                if tag == "heartbeat":
+                    yield {"type": "heartbeat"}
+                else:
+                    reply = val
             total += reply.cost
             if charge is not None:
                 charge(reply.cost)
