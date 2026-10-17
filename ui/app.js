@@ -1115,7 +1115,7 @@ function stepHTML(e) {
     ${e.why ? `<p class="why">${esc(e.why)}</p>` : ""}<p class="res">${esc(friendly(e.summary))}</p>
     <p class="meta">${esc(e.ms ?? 0)} ms${e.cost ? `, ${usd(e.cost)}` : ""}</p></div></li>`;
 }
-function verdictHTML(e) {
+function verdictHTML(e, kind = "change") {
   const v = e.verdict || {};
   const ci = (n) => n ? linkCI(n) : "";
   const links = v.hidden_links || [];
@@ -1123,26 +1123,24 @@ function verdictHTML(e) {
     <h3>Verdict ${riskLabel(v.risk)}</h3>
     ${e.valid ? "" : `<p class="notice">${esc(e.rejected ? `The agent's verdict was set aside because ${e.rejected}. This is the rule-based review instead.`
       : e.stopped ? `The agent stopped early (${e.stopped}). This is the rule-based review instead.` : "Rule-based review.")}</p>`}
-    ${v.root_cause ? `<p>Likely cause: ${ci(v.root_cause)}</p>` : ""}
+    ${v.root_cause ? `<p>${kind === "incident" ? "Likely cause" : "Risk centres on"}: ${ci(v.root_cause)}</p>` : ""}
     ${(v.reasons || []).length ? `<ul class="prose">${v.reasons.map((r) => `<li>${inline(friendly(r))}</li>`).join("")}</ul>` : ""}
     ${links.length ? `<p class="used">Hidden links (${links.length}): ${links.slice(0, 4).map((l) => `<span class="id">${esc(l)}</span>`).join(", ")}${links.length > 4 ? " and more" : ""}</p>` : ""}
     ${(v.warn || []).length ? `<table class="data plain"><thead><tr><th scope="col">Warn</th><th scope="col">About</th><th scope="col">Why</th></tr></thead><tbody>${
       v.warn.map((w) => `<tr><td data-label="Warn">${esc(w.team)}</td><td data-label="About">${ci(w.component)}</td><td data-label="Why">${esc(w.why)}</td></tr>`).join("")}</tbody></table>` : ""}
     ${(e.actions_taken || []).length ? `<p class="used">Actions taken: ${e.actions_taken.map((a) => `${esc(a.summary)}`).join("; ")}</p>` : ""}
-    ${(v.actions || []).length ? `<p class="used">Recommended: ${v.actions.map(esc).join("; ")}</p>` : ""}</div>`;
+    ${(v.actions || []).length ? `<h4>Recommended</h4><ul class="verdict-actions">${v.actions.map((a) => `<li>${esc(a)}</li>`).join("")}</ul>` : ""}</div>`;
 }
 function renderEvent(box, e) {
   const list = () => box.querySelector("ol.trace") || box.appendChild(Object.assign(document.createElement("ol"), { className: "trace" }));
   if (e.type === "start") {
+    box.dataset.kind = e.kind || "change";
     box.insertAdjacentHTML("beforeend", `<p class="run-head">${e.recorded ? `<span class="flag-rec">Recorded run</span> ` : "Live run, "}model <span class="id">${esc(e.model)}</span>, up to ${esc(e.max_steps)} steps</p>`);
   } else if (e.type === "notice") box.insertAdjacentHTML("beforeend", `<p class="notice">${esc(e.text)}</p>`);
-  else if (e.type === "memory") {
-    const facts = [...(e.confirmed || []).map((f) => `Confirmed: ${f.statement}`), ...(e.rejected || []).map((f) => `Rejected: ${f.statement}`)];
-    box.insertAdjacentHTML("beforeend", `<div class="memory"><h3>Memory</h3>${facts.length ? `<ul>${facts.slice(0, 5).map((f) => `<li>${esc(f)}</li>`).join("")}</ul>` : ""}
-      ${(e.investigations || []).length ? `<p class="label-muted">${plural(e.investigations.length, "earlier investigation")} of these components.</p>` : ""}</div>`);
-  } else if (e.type === "note") list().insertAdjacentHTML("beforeend", `<li class="note"><span class="n">i</span><p>${esc(cap(e.text))}</p></li>`);
+  else if (e.type === "memory") { if (box.id === "agent-out") loadMemory(true); }  // shown in "What the agent remembers"
+  else if (e.type === "note") list().insertAdjacentHTML("beforeend", `<li class="note"><span class="n">i</span><p>${esc(cap(e.text))}</p></li>`);
   else if (e.type === "step") list().insertAdjacentHTML("beforeend", stepHTML(e));
-  else if (e.type === "verdict") box.insertAdjacentHTML("beforeend", verdictHTML(e));
+  else if (e.type === "verdict") box.insertAdjacentHTML("beforeend", verdictHTML(e, box.dataset.kind));
   else if (e.type === "done") box.insertAdjacentHTML("beforeend", `<p class="label-muted">${plural(e.steps, "step")}, ${usd(e.cost)}, ${((e.ms || 0) / 1000).toFixed(1)} s.</p>`);
 }
 async function runAgent(kind, trigger, box, replay = false) {
@@ -1171,32 +1169,37 @@ async function runAgent(kind, trigger, box, replay = false) {
     if (done) break;
   }
   await dataChanged();
+  memShown = memShown || box.id === "agent-out";
   loadPast();
   return events;
 }
-async function loadMemory() {
+let memShown = false;
+async function loadMemory(show = false) {
   const box = $("#mem-facts");
   if (!box) return;
+  memShown = memShown || show;
   const names = current?.kind === "change" && review?.graph ? review.graph.nodes.map((n) => n.id).slice(0, 300) : [];
-  if (!names.length) { box.innerHTML = `<p class="empty">Open a change to see what the agent remembers about it.</p>`; return; }
+  if (!names.length) { box.innerHTML = `<p class="empty">Open a change to see what the agent remembers about it.</p>`; $("#agent-memory").hidden = !memShown; return; }
   let m;
   try { m = await api(`/agent/memory?components=${enc(names.join(","))}`); } catch (e) { return; }
   const facts = [...m.confirmed.map((f) => ["Confirmed", f]), ...m.rejected.map((f) => ["Rejected", f])];
+  const past = $$("#agent-past [data-inv]").length;
+  $("#agent-memory").hidden = !(memShown || facts.length || past);
   box.innerHTML = facts.length ? `<ul class="facts">${facts.slice(0, 6).map(([k, f]) => `<li><span class="flag-${k === "Confirmed" ? "ok" : "no"}">${k}</span> ${esc(f.statement)}</li>`).join("")}</ul>`
     : `<p class="empty">Nothing yet about this change's components. Approving or rejecting a finding teaches the agent; it recalls that in later reviews.</p>`;
 }
 async function loadPast() {
-  loadMemory();
   let rows = [];
   try { rows = await api("/agent/investigations?limit=10"); } catch (e) { return; }
   $("#agent-past").innerHTML = rows.length ? rows.map((x) => `<li><button type="button" class="link" data-inv="${esc(x.id)}">${esc(x.trigger)}</button>
     ${riskLabel(x.verdict?.risk, true)} <span class="label-muted">${esc(when(x.time))}${x.recorded ? ", recorded" : ""}</span></li>`).join("")
     : `<li class="empty">No live investigations yet (recorded runs are not stored). Ask the agent to review a change.</li>`;
+  loadMemory();
   $$("#agent-past [data-inv]").forEach((b) => { b.onclick = async () => {
     const inv = await api(`/agent/investigations/${enc(b.dataset.inv)}`);
     const box = $("#agent-out");
     box.innerHTML = "";
-    renderEvent(box, { type: "start", model: inv.model, max_steps: inv.steps.length + 1, recorded: true });
+    renderEvent(box, { type: "start", kind: inv.kind, model: inv.model, max_steps: inv.steps.length + 1, recorded: true });
     inv.steps.forEach((st) => renderEvent(box, { type: "step", ...st }));
     renderEvent(box, { type: "verdict", verdict: inv.verdict, valid: true, actions_taken: inv.steps.filter((st) => st.action) });
     box.scrollIntoView({ block: "nearest" });
@@ -1320,9 +1323,25 @@ function placeTour() {
   Object.assign(spot.style, { left: `${r.left - pad}px`, top: `${top}px`, width: `${r.width + 2 * pad}px`, height: `${Math.max(0, bottom - top)}px` });
   spot.hidden = false;
   const h = card.offsetHeight, w = card.offsetWidth;
-  const y = bottom + gap + h < innerHeight ? bottom + gap : top - gap - h > 0 ? top - gap - h : innerHeight - h - gap;
+  // never cover the spotlighted element or the verdict sentence
+  const avoid = [{ left: r.left - pad, right: r.right + pad, top, bottom }];
+  const vs = $("#verdict");
+  if (vs && vs.offsetParent && !$("#tab-change").hidden) avoid.push(vs.getBoundingClientRect());
+  const overlap = (a, b) => Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left))
+    * Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top));
+  const cost = (x, y) => avoid.reduce((sum, b) => sum + overlap({ left: x, right: x + w, top: y, bottom: y + h }, b), 0);
+  if (matchMedia("(max-width: 960px)").matches) {  // the card is pinned to the bottom (CSS); flip it to the top if needed
+    const atBottom = cost(gap, innerHeight - h - gap), atTop = cost(gap, gap);
+    card.classList.toggle("at-top", atTop < atBottom);
+    return;
+  }
+  const cx = (x) => Math.max(gap, Math.min(x, innerWidth - w - gap)), cy = (y) => Math.max(gap, Math.min(y, innerHeight - h - gap));
+  const options = [[cx(r.left), bottom + gap], [cx(r.left), top - gap - h], [r.right + gap, cy(top)], [r.left - gap - w, cy(top)],
+    [innerWidth - w - gap, innerHeight - h - gap], [innerWidth - w - gap, gap], [gap, innerHeight - h - gap], [gap, gap]]
+    .filter(([x, y]) => x >= gap && y >= gap && x + w <= innerWidth - gap + 1 && y + h <= innerHeight - gap + 1);
+  const [x, y] = options.reduce((best, o) => (cost(...o) < cost(...best) ? o : best), options[0] || [gap, gap]);
   card.style.top = `${y}px`;
-  card.style.left = `${Math.max(gap, Math.min(r.left, innerWidth - w - gap))}px`;
+  card.style.left = `${x}px`;
 }
 function endTour() {
   tourOn = false;

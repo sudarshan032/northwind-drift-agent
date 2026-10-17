@@ -184,8 +184,9 @@ def template_explanation(dtype, rows, impact):
             "D6": lambda: f"A scanner found {k[1]} at {k[2]} ({r0.get('model')}) with no CMDB record.",
             "D7": lambda: f"{k[1]} is operational in the CMDB but was never discovered in its scanned subnet and has no traffic.",
             "D8": lambda: f"CMDB {k[2]} of {k[1]} is {r0.get('cmdb')}; discovery reports {r0.get('discovered')}.",
-            "D9": lambda: f"{k[1]} holds PHI and the CMDB claims offsite backup, but its only copies stay at "
-                  f"{r0.get('site')} ({', '.join(r0.get('backup_targets', []))}).",
+            "D9": lambda: f"{k[1]} holds patient data at {r0.get('site')}, and its only copies are on "
+                  f"{', '.join(r0.get('backup_targets', []))} at the same site, although the CMDB says it has an off-site "
+                  f"copy: a site-wide outage or ransomware could lose the data.",
             "D10": lambda: f"{k[1]} has had no successful backup since {r0.get('last_success')}.",
             "D11": lambda: f"PHI data moves from {k[1]} into {k[2]} in cloud-central-india ({r0.get('via')}).",
             "D12": lambda: f"User {k[1]} accessed {k[2]}: {', '.join(r0.get('reasons', []))}.",

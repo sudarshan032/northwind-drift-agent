@@ -142,6 +142,10 @@ def cited_paths(trace):
 
 EXPLAIN = ("You explain CMDB drift findings for a hospital IT team. For each finding in the JSON list write 2-4 "
            "plain sentences: what is wrong, why it matters for patients or data, and what the proposed fix does. "
+           "Start with the real problem in plain words, never with 'the finding flags/reports this as drift'. "
+           "Protection-path drift (D9): say where the patient data is, where its only copy is (the same site, from the "
+           "evidence) and that the CMDB claims an off-site copy, so a site-wide failure could lose it. Data residency "
+           "(D11): say which data is copied from where to where. "
            'Reply with JSON only: {"explanations": [{"id": "<finding id>", "text": "..."}]}. ' + GROUNDING)
 
 

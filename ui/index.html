@@ -30,11 +30,13 @@
     <button role="tab" id="tab-btn-chat" aria-controls="tab-chat" data-tab="chat">Chat</button>
     <button role="tab" id="tab-btn-scale" aria-controls="tab-scale" data-tab="scale">Scale</button>
   </nav>
+  <div class="head-actions">
+    <button class="ghost" type="button" id="reset" hidden title="Undo every approval and restore the demo data">Reset demo</button>
+    <button class="ghost" type="button" id="theme" aria-pressed="false">Dark theme</button>
+  </div>
   <div class="status">
     <span id="llm-status" class="llm-status">AI status loading</span>
     <span id="agent-spend" class="llm-status" hidden></span>
-    <button class="ghost" type="button" id="reset" hidden title="Undo every approval and restore the demo data">Reset demo</button>
-    <button class="ghost" type="button" id="theme" aria-pressed="false">Dark theme</button>
   </div>
 </header>
 
@@ -43,6 +45,7 @@
 <main id="main" tabindex="-1">
   <!-- Overview (SITE_SPEC 1): static, renders before any API call -->
   <section id="tab-overview" role="tabpanel" aria-labelledby="tab-btn-overview" class="screen overview">
+    <div class="hero-wrap">
     <div class="hero">
       <h1>Your <button type="button" class="term" data-term="cmdb">CMDB</button> says this patch is safe. Your hospital network disagrees.</h1>
       <p class="lede">An AI agent that checks every change against what systems actually do, finds what the CMDB is
@@ -53,50 +56,8 @@
       </div>
       <p class="label-muted">All data is fictional: Northwind Health is an invented health system sized like a large US one.</p>
     </div>
-
-    <section class="ov" aria-labelledby="ov-problem">
-      <h2 id="ov-problem">The problem</h2>
-      <p>Hospitals keep a <button type="button" class="term" data-term="cmdb">CMDB</button>, a database of every system and what depends on what. Change approvers
-        trust it to answer “what breaks if we patch this?”. But it <button type="button" class="term" data-term="drift">drifts</button>: new connections get added
-        and never recorded. When the record is wrong, a “low-risk” change can take down systems nobody warned.</p>
-    </section>
-
-    <section class="ov" aria-labelledby="ov-how">
-      <h2 id="ov-how">How it works</h2>
-      <ol class="flow4">
-        <li><h3>The record</h3><p>The CMDB lists systems and the dependencies people <button type="button" class="term" data-term="declared-observed">declared</button>.</p></li>
-        <li><h3>The evidence</h3><p>Eleven <button type="button" class="term" data-term="discovery-source">discovery sources</button> (scanners, traffic metrics, the
-          interface engine, backup and access logs) show what actually happens.</p></li>
-        <li><h3>The gap</h3><p>Both go into one FalkorDB graph on the same components. Wherever the evidence and the
-          record disagree, that is drift.</p></li>
-        <li><h3>The agent</h3><p>The Change Guardian investigates, decides and acts: it picks graph tools over MCP,
-          shows every step and why, warns owners and flags risky changes, proposes fixes a person approves, and
-          remembers what people confirmed in its own memory graph.</p></li>
-      </ol>
-    </section>
-
-    <section class="ov" aria-labelledby="ov-agent">
-      <h2 id="ov-agent">The agent investigates, decides and acts</h2>
-      <p>Ask the Change Guardian (<button type="button" class="term" data-term="agent">agent</button>) to review a change or chase a symptom. It chooses graph tools one
-        at a time through <button type="button" class="term" data-term="mcp">MCP</button> (the same read-only tools any MCP client can use at <span class="id">/mcp</span>), says why at each step,
-        then gives a checked verdict and acts: a work note on the change, a CAB review, alerts to the right owners, a
-        proposed CMDB fix that waits for a person. It remembers what people approved or rejected in its own FalkorDB
-        <button type="button" class="term" data-term="memory-graph">memory graph</button> and recalls it next time.</p>
-      <ul class="proof">
-        <li>Tested on 9 scenarios (change reviews and incidents), 4 of them held out during development: 7 of 9
-          correct, about $0.002 per investigation.
-          <a href="https://github.com/sudarshan032/northwind-drift-agent/blob/master/docs/records/AGENT_EVAL.md">Evaluation</a></li>
-        <li>Connect your own MCP client: <span class="id">https://northwind-drift-agent.vercel.app/mcp</span>
-          (<a href="https://github.com/sudarshan032/northwind-drift-agent#connect-an-mcp-client">how</a>)</li>
-      </ul>
-      <figure class="trace-fig">
-        <img src="/static/img/trace.png" alt="Recorded agent run for CHG-HEADLINE: get_change, declared and real radius (4 versus 107 components), 51 hidden links seen by the interface engine, who to page, recall, changes on the host, then two actions: a work note and a CAB review request." loading="lazy">
-        <figcaption class="label-muted">A recorded run of the agent on CHG-HEADLINE: nine steps, two actions, $0.0032.</figcaption>
-      </figure>
-    </section>
-
-    <section class="ov headline" aria-labelledby="ov-example">
-      <h2 id="ov-example">The headline example</h2>
+    <section class="hero-example" aria-labelledby="ov-example">
+      <h2 id="ov-example" class="label-muted">The headline example</h2>
       <figure class="chain-fig">
         <svg class="chain" viewBox="0 0 480 428" role="img" aria-labelledby="chain-title chain-desc">
           <title id="chain-title">How patching dc1-host-07 reaches Emergency care</title>
@@ -124,6 +85,48 @@
           <a class="ghost button" href="#change=CHG-HEADLINE">See it in change review</a></figcaption>
       </figure>
     </section>
+    </div>
+
+    <section class="ov" aria-labelledby="ov-problem">
+      <h2 id="ov-problem">The problem</h2>
+      <p>Hospitals keep a <button type="button" class="term" data-term="cmdb">CMDB</button>, a database of every system and what depends on what. Change approvers
+        trust it to answer “what breaks if we patch this?”. But it <button type="button" class="term" data-term="drift">drifts</button>: new connections get added
+        and never recorded. When the record is wrong, a “low-risk” change can take down systems nobody warned.</p>
+    </section>
+
+    <section class="ov" aria-labelledby="ov-how">
+      <h2 id="ov-how">How it works</h2>
+      <ol class="flow4">
+        <li><h3>The record</h3><p>The CMDB lists systems and the dependencies people <button type="button" class="term" data-term="declared-observed">declared</button>.</p></li>
+        <li><h3>The evidence</h3><p>Eleven <button type="button" class="term" data-term="discovery-source">discovery sources</button> (scanners, traffic metrics, the
+          interface engine, backup and access logs) show what actually happens.</p></li>
+        <li><h3>The gap</h3><p>Both go into one FalkorDB graph on the same components. Wherever the evidence and the
+          record disagree, that is drift.</p></li>
+        <li><h3>The agent</h3><p>The Change Guardian investigates with graph tools over MCP, acts, and remembers what
+          people confirm.</p></li>
+      </ol>
+    </section>
+
+    <section class="ov" aria-labelledby="ov-agent">
+      <h2 id="ov-agent">The agent investigates, decides and acts</h2>
+      <p>Ask the Change Guardian (<button type="button" class="term" data-term="agent">agent</button>) to review a change or chase a symptom. It chooses graph tools one
+        at a time through <button type="button" class="term" data-term="mcp">MCP</button> (the same read-only tools any MCP client can use at <span class="id">/mcp</span>), says why at each step,
+        then gives a checked verdict and acts: a work note on the change, a CAB review, alerts to the right owners, a
+        proposed CMDB fix that waits for a person. It remembers what people approved or rejected in its own FalkorDB
+        <button type="button" class="term" data-term="memory-graph">memory graph</button> and recalls it next time.</p>
+      <ul class="proof">
+        <li>Tested on 9 scenarios (change reviews and incidents), 4 of them held out during development: 7 of 9
+          correct, about $0.002 per investigation.
+          <a href="https://github.com/sudarshan032/northwind-drift-agent/blob/master/docs/records/AGENT_EVAL.md">Evaluation</a></li>
+        <li>Connect your own MCP client: <span class="id">https://northwind-drift-agent.vercel.app/mcp</span>
+          (<a href="https://github.com/sudarshan032/northwind-drift-agent#connect-an-mcp-client">how</a>)</li>
+      </ul>
+      <figure class="trace-fig">
+        <img src="/static/img/trace.png" alt="Recorded agent run for CHG-HEADLINE, each step in plain words with its tool: read the change, CMDB and real impact (4 versus 107 components), 51 hidden links seen by the interface engine, owners, memory, changes on the host, then two actions: a work note and a CAB review request." loading="lazy">
+        <figcaption class="label-muted">A recorded run of the agent on CHG-HEADLINE: nine steps, two actions, $0.0032.</figcaption>
+      </figure>
+    </section>
+
 
     <section class="ov" aria-labelledby="ov-why">
       <h2 id="ov-why">Why a graph</h2>
@@ -206,7 +209,7 @@
           decides, acts and remembers. Notes, CAB flags and alerts are recorded at once; CMDB fixes still wait for a
           person.</p>
         <div id="agent-out" class="agent-out" aria-live="polite"></div>
-        <div class="remembers" id="agent-memory" aria-labelledby="mem-head">
+        <div class="remembers" id="agent-memory" aria-labelledby="mem-head" hidden>
           <h3 id="mem-head">What the agent remembers</h3>
           <div id="mem-facts"></div>
           <h4>Earlier investigations</h4>

@@ -60,3 +60,4 @@ Re-read this file, RUN_PROMPT.md and DATA_SPEC.md after any context compaction.
 - 2026-10-17 Explanations and chat on OpenAI gpt-6-luna; prewarm $0.0063, all grounded.
 - 2026-10-17 Site polish: hero, 7-step tour with the agent, visible memory, plain trace steps, accuracy wording, numbers footnote, proof lines, glossary, footer.
 - 2026-10-17 Tour always replays the recorded run; heartbeat events every 5 s while the agent waits.
+- 2026-10-17 UI polish (header buttons right, hero with chain, memory only in its block, verdict labels and action list, tour card placement); plain D9/D11 explanations, triage re-prewarmed ($0.0008).
