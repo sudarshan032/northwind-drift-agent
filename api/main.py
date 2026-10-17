@@ -99,8 +99,8 @@ class TimedDB:
 
 
 # Edge caching (SITE_SPEC 5.3). "versioned": the URL carries the current data version (?v=), so the response
-# can be kept until the version changes; "static": data that only changes with a deployment.
-CACHE = {"versioned": "public, max-age=0, s-maxage=86400, stale-while-revalidate=604800",
+# can be kept until the version changes (the browser keeps it too, so revisiting a page needs no request); "static": data that only changes with a deployment.
+CACHE = {"versioned": "public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800",
          "static": "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400"}
 
 

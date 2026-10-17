@@ -1165,7 +1165,7 @@ function miniMap(x, real) {
   let out = "";
   names.forEach((n, i) => {
     const y = 8 + i * 62;
-    out += `<rect class="box" x="${x}" y="${y}" width="220" height="36" rx="3"/><text class="t" x="${x + 12}" y="${y + 23}">${esc(n)}</text>`;
+    out += `<rect class="box" x="${x}" y="${y}" width="220" height="36" rx="3"/><text class="t" x="${x + 110}" y="${y + 23}" text-anchor="middle">${esc(n)}</text>`;
     if (i < 4) {
       const y1 = y + 36, y2 = y + 62;
       if (i === 2) out += real ? `<path class="ln e-observed_only" d="M${x + 110},${y1} V${y2}" marker-end="url(#mm-signal)"/><text class="gap-mark found-t" x="${x + 122}" y="${y1 + 17}">the link exists</text>`
@@ -1526,7 +1526,11 @@ async function route() {
     showTab("how");
     drawLanding();
     if (!heroPlayed) { heroPlayed = true; heroPlay(); }
-    (window.requestIdleCallback || setTimeout)(() => ensureChanges().catch(() => {}));  // warm the change list
+    (window.requestIdleCallback || setTimeout)(() => {  // warm the other pages while the visitor reads this one
+      ensureChanges().catch(() => {});
+      api(vq("/changes/CHG-HEADLINE/review")).catch(() => {});
+      loadFindings(); loadSources(); loadScale(); loadMcpTools();
+    });
     return;
   }
   if (tab !== "change") { showTab(tab); return; }
