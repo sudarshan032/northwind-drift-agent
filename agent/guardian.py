@@ -199,6 +199,25 @@ async def beat(make, every=None):
         yield "heartbeat", None
 
 
+_POOL = None
+
+
+async def beat_thread(fn, every=None):
+    """Run a blocking call (the model) in a plain worker thread, polling it: no extra asyncio task, which stalled
+    the stream on Vercel's runtime; yields heartbeats like beat()."""
+    global _POOL
+    import concurrent.futures
+    if _POOL is None:
+        _POOL = concurrent.futures.ThreadPoolExecutor(max_workers=4, thread_name_prefix="guardian-model")
+    fut, last = _POOL.submit(fn), time.monotonic()
+    while not fut.done():
+        await asyncio.sleep(0.1)
+        if time.monotonic() - last >= (every or HEARTBEAT_S):
+            last = time.monotonic()
+            yield "heartbeat", None
+    yield "result", fut.result()
+
+
 async def investigate(g, memory, kind, trigger, llm, mcp_server, *, max_steps=MAX_STEPS, charge=None, user=None,
                       deadline_s=45, heartbeat_s=None):
     """Run one investigation; yields events. `charge(usd) -> bool` books each call's cost (False: cap reached)."""
@@ -225,8 +244,7 @@ async def investigate(g, memory, kind, trigger, llm, mcp_server, *, max_steps=MA
             n += 1
             seen = len(getattr(llm, "events", []))
             try:
-                async for tag, val in beat(lambda: anyio.to_thread.run_sync(lambda: llm.respond(system, messages, specs)),
-                                            heartbeat_s):
+                async for tag, val in beat_thread(lambda: llm.respond(system, messages, specs), heartbeat_s):
                     if tag == "heartbeat":
                         yield {"type": "heartbeat"}
                     else:
@@ -278,8 +296,8 @@ async def investigate(g, memory, kind, trigger, llm, mcp_server, *, max_steps=MA
         prompt = f"{trigger_text(kind, trigger)}\n\nEvidence (tool results):\n{evidence or '(none)'}\n\n{FINAL}"
         try:
             kw = {"schema": VERDICT_SCHEMA} if getattr(llm, "supports_schema", False) else {}
-            async for tag, val in beat(lambda: anyio.to_thread.run_sync(
-                    lambda: llm.respond(system, [{"role": "user", "content": prompt[:60000]}], None, **kw)), heartbeat_s):
+            async for tag, val in beat_thread(
+                    lambda: llm.respond(system, [{"role": "user", "content": prompt[:60000]}], None, **kw), heartbeat_s):
                 if tag == "heartbeat":
                     yield {"type": "heartbeat"}
                 else:
