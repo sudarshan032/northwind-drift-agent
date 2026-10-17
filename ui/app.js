@@ -1282,8 +1282,11 @@ async function tourStep(i) {
   $("#tour-back").disabled = i === 0;
   $("#tour-next").textContent = i === TOUR.length - 1 ? "Finish" : "Next";
   $("#spot").hidden = true;
+  tourTarget = null;  // no spotlight on the previous target while this step loads (the agent run can take a while)
+  card.dataset.ready = "";
   tourTarget = await step.go();
   if (!tourOn || tourAt !== i) return;
+  card.dataset.ready = String(i);
   (tourTarget?.id === "drawer" ? $("#drawer") : document.body).appendChild(card);  // inside the dialog while it is open
   card.hidden = false;
   if (tourTarget && tourTarget.id !== "drawer") {  // tall targets (the trace) from their top
@@ -1304,7 +1307,8 @@ function placeTour() {
   if (!tourOn) return;
   const card = $("#tour"), spot = $("#spot"), gap = px("--s-16"), t = tourTarget;
   card.classList.toggle("at-top", t?.id === "drawer");
-  if (!t || t.id === "drawer" || !t.isConnected) {
+  if (!t || !t.isConnected) { spot.hidden = true; return; }
+  if (t.id === "drawer") {
     spot.hidden = true;
     const d = $("#drawer").getBoundingClientRect();
     card.style.left = `${Math.max(gap, d.left - card.offsetWidth - gap)}px`;
