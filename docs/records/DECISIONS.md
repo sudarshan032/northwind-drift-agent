@@ -466,3 +466,16 @@ Clarified, not changed:
 - Public live chat (the small allowance) now uses OpenAI too, under the same dollar cap.
 - Chip 6 ("Which apps are used but not in the CMDB?"): gpt-6-luna repeated the free model's mistake (D1 undocumented
   dependencies read as unregistered apps), so its saved chain was removed again and the rule answer stays.
+
+## 97. REDESIGN_SPEC choices (18 Oct)
+- Five pages; old routes redirect (#overview -> How it works, #incident/#chat -> Ask the agent in the matching mode,
+  #sources/#scale -> Under the hood sections, #sources=NAME opens that example). The section ids stay, so deep links
+  and the tour keep working.
+- Sources are served from `ui/sources.json`, a copy of `data_demo/normalised/sources.json` committed with the UI (a
+  test keeps them equal); the page no longer calls the API for them.
+- Benchmark and landing bars are SVG drawn from the tokens at the container's real width (text stays at token sizes
+  on a phone); the matplotlib images stay only in bench/charts and RESULTS.md. Bars mix measurement sessions as in
+  RESULTS.md; the FalkorDB values measured without hiredis carry the footnote mark.
+- "Demo hospital: Northwind Health (fictional)" sits under the hero buttons rather than in the header, so the header
+  stays one light row (name, navigation, Reset demo, theme icon).
+- The eval table on Under the hood shows the v2-data run (7/9) in plain words; AGENT_EVAL.md stays the full record.

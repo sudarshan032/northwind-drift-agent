@@ -1058,7 +1058,7 @@ async function classicIncident(symptom, out) {
 
 // ================================================================ chat
 const BY = { graph: "Answered from the graph", cached_ai: "Saved AI answer, checked against the graph",
-  live_ai: "Live AI answer, checked against the graph" };
+  live_ai: "Live AI answer, checked against the graph", welcome: "Reply without AI", limit: "Reply without AI" };
 function renderChips(list) {
   $("#chips").innerHTML = list.map((q) => `<button type="button" class="chip">${esc(q)}</button>`).join("");
   $$("#chips .chip").forEach((b) => { b.onclick = () => { setAskMode("question"); ask(b.textContent); }; });

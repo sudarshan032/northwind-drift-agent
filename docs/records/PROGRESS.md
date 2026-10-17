@@ -61,3 +61,4 @@ Re-read this file, RUN_PROMPT.md and DATA_SPEC.md after any context compaction.
 - 2026-10-17 Site polish: hero, 7-step tour with the agent, visible memory, plain trace steps, accuracy wording, numbers footnote, proof lines, glossary, footer.
 - 2026-10-17 Tour always replays the recorded run; heartbeat events every 5 s while the agent waits.
 - 2026-10-17 UI polish (header buttons right, hero with chain, memory only in its block, verdict labels and action list, tour card placement); plain D9/D11 explanations, triage re-prewarmed ($0.0008).
+- 2026-10-18 REDESIGN_SPEC P0 + P1 done on branch redesign (naming, design system, five pages, landing story, Ask the agent, Under the hood, tour); screenshots in docs/screenshots/redesign.

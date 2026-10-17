@@ -585,6 +585,7 @@ figure.bars { margin: 0; }
 /* review a change */
 .change > .page-head { grid-column: 1 / -1 !important; }
 .past-changes summary { cursor: pointer; }
+.review > h2, .agent-top h2, .view-head h2 { font-size: var(--t-21); }
 .agent-foot { font-size: var(--t-13); }
 details.ai summary { cursor: pointer; color: var(--declared); font-weight: var(--w-strong); }
 details.ai[open] { display: grid; gap: var(--s-12); }
