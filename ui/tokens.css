@@ -18,7 +18,11 @@
   --on-accent: #FFFFFF;         /* text on declared / signal fills */
   --skeleton: #E7EBEE;
   --overlay: rgba(24, 33, 43, 0.32);
-  --shadow-overlay: 0 8px 24px rgba(24, 33, 43, 0.16);
+  --shadow-overlay: 0 6px 20px rgba(24, 33, 43, 0.12);   /* overlays only: drawer, tooltip, tour card, toast */
+  --hero-bg: #EAF0F5;           /* tinted bands: ink 14.2:1, ink-muted 5.6:1, declared 6.0:1, signal 5.2:1 */
+  --grid-line: rgba(47, 93, 138, 0.07);
+  --hover-fill: #F0F4F8;        /* caution text on it 4.5:1, ink-muted 5.8:1 */
+  --active-fill: #D8E3EE;
 
   /* type */
   --font-ui: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -32,6 +36,9 @@
   --t-48: 48px;                 /* landing headline only */
   --w-body: 400;
   --w-strong: 600;
+  --w-bold: 700;
+  --ls-display: -0.02em;
+  --ls-title: -0.01em;
   --lh-body: 1.5;
   --lh-head: 1.2;
   --measure: 75ch;
@@ -49,7 +56,12 @@
 
   /* shape and lines */
   --r-control: 6px;
-  --r-panel: 10px;
+  --r-panel: 12px;
+  --r-button: 8px;
+  --header-h: 64px;
+  --t-22: 22px;
+  --t-32: 32px;
+  --t-56: 56px;
   --r-none: 0;
   --line: 1px;
   --line-graph: 1.5px;
@@ -67,7 +79,7 @@
   --list-w: 300px;
   --drawer-w: 560px;
   --drawer-wide: 960px;
-  --control-h: 36px;
+  --control-h: 44px;
   --tier-gutter: 128px;
   --tier-gap: 104px;
   --node-w: 176px;
@@ -110,7 +122,11 @@
     --on-accent: #1B232B;
     --skeleton: #243039;
     --overlay: rgba(0, 0, 0, 0.5);
-    --shadow-overlay: 0 8px 24px rgba(0, 0, 0, 0.45);
+    --shadow-overlay: 0 6px 20px rgba(0, 0, 0, 0.4);
+    --hero-bg: #1F2A36;
+    --grid-line: rgba(127, 168, 212, 0.07);
+    --hover-fill: #222C38;      /* signal text on it 4.9:1 */
+    --active-fill: #2E3C4B;
   }
 }
 
@@ -131,7 +147,11 @@
   --on-accent: #1B232B;
   --skeleton: #243039;
   --overlay: rgba(0, 0, 0, 0.5);
-  --shadow-overlay: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --shadow-overlay: 0 6px 20px rgba(0, 0, 0, 0.4);
+  --hero-bg: #1F2A36;
+  --grid-line: rgba(127, 168, 212, 0.07);
+  --hover-fill: #222C38;
+  --active-fill: #2E3C4B;
 }
 
 @media (prefers-reduced-motion: reduce) {
