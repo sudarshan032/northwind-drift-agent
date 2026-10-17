@@ -1155,7 +1155,12 @@ async function runAgent(kind, trigger, box) {
   const reader = r.body.getReader(), dec = new TextDecoder(), events = [];
   let buf = "";
   for (;;) {
-    const { value, done } = await reader.read();
+    let value, done;
+    try { ({ value, done } = await reader.read()); }
+    catch (err) {  // the connection dropped mid-run
+      box.insertAdjacentHTML("beforeend", `<p class="notice">The connection dropped before the agent finished. Please ask the agent again.</p>`);
+      break;
+    }
     buf += dec.decode(value || new Uint8Array(), { stream: !done });
     let i;
     while ((i = buf.indexOf("\n")) >= 0) {
@@ -1224,7 +1229,9 @@ const TOUR = [
     go: async () => {
       await openChange("CHG-HEADLINE");
       if (!tourRun) { $("#agent-out").innerHTML = ""; tourRun = runAgent("change", "CHG-HEADLINE", $("#agent-out")); }
-      await new Promise((r) => setTimeout(r, 1200));
+      for (let t = 0; t < 40 && !$("#agent-out .trace li:nth-child(2)") && !$("#agent-out .agent-verdict"); t++) {
+        await new Promise((r) => setTimeout(r, 500));  // show the trace once the first steps have streamed in
+      }
       return $("#agent-out");
     } },
   { title: "It acts and remembers", text: "It wrote a note on the change and asked the change board to review it. Approvals and rejections go into its memory graph for next time.",
