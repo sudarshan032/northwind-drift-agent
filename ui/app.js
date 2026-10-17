@@ -147,7 +147,10 @@ function showTab(tab, focus = false) {
   if (focus) $(`#tab-btn-${tab}`).focus();
   if (tab === "change" && (!current || stale)) { stale = false; current?.kind === "ci" ? selectComponent(current.id) : selectChange(current?.id || "CHG-HEADLINE"); }
   if (tab === "findings") loadFindings();
-  if (tab === "hood") { loadSources(); loadScale(); loadMcpTools(); }
+  if (tab === "hood") {  // re-scroll to a deep-linked section once the content above it has rendered
+    Promise.all([loadSources(), loadScale()]).then(() => { const m = location.hash.match(/^#hood=(\w+)/); if (m) hoodGo(m[1]); });
+    loadMcpTools();
+  }
 }
 $$(".tabs [role=tab]").forEach((b) => {
   b.onclick = () => { showTab(b.dataset.tab); history.replaceState(null, "", `#${b.dataset.tab}`); };
