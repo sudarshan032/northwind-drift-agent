@@ -1,0 +1,603 @@
+[
+ {
+  "name": "cmdb_export",
+  "tool": "ServiceNow CMDB table export",
+  "reveals": "Declared CIs, attributes, relationships, locations, departments, groups, changes",
+  "raw": "CSV list exports; references as sys_ids (cmdb_rel_ci parent/child/type)",
+  "window": "current state",
+  "dir": "cmdb_export",
+  "evidence_rows": 16601,
+  "raw_records": 17346,
+  "sample": {
+   "raw": {
+    "sys_id": "9c617db486704b8851451da810d1e35f",
+    "name": "lrc-db-01",
+    "sys_class_name": "cmdb_ci_db_mssql_instance",
+    "install_status": "1",
+    "operational_status": "1",
+    "used_for": "Production",
+    "location": "f751338b3ecda315ce33eabdc613ab3a",
+    "department": "",
+    "support_group": "35cd75641f6dc71b498d15e8bf9bc5d3",
+    "assignment_group": "35cd75641f6dc71b498d15e8bf9bc5d3",
+    "busines_criticality": "1 - most critical",
+    "serial_number": "",
+    "ip_address": "",
+    "mac_address": "",
+    "os": "",
+    "os_version": "",
+    "model_number": "Microsoft SQL Server 2019",
+    "manufacturer": "",
+    "short_description": "Lab results cache: stages critical lab results for the interface engine",
+    "u_handles_phi": "true",
+    "u_data_residency": "US",
+    "u_rpo_minutes": "15",
+    "u_rto_hours": "4",
+    "u_backup_policy": "bp-tier1-daily-offsite",
+    "u_backup_offsite": "true",
+    "u_patchable": "true",
+    "u_patient_safety_impact": "high",
+    "u_count": "",
+    "u_role": "",
+    "u_message_type": "",
+    "u_protocol": "",
+    "u_source_ci": "",
+    "u_target_ci": "",
+    "u_via_ci": "",
+    "u_room": "",
+    "u_raid_level": "",
+    "u_capacity_tb": "",
+    "u_encrypted": "",
+    "u_immutable": ""
+   },
+   "evidence": {
+    "sys_id": "9c617db486704b8851451da810d1e35f",
+    "name": "lrc-db-01",
+    "class": "cmdb_ci_db_mssql_instance",
+    "status": "operational",
+    "environment": "production",
+    "site": "DC-PRI",
+    "department": "",
+    "support_group": "NW-Lab-Systems",
+    "criticality": "1 - most critical",
+    "serial_number": "",
+    "ip_address": "",
+    "os": "",
+    "os_version": "",
+    "model": "Microsoft SQL Server 2019",
+    "manufacturer": "",
+    "description": "Lab results cache: stages critical lab results for the interface engine",
+    "handles_phi": "true",
+    "data_residency": "US",
+    "rpo_minutes": "15",
+    "rto_hours": "4",
+    "backup_policy": "bp-tier1-daily-offsite",
+    "backup_offsite": "true",
+    "patchable": "true",
+    "patient_safety_impact": "high",
+    "count": "",
+    "role": "",
+    "message_type": "",
+    "protocol": "",
+    "source": "",
+    "target": "",
+    "via": "",
+    "room": "",
+    "raid_level": "",
+    "capacity_tb": "",
+    "encrypted": "",
+    "immutable": ""
+   },
+   "raw_file": "raw/cmdb_export/cmdb_ci.csv"
+  }
+ },
+ {
+  "name": "discovery_scanner",
+  "tool": "ServiceNow Discovery / BMC Helix Discovery",
+  "reveals": "Devices that exist (serial, hostname, IP, OS) and services listening on host ports",
+  "raw": "IRE payload JSON {items[className, values], relations} per scan batch + scan schedule",
+  "window": "last scan per subnet",
+  "dir": "discovery_scanner",
+  "evidence_rows": 4789,
+  "raw_records": 4785,
+  "sample": {
+   "raw": {
+    "className": "cmdb_ci_vmware_instance",
+    "internal_id": "dev-30",
+    "values": {
+     "name": "LIS-PROD-02.nw.local",
+     "serial_number": "VMware-42 aa122r2503u907d0",
+     "ip_address": "10.10.4.30",
+     "os": "Windows Server",
+     "os_version": "2022",
+     "model_number": "VMware Virtual Platform",
+     "manufacturer": "VMware",
+     "last_discovered": "2026-10-13 14:59:59",
+     "u_site": "DC-PRI"
+    },
+    "lookup": [
+     {
+      "className": "cmdb_ci_network_adapter",
+      "values": {
+       "name": "eth0",
+       "ip_address": "10.10.4.30"
+      }
+     }
+    ],
+    "sys_object_source_info": {
+     "source_name": "ServiceNow Discovery",
+     "source_native_key": "10.10.4.30",
+     "source_feed": "IP Scan",
+     "source_recency_timestamp": "2026-10-13 14:59:59"
+    }
+   },
+   "evidence": {
+    "key": "DC-PRI|LIS-PROD-02.nw.local|10.10.4.30",
+    "hostname": "LIS-PROD-02.nw.local",
+    "serial_number": "VMware-42 aa122r2503u907d0",
+    "ip_address": "10.10.4.30",
+    "os": "Windows Server",
+    "os_version": "2022",
+    "model": "VMware Virtual Platform",
+    "manufacturer": "VMware",
+    "site": "DC-PRI",
+    "last_scanned": "2026-10-13T14:59:59Z",
+    "method": "active",
+    "class_name": "cmdb_ci_vmware_instance",
+    "ci": "dc1-vm-lis02",
+    "match_rule": "serial_number",
+    "source": "discovery_scanner",
+    "source_record": "ire_batch_0001.json#items[30]"
+   },
+   "raw_file": "raw/discovery_scanner/ire_batch_0001.json"
+  }
+ },
+ {
+  "name": "apm_otel",
+  "tool": "OpenTelemetry Collector servicegraph connector -> Prometheus",
+  "reveals": "Application-to-application and application-to-database calls, errors, latency",
+  "raw": "Prometheus text exposition scrapes (traces_service_graph_*) + OTLP/JSON span sample",
+  "window": "14 days",
+  "dir": "apm_otel",
+  "evidence_rows": 489,
+  "raw_records": 1598608,
+  "sample": {
+   "raw": [
+    "traces_service_graph_request_total{client=\"emr-app\",connection_type=\"database\",failed=\"false\",server=\"emr-db-01\"} 12709859 1792022400000",
+    "traces_service_graph_request_failed_total{client=\"emr-app\",connection_type=\"database\",failed=\"true\",server=\"emr-db-01\"} 12720 1792022400000",
+    "traces_service_graph_request_server_seconds_bucket{client=\"emr-app\",connection_type=\"database\",failed=\"false\",server=\"emr-db-01\",le=\"0.01\"} 12066370 1792022400000",
+    "traces_service_graph_request_server_seconds_bucket{client=\"emr-app\",connection_type=\"database\",failed=\"false\",server=\"emr-db-01\",le=\"0.05\"} 12709859 1792022400000",
+    "traces_service_graph_request_server_seconds_bucket{client=\"emr-app\",connection_type=\"database\",failed=\"false\",server=\"emr-db-01\",le=\"0.1\"} 12709859 1792022400000",
+    "traces_service_graph_request_server_seconds_bucket{client=\"emr-app\",connection_type=\"database\",failed=\"false\",server=\"emr-db-01\",le=\"0.5\"} 12709859 1792022400000",
+    "traces_service_graph_request_server_seconds_bucket{client=\"emr-app\",connection_type=\"database\",failed=\"false\",server=\"emr-db-01\",le=\"1\"} 12709859 1792022400000",
+    "traces_service_graph_request_server_seconds_bucket{client=\"emr-app\",connection_type=\"database\",failed=\"false\",server=\"emr-db-01\",le=\"5\"} 12709859 1792022400000",
+    "traces_service_graph_request_server_seconds_bucket{client=\"emr-app\",connection_type=\"database\",failed=\"false\",server=\"emr-db-01\",le=\"+Inf\"} 12709859 1792022400000",
+    "traces_service_graph_request_server_seconds_sum{client=\"emr-app\",connection_type=\"database\",failed=\"false\",server=\"emr-db-01\"} 66687.247 1792022400000",
+    "traces_service_graph_request_server_seconds_count{client=\"emr-app\",connection_type=\"database\",failed=\"false\",server=\"emr-db-01\"} 12709859 1792022400000"
+   ],
+   "evidence": {
+    "source": "apm_otel",
+    "source_record": "hourly/2026-10-01T00.prom client=emr-app server=emr-db-01",
+    "client": "emr-app",
+    "client_name": "emr-app",
+    "client_rule": "name",
+    "server": "emr-db-01",
+    "server_name": "emr-db-01",
+    "server_rule": "name",
+    "connection_type": "database",
+    "count": 12709859,
+    "errors": 12720,
+    "p95_ms": 10.5,
+    "days": [
+     "2026-10-01",
+     "2026-10-02",
+     "2026-10-03",
+     "2026-10-04",
+     "2026-10-05",
+     "2026-10-06",
+     "2026-10-07",
+     "2026-10-08",
+     "2026-10-09",
+     "2026-10-10",
+     "2026-10-11",
+     "2026-10-12",
+     "2026-10-13",
+     "2026-10-14"
+    ],
+    "first_seen": "2026-10-01T00:00:00Z",
+    "last_seen": "2026-10-14T23:00:00Z"
+   },
+   "raw_file": "raw/apm_otel/scrapes/hourly/2026-10-14T23.prom"
+  }
+ },
+ {
+  "name": "netflow",
+  "tool": "IPFIX / NetFlow v9 collector (nfdump aggregated CSV)",
+  "reveals": "Network conversations, including un-instrumented devices (modalities, analysers, pumps)",
+  "raw": "nfdump 1.7 -o csv aggregated records (firstSeen, duration, proto, srcAddr, srcPort, dstAddr, dstPort, packets, bytes, flows) + reverse-DNS enrichment",
+  "window": "14 days",
+  "dir": "netflow",
+  "evidence_rows": 1710,
+  "raw_records": 215116,
+  "sample": {
+   "raw": {
+    "firstSeen": "2026-10-01 00:04:05.000",
+    "duration": "3109.000",
+    "proto": "6",
+    "srcAddr": "10.103.8.14",
+    "srcPort": "55797",
+    "dstAddr": "10.103.1.14",
+    "dstPort": "104",
+    "packets": "237753",
+    "bytes": "285303624",
+    "flows": "1",
+    "srcDns": "h03-mri-01",
+    "dstDns": "h03-vm-01",
+    "tag": ""
+   },
+   "evidence": {
+    "source": "netflow",
+    "source_record": "nfdump_hourly.csv#190",
+    "client": "h03-mri-01",
+    "client_name": "h03-mri-01",
+    "client_ip": "10.103.8.14",
+    "client_rule": "name",
+    "server": "h03-pacs-cache",
+    "server_name": "h03-vm-01",
+    "server_ip": "10.103.1.14",
+    "server_rule": "ip_port",
+    "port": 104,
+    "bytes": 79624593862,
+    "packets": 94790937,
+    "days": [
+     "2026-10-01",
+     "2026-10-02",
+     "2026-10-03",
+     "2026-10-04",
+     "2026-10-05",
+     "2026-10-06",
+     "2026-10-07",
+     "2026-10-08",
+     "2026-10-09",
+     "2026-10-10",
+     "2026-10-11",
+     "2026-10-12",
+     "2026-10-13",
+     "2026-10-14"
+    ],
+    "first_seen": "2026-10-01T00:04:05Z",
+    "last_seen": "2026-10-14T23:59:27Z"
+   },
+   "raw_file": "raw/netflow/nfdump_hourly.csv"
+  }
+ },
+ {
+  "name": "interface_engine",
+  "tool": "HL7 interface engine (Mirth Connect / NextGen Connect)",
+  "reveals": "Each HL7/DICOM route's real destinations, including database writers, and message volumes",
+  "raw": "Mirth channel export XML (TCP Listener / TCP Sender / Database Writer / DICOM connectors) + daily ChannelStatistics per connector",
+  "window": "14 days",
+  "dir": "interface_engine",
+  "evidence_rows": 504,
+  "raw_records": 8022,
+  "sample": {
+   "raw": "<connector version=\"4.5.0\">\n        <metaDataId>2</metaDataId>\n        <name>Stage in lrc-db-01</name>\n        <properties class=\"com.mirth.connect.connectors.jdbc.DatabaseDispatcherProperties\" version=\"4.5.0\">\n          <driver>com.microsoft.sqlserver.jdbc.SQLServerDriver</driver>\n          <url>jdbc:sqlserver://dc1-vm-lrc01:1433;databaseName=lrc</url>\n          <query>INSERT INTO critical_result_stage (msg_id, mrn_hash, obx) VALUES (?, ?, ?)</query>\n        </properties>\n        <transportName>Database Writer</transportName>\n        <mode>DESTINATION</mode>\n        <enabled>true</enabled>\n      </connector>",
+   "evidence": {
+    "source": "interface_engine",
+    "source_record": "channels.xml ORU-CRIT-H03/Stage in lrc-db-01",
+    "client": "ORU-CRIT-H03",
+    "client_name": "ORU-CRIT-H03",
+    "client_rule": "name",
+    "server": "lrc-db-01",
+    "server_name": "jdbc:sqlserver://dc1-vm-lrc01:1433;databaseName=lrc",
+    "server_rule": "jdbc_url+ip_port",
+    "direction": "outbound",
+    "connector_type": "Database Writer",
+    "endpoint": "jdbc:sqlserver://dc1-vm-lrc01:1433;databaseName=lrc",
+    "count": 3798,
+    "errors": 12,
+    "days": [
+     "2026-10-01",
+     "2026-10-02",
+     "2026-10-03",
+     "2026-10-04",
+     "2026-10-05",
+     "2026-10-06",
+     "2026-10-07",
+     "2026-10-08",
+     "2026-10-09",
+     "2026-10-10",
+     "2026-10-11",
+     "2026-10-12",
+     "2026-10-13",
+     "2026-10-14"
+    ],
+    "first_seen": "2026-10-01T00:00:00Z",
+    "last_seen": "2026-10-14T23:59:59Z"
+   },
+   "raw_file": "raw/interface_engine/channels.xml"
+  }
+ },
+ {
+  "name": "backup_software",
+  "tool": "Backup & recovery software (Veeam Backup & Replication REST API)",
+  "reveals": "Which objects are really backed up, copied off-site or to the immutable vault, and results",
+  "raw": "REST /api/v1/sessions JSON (sessionType, result, creationTime, endTime, objectName, repositoryName)",
+  "window": "14 days",
+  "dir": "backup_software",
+  "evidence_rows": 402,
+  "raw_records": 5452,
+  "sample": {
+   "raw": {
+    "id": "9eb5d203-7ede-9e75-cb3a-ef7ffecc515b",
+    "name": "BKP bp-tier0-daily-offsite emr-db-01",
+    "jobId": "42c1e2e1-55c2-a22c-382e-487bade77ac1",
+    "sessionType": "BackupJob",
+    "creationTime": "2026-10-01T11:39:00Z",
+    "endTime": "2026-10-01T14:46:00Z",
+    "state": "Stopped",
+    "progressPercent": 100,
+    "result": {
+     "result": "Success",
+     "message": "",
+     "isCanceled": false
+    },
+    "progress": {
+     "duration": "00:05:00",
+     "processedSize": 749260200574,
+     "readSize": 749260200574,
+     "transferredSize": 749260200574
+    },
+    "objectName": "emr-db-01",
+    "repositoryName": "bkp-appl-pri-01",
+    "sourceRepositoryName": ""
+   },
+   "evidence": {
+    "source": "backup_software",
+    "source_record": "sessions.json data[329] id=9eb5d203-7ede-9e75-cb3a-ef7ffecc515b",
+    "object": "emr-db-01",
+    "target": "bkp-appl-pri-01",
+    "job_type": "backup",
+    "jobs": 14,
+    "failures": 0,
+    "last_run": "2026-10-14T11:05:00Z",
+    "last_status": "Success",
+    "last_success": "2026-10-14T16:01:00Z",
+    "object_rule": "name",
+    "target_rule": "name"
+   },
+   "raw_file": "raw/backup_software/sessions.json"
+  }
+ },
+ {
+  "name": "storage_telemetry",
+  "tool": "Array management REST API (Pure Storage FlashArray)",
+  "reveals": "Array replication pairs: mode, lag, last transfer, state",
+  "raw": "REST 2.x pod-replica-links (async) and pods (sync) JSON, sampled hourly",
+  "window": "14 days",
+  "dir": "storage_telemetry",
+  "evidence_rows": 10,
+  "raw_records": 7800,
+  "sample": {
+   "raw": {
+    "_sampled_at": "2026-10-01T00:00:00Z",
+    "_polled_array": "arr-pri-a-01",
+    "endpoint": "pod-replica-links",
+    "id": "vol-emr-db-01:arr-dr-01",
+    "direction": "outbound",
+    "local_pod": {
+     "id": "vol-emr-db-01",
+     "name": "pod-vol-emr-db-01"
+    },
+    "remote_pod": {
+     "id": "vol-emr-db-01-dr",
+     "name": "pod-vol-emr-db-01"
+    },
+    "remotes": [
+     {
+      "id": "arr-dr-01",
+      "name": "arr-dr-01",
+      "resource_type": "arrays"
+     }
+    ],
+    "paused": false,
+    "status": "replicating",
+    "lag": 232000,
+    "recovery_point": 1790812568000
+   },
+   "evidence": {
+    "source": "storage_telemetry",
+    "source_record": "replication_samples.jsonl#337",
+    "source_array": "arr-pri-a-01",
+    "target_array": "arr-dr-01",
+    "mode": "async",
+    "max_lag_s": 1123,
+    "last_transfer": "2026-10-14T23:00:00Z",
+    "state": "replicating",
+    "volumes": [
+     "pod-vol-emr-db-01"
+    ],
+    "rpo_breaches": []
+   },
+   "raw_file": "raw/storage_telemetry/replication_samples.jsonl"
+  }
+ },
+ {
+  "name": "identity_sso",
+  "tool": "Microsoft Entra ID sign-in logs",
+  "reveals": "Which users sign in to which applications, from which workstation",
+  "raw": "Graph signIn resource JSON lines (userPrincipalName = pseudonymous ID)",
+  "window": "14 days",
+  "dir": "identity_sso",
+  "evidence_rows": 9128,
+  "raw_records": 93949,
+  "sample": {
+   "raw": {
+    "id": "175dc334-6326-fff1-9454-32533f32be7d",
+    "createdDateTime": "2026-10-01T04:01:00Z",
+    "userPrincipalName": "u-hyd-00063",
+    "userId": "043a7163-1596-0700-15a5-47b61af4ccab",
+    "appDisplayName": "emr-app",
+    "appId": "1b3b2d4d-0c10-bc89-68d8-66dc121a23a8",
+    "ipAddress": "10.50.16.96",
+    "clientAppUsed": "Browser",
+    "deviceDetail": {
+     "deviceId": "d31f897c-e3bb-a83a-e4a0-3111571dd554",
+     "displayName": "hyd-lt-0087",
+     "operatingSystem": "Windows 11",
+     "browser": "Edge 129.0"
+    },
+    "status": {
+     "errorCode": 0,
+     "failureReason": null,
+     "additionalDetails": null
+    },
+    "conditionalAccessStatus": "success",
+    "isInteractive": true,
+    "resourceDisplayName": "emr-app",
+    "location": {
+     "city": "Hyderabad",
+     "state": "Telangana",
+     "countryOrRegion": "IN"
+    }
+   },
+   "evidence": {
+    "source": "identity_sso",
+    "source_record": "signins.jsonl#4 id=175dc334-6326-fff1-9454-32533f32be7d",
+    "user": "u-hyd-00063",
+    "target": "emr-app",
+    "action": "login",
+    "registered": true,
+    "target_rule": "name",
+    "count": 19,
+    "failures": 0,
+    "first_seen": "2026-10-01T04:01:00Z",
+    "last_seen": "2026-10-14T09:04:00Z",
+    "workstations": [
+     "hyd-lt-0087"
+    ],
+    "times": []
+   },
+   "raw_file": "raw/identity_sso/signins.jsonl"
+  }
+ },
+ {
+  "name": "db_audit",
+  "tool": "SQL Server Audit (sys.fn_get_audit_file)",
+  "reveals": "Who reads, writes and administers production databases",
+  "raw": "fn_get_audit_file columns as CSV (event_time, action_id, server_principal_name, database_name, ...)",
+  "window": "14 days, demo sites and GCC-HYD",
+  "dir": "db_audit",
+  "evidence_rows": 652,
+  "raw_records": 2226,
+  "sample": {
+   "raw": {
+    "event_time": "2026-10-02 09:45:00.0000000",
+    "sequence_number": "1",
+    "action_id": "AL",
+    "succeeded": "1",
+    "session_id": "53",
+    "database_principal_name": "dbo",
+    "session_server_principal_name": "u-hyd-00215",
+    "server_principal_name": "u-hyd-00215",
+    "server_instance_name": "emr-db-01",
+    "database_name": "emr",
+    "schema_name": "dbo",
+    "object_name": "result",
+    "statement": "ALTER INDEX ALL ON dbo.result REBUILD",
+    "class_type": "U",
+    "client_ip": "10.50.16.237",
+    "application_name": "Microsoft SQL Server Management Studio@hyd-lt-0228"
+   },
+   "evidence": {
+    "source": "db_audit",
+    "source_record": "audit_records.csv#356",
+    "user": "u-hyd-00215",
+    "target": "emr-db-01",
+    "action": "admin",
+    "registered": true,
+    "target_rule": "name",
+    "count": 2,
+    "failures": 0,
+    "first_seen": "2026-10-02T09:45:00Z",
+    "last_seen": "2026-10-02T10:15:00Z",
+    "workstations": [
+     "hyd-lt-0228"
+    ],
+    "times": [
+     "2026-10-02T09:45:00Z",
+     "2026-10-02T10:15:00Z"
+    ]
+   },
+   "raw_file": "raw/db_audit/audit_records.csv"
+  }
+ },
+ {
+  "name": "hr_feed",
+  "tool": "HR worker export (Workday-style)",
+  "reveals": "Employment status behind each account",
+  "raw": "RaaS worker CSV (Employee_ID, Worker_Status, Active / Terminated / On_Leave flags, dates)",
+  "window": "current state",
+  "dir": "hr_feed",
+  "evidence_rows": 4261,
+  "raw_records": 4261,
+  "sample": {
+   "raw": {
+    "Employee_ID": "u-h03-00043",
+    "Worker_Type": "Employee",
+    "Worker_Status": "Terminated",
+    "Active": "0",
+    "Terminated": "1",
+    "On_Leave": "0",
+    "Hire_Date": "2022-01-11",
+    "Termination_Date": "2026-05-26",
+    "Effective_Date": "2026-05-26",
+    "Supervisory_Organization": "H03-ED"
+   },
+   "evidence": {
+    "source": "hr_feed",
+    "source_record": "workers.csv#44",
+    "id": "u-h03-00043",
+    "status": "terminated",
+    "effective_date": "2026-05-26"
+   },
+   "raw_file": "raw/hr_feed/workers.csv"
+  }
+ },
+ {
+  "name": "itsm_history",
+  "tool": "ServiceNow incident and change_request history",
+  "reveals": "Which team really resolves incidents and implements changes per CI",
+  "raw": "incident / change_request CSV exports (sys_id references, raw state codes)",
+  "window": "90 days",
+  "dir": "itsm_history",
+  "evidence_rows": 4528,
+  "raw_records": 25378,
+  "sample": {
+   "raw": {
+    "sys_id": "d59046e56267ab9cfec8c6a822cb2f5b",
+    "number": "INC1028218",
+    "short_description": "Issue on lrc-db-01",
+    "cmdb_ci": "9c617db486704b8851451da810d1e35f",
+    "assignment_group": "eaa6f6cffdf48626a35c6c07c2320ac7",
+    "priority": "3",
+    "state": "7",
+    "opened_at": "2026-08-30 02:59:59",
+    "resolved_at": "2026-08-31 13:59:59",
+    "closed_at": "2026-09-03 13:59:59",
+    "close_code": "Solved (Permanently)"
+   },
+   "evidence": {
+    "source": "itsm_history",
+    "source_record": "incident.csv#18220 INC1028218",
+    "ci": "lrc-db-01",
+    "team": "HYD-Integration-Support",
+    "incidents_resolved": 5,
+    "changes_implemented": 1,
+    "last_activity": "2026-09-20T23:59:59Z",
+    "period_days": 90
+   },
+   "raw_file": "raw/itsm_history/incident.csv"
+  }
+ }
+]

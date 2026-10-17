@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Northwind drift agent</title>
+<title>Change Guardian</title>
+<meta name="description" content="Change Guardian: an AI agent that checks IT changes against what systems actually do.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Mono:wght@400;600&family=Atkinson+Hyperlegible+Next:wght@400;600&display=swap">
@@ -14,181 +15,169 @@
 <body>
 <a class="skip" href="#main">Skip to content</a>
 <header class="top">
-  <div class="brand">
-    <span class="product">Northwind drift agent</span>
-    <button class="badge" type="button" id="fictional" aria-describedby="fictional-tip">Fictional data</button>
-    <span role="tooltip" class="tip-static" id="fictional-tip">Northwind Health is a fictional hospital system:
-      51 hospitals, 1,000 clinics and two data centres in seven western states. Every system, change, incident and
-      user here is synthetic.</span>
-  </div>
-  <nav class="tabs" role="tablist" aria-label="Screens">
-    <button role="tab" id="tab-btn-overview" aria-controls="tab-overview" data-tab="overview">Overview</button>
-    <button role="tab" id="tab-btn-change" aria-controls="tab-change" data-tab="change">Change review</button>
-    <button role="tab" id="tab-btn-findings" aria-controls="tab-findings" data-tab="findings">Findings</button>
-    <button role="tab" id="tab-btn-incident" aria-controls="tab-incident" data-tab="incident">Incident</button>
-    <button role="tab" id="tab-btn-sources" aria-controls="tab-sources" data-tab="sources">Sources</button>
-    <button role="tab" id="tab-btn-chat" aria-controls="tab-chat" data-tab="chat">Chat</button>
-    <button role="tab" id="tab-btn-scale" aria-controls="tab-scale" data-tab="scale">Scale</button>
-  </nav>
-  <div class="head-actions">
-    <button class="ghost" type="button" id="reset" hidden title="Undo every approval and restore the demo data">Reset demo</button>
-    <button class="ghost" type="button" id="theme" aria-pressed="false">Dark theme</button>
-  </div>
-  <div class="status">
-    <span id="llm-status" class="llm-status">AI status loading</span>
-    <span id="agent-spend" class="llm-status" hidden></span>
+  <div class="top-in">
+    <a class="brand" href="#how" aria-label="Change Guardian, home"><svg class="logo" viewBox="0 0 28 28" aria-hidden="true"><line class="logo-l" x1="7" y1="8" x2="21" y2="8"/><line class="logo-l" x1="7" y1="8" x2="14" y2="21"/><line class="logo-x" x1="21" y1="8" x2="14" y2="21"/><circle class="logo-a" cx="7" cy="8" r="4"/><circle class="logo-a" cx="21" cy="8" r="4"/><circle class="logo-b" cx="14" cy="21" r="4"/></svg><span class="brand-text"><span class="product">Change Guardian</span>
+      <span class="tagline">An AI agent that checks IT changes against what systems actually do.</span></span></a>
+    <nav class="tabs" role="tablist" aria-label="Pages">
+      <button role="tab" id="tab-btn-how" aria-controls="tab-how" data-tab="how">How it works</button>
+      <button role="tab" id="tab-btn-change" aria-controls="tab-change" data-tab="change">Review a change</button>
+      <button role="tab" id="tab-btn-findings" aria-controls="tab-findings" data-tab="findings">Findings</button>
+      <button role="tab" id="tab-btn-ask" aria-controls="tab-ask" data-tab="ask">Ask the agent</button>
+      <button role="tab" id="tab-btn-hood" aria-controls="tab-hood" data-tab="hood">Under the hood</button>
+    </nav>
+    <div class="head-actions">
+      <button class="text-btn" type="button" id="reset" hidden title="Undo every approval and restore the demo data">Reset demo</button>
+      <button class="icon-btn" type="button" id="theme" aria-pressed="false" aria-label="Switch to dark theme"><svg class="ico-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg><svg class="ico-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.5"/><path d="M12 1.5v3M12 19.5v3M1.5 12h3M19.5 12h3M4.6 4.6l2.1 2.1M17.3 17.3l2.1 2.1M4.6 19.4l2.1-2.1M17.3 6.7l2.1-2.1"/></svg></button>
+    </div>
   </div>
 </header>
 
 <div id="banner" class="banner" role="alert" hidden></div>
 
 <main id="main" tabindex="-1">
-  <!-- Overview (SITE_SPEC 1): static, renders before any API call -->
-  <section id="tab-overview" role="tabpanel" aria-labelledby="tab-btn-overview" class="screen overview">
-    <div class="hero-wrap">
-    <div class="hero">
-      <h1>Your <button type="button" class="term" data-term="cmdb">CMDB</button> says this patch is safe. Your hospital network disagrees.</h1>
-      <p class="lede">An AI agent that checks every change against what systems actually do, finds what the CMDB is
-        missing, and acts before anything breaks.</p>
-      <div class="actions">
-        <button type="button" class="primary" id="tour-start">Watch the agent review a change</button>
-        <a class="ghost button" href="#change=CHG-HEADLINE">Go to change review</a>
+  <!-- How it works (landing, REDESIGN_SPEC 4) -->
+  <section id="tab-how" role="tabpanel" aria-labelledby="tab-btn-how" class="landing">
+    <section class="l-sec hero" aria-labelledby="hero-title">
+      <div class="l-text">
+        <h1 id="hero-title" class="display">Before you patch a hospital server, see what it really breaks.</h1>
+        <p class="l-body">Change Guardian is an AI agent. It compares what the hospital's IT records say with what its
+          systems actually do, and warns you when a “safe” change isn't.</p>
+        <div class="actions">
+          <button type="button" class="primary" id="tour-start">Watch it review a change</button>
+          <a class="ghost button" href="#change=CHG-HEADLINE">Try it yourself</a>
+        </div>
+        <p class="demo-line"><button class="text-btn demo-hosp" type="button" id="fictional" aria-describedby="fictional-tip">Demo hospital: Northwind Health (fictional)</button>
+          <span role="tooltip" class="tip-static" id="fictional-tip">Northwind Health is a fictional hospital system:
+            51 hospitals, 1,000 clinics and two data centres in seven western states. Every system, change, incident and
+            user here is synthetic.</span></p>
       </div>
-      <p class="label-muted">All data is fictional: Northwind Health is an invented health system sized like a large US one.</p>
-    </div>
-    <section class="hero-example" aria-labelledby="ov-example">
-      <h2 id="ov-example" class="label-muted">The headline example</h2>
-      <figure class="chain-fig">
-        <svg class="chain" viewBox="0 0 480 428" role="img" aria-labelledby="chain-title chain-desc">
-          <title id="chain-title">How patching dc1-host-07 reaches Emergency care</title>
-          <desc id="chain-desc">Emergency care depends on H03 ED critical results, which depends on the interface
-            ORU-CRIT-H03. The interface uses database lrc-db-01, a link that is not in the CMDB and was found in the
-            interface engine configuration. lrc-db-01 runs on server dc1-host-07, the server being patched.</desc>
+      <figure class="l-visual hero-fig" id="hero-fig">
+        <svg class="chain-hero" id="chain-hero" viewBox="0 0 520 560" role="img" aria-labelledby="ch-title ch-desc">
+          <title id="ch-title">What patching dc1-host-07 breaks</title>
+          <desc id="ch-desc">Emergency care contains H03 ED critical results, which uses the interface ORU-CRIT-H03. The
+            records show no link from ORU-CRIT-H03 to the database lrc-db-01, so only lab reporting looks affected. The
+            agent found the link in the interface engine configuration: lrc-db-01 runs on dc1-host-07, so patching it
+            cuts off critical lab results to Emergency departments.</desc>
           <defs>
-            <marker id="ov-mk-default" class="mk-default" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z"/></marker>
-            <marker id="ov-mk-signal" class="mk-signal" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z"/></marker>
+            <marker id="hm-default" class="mk-default" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z"/></marker>
+            <marker id="hm-signal" class="mk-signal" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z"/></marker>
+            <mask id="hm-draw" maskUnits="userSpaceOnUse"><path class="draw" d="M170,300 V362" pathLength="1"/></mask>
           </defs>
-          <g class="edge"><path class="ln e-confirmed" d="M112,60 V90" marker-end="url(#ov-mk-default)"/></g>
-          <g class="edge"><path class="ln e-confirmed" d="M112,144 V174" marker-end="url(#ov-mk-default)"/></g>
-          <g class="edge"><path class="ln e-observed_only" d="M112,228 V282" marker-end="url(#ov-mk-signal)"/></g>
-          <g class="edge"><path class="ln e-confirmed" d="M112,336 V366" marker-end="url(#ov-mk-default)"/></g>
-          <text class="edge-label" x="124" y="252">uses lrc-db-01, not in CMDB,</text>
-          <text class="edge-label" x="124" y="268">found in interface engine config</text>
-          <g class="node hit"><rect class="box" x="8" y="8" width="248" height="52"/><text class="cls" x="20" y="28">Business service</text><text class="lbl" x="20" y="48">Emergency care</text></g>
-          <g class="node hit"><rect class="box" x="8" y="92" width="248" height="52"/><text class="cls" x="20" y="112">Service offering</text><text class="lbl" x="20" y="132">H03 ED critical results</text></g>
-          <g class="node hit"><rect class="box" x="8" y="176" width="248" height="52"/><text class="cls" x="20" y="196">Interface (HL7)</text><text class="lbl" x="20" y="216">ORU-CRIT-H03</text></g>
-          <g class="node hit"><rect class="box" x="8" y="284" width="248" height="52"/><text class="cls" x="20" y="304">Database</text><text class="lbl" x="20" y="324">lrc-db-01</text></g>
-          <g class="node changed"><rect class="box" x="8" y="368" width="248" height="52"/><text class="cls" x="20" y="388">Server, being patched</text><text class="lbl" x="20" y="408">dc1-host-07</text></g>
+          <g class="edge"><path class="ln e-confirmed" d="M170,84 V126" marker-end="url(#hm-default)"/></g>
+          <g class="edge"><path class="ln e-confirmed" d="M170,192 V234" marker-end="url(#hm-default)"/></g>
+          <g class="edge found"><path class="ln e-observed_only" d="M170,300 V362" mask="url(#hm-draw)" marker-end="url(#hm-signal)"/></g>
+          <text class="edge-label found" x="186" y="328">found by the agent</text>
+          <text class="edge-label found sub-label" x="186" y="346">(interface engine config)</text>
+          <g class="edge"><path class="ln e-confirmed" d="M170,428 V470" marker-end="url(#hm-default)"/></g>
+          <g class="edge"><path class="ln e-confirmed" d="M352,396 H322" marker-end="url(#hm-default)"/></g>
+          <g class="node up"><rect class="box" x="20" y="20" width="300" height="64" rx="4"/><text class="cls" x="36" y="44">Business service</text><text class="nm" x="36" y="68">Emergency care</text></g>
+          <g class="node up"><rect class="box" x="20" y="128" width="300" height="64" rx="4"/><text class="cls" x="36" y="152">Service offering</text><text class="nm" x="36" y="176">H03 ED critical results</text></g>
+          <g class="node up"><rect class="box" x="20" y="236" width="300" height="64" rx="4"/><text class="cls" x="36" y="260">Interface (HL7)</text><text class="nm id-t" x="36" y="284">ORU-CRIT-H03</text></g>
+          <g class="node hit"><rect class="box" x="20" y="364" width="300" height="64" rx="4"/><text class="cls" x="36" y="388">Database</text><text class="nm id-t" x="36" y="412">lrc-db-01</text></g>
+          <g class="node hit"><rect class="box" x="354" y="364" width="156" height="64" rx="4"/><text class="cls" x="368" y="388">Application</text><text class="nm" x="368" y="412">Lab reporting</text></g>
+          <g class="node changed"><rect class="box" x="20" y="472" width="300" height="64" rx="4"/><text class="cls" x="36" y="496">Server, being patched</text><text class="nm id-t" x="36" y="520">dc1-host-07</text></g>
         </svg>
-        <figcaption><p><strong>One missing link.</strong> The CMDB thinks patching dc1-host-07 affects lab reporting
-          only. In reality it cuts off critical lab results to the Emergency departments of all 51 hospitals.</p>
-          <a class="ghost button" href="#change=CHG-HEADLINE">See it in change review</a></figcaption>
+        <figcaption><p id="hero-caption" aria-live="polite">What the records say: only lab reporting is affected.</p>
+          <button type="button" class="link" id="hero-replay">Replay</button></figcaption>
       </figure>
     </section>
-    </div>
 
-    <section class="ov" aria-labelledby="ov-problem">
-      <h2 id="ov-problem">The problem</h2>
-      <p>Hospitals keep a <button type="button" class="term" data-term="cmdb">CMDB</button>, a database of every system and what depends on what. Change approvers
-        trust it to answer “what breaks if we patch this?”. But it <button type="button" class="term" data-term="drift">drifts</button>: new connections get added
-        and never recorded. When the record is wrong, a “low-risk” change can take down systems nobody warned.</p>
+    <section class="l-sec" aria-labelledby="l-problem">
+      <div class="l-text">
+        <h2 id="l-problem" class="l-title">Hospital IT keeps a map. The map goes out of date.</h2>
+        <p class="l-body">Every hospital keeps a record of its systems and what depends on what, called a
+          <button type="button" class="term" data-term="cmdb">CMDB</button>. People approving changes trust it. But systems change every week, and nobody updates the
+          record. A patch that looks harmless on the map can break something nobody knew was connected.</p>
+      </div>
+      <div class="l-visual mini-pair">
+        <figure><svg class="mini-maps" id="mm-map" viewBox="0 0 250 320" role="img" aria-label="On the map: the same five systems, with no link recorded between ORU-CRIT-H03 and lrc-db-01"></svg>
+          <figcaption>On the map</figcaption></figure>
+        <figure><svg class="mini-maps" id="mm-real" viewBox="0 0 250 320" role="img" aria-label="In reality: the link from ORU-CRIT-H03 to lrc-db-01 exists"></svg>
+          <figcaption>In reality</figcaption></figure>
+      </div>
     </section>
 
-    <section class="ov" aria-labelledby="ov-how">
-      <h2 id="ov-how">How it works</h2>
-      <ol class="flow4">
-        <li><h3>The record</h3><p>The CMDB lists systems and the dependencies people <button type="button" class="term" data-term="declared-observed">declared</button>.</p></li>
-        <li><h3>The evidence</h3><p>Eleven <button type="button" class="term" data-term="discovery-source">discovery sources</button> (scanners, traffic metrics, the
-          interface engine, backup and access logs) show what actually happens.</p></li>
-        <li><h3>The gap</h3><p>Both go into one FalkorDB graph on the same components. Wherever the evidence and the
-          record disagree, that is drift.</p></li>
-        <li><h3>The agent</h3><p>The Change Guardian investigates with graph tools over MCP, acts, and remembers what
-          people confirm.</p></li>
+    <section class="l-sec l-full" aria-labelledby="l-agent">
+      <h2 id="l-agent" class="l-title">What the agent does</h2>
+      <ol class="seq">
+        <li><svg class="seq-ico" viewBox="0 0 32 32" aria-hidden="true"><rect x="7" y="4" width="18" height="24" rx="2"/><path d="M11 11h10M11 16h10M11 21h6"/></svg>
+          <h3>Reads the records</h3><p>The <button type="button" class="term" data-term="cmdb">CMDB</button>: every system and the dependencies people wrote down.</p></li>
+        <li><svg class="seq-ico" viewBox="0 0 32 32" aria-hidden="true"><circle cx="14" cy="14" r="8"/><path d="M20 20l7 7"/></svg>
+          <h3>Checks the evidence</h3><p>11 monitoring and discovery tools show what systems actually do.</p></li>
+        <li><svg class="seq-ico" viewBox="0 0 32 32" aria-hidden="true"><circle cx="7" cy="8" r="3.5"/><circle cx="25" cy="8" r="3.5"/><circle cx="16" cy="25" r="3.5"/><path d="M10 8h12M9 11l5 11M23 11l-5 11"/></svg>
+          <h3>Walks the graph</h3><p>Follows every dependency, many steps deep, in FalkorDB.</p></li>
+        <li><svg class="seq-ico" viewBox="0 0 32 32" aria-hidden="true"><path d="M6 17l6 6 14-14"/></svg>
+          <h3>Decides and acts</h3><p>Risk, who to warn, a note on the change, and a fix for a person to approve.</p></li>
       </ol>
+      <p class="l-body seq-after">And it remembers what people approved or rejected, in its own <button type="button" class="term" data-term="memory-graph">memory graph</button>.</p>
     </section>
 
-    <section class="ov" aria-labelledby="ov-agent">
-      <h2 id="ov-agent">The agent investigates, decides and acts</h2>
-      <p>Ask the Change Guardian (<button type="button" class="term" data-term="agent">agent</button>) to review a change or chase a symptom. It chooses graph tools one
-        at a time through <button type="button" class="term" data-term="mcp">MCP</button> (the same read-only tools any MCP client can use at <span class="id">/mcp</span>), says why at each step,
-        then gives a checked verdict and acts: a work note on the change, a CAB review, alerts to the right owners, a
-        proposed CMDB fix that waits for a person. It remembers what people approved or rejected in its own FalkorDB
-        <button type="button" class="term" data-term="memory-graph">memory graph</button> and recalls it next time.</p>
-      <ul class="proof">
-        <li>Tested on 9 scenarios (change reviews and incidents), 4 of them held out during development: 7 of 9
-          correct, about $0.002 per investigation.
-          <a href="https://github.com/sudarshan032/northwind-drift-agent/blob/master/docs/records/AGENT_EVAL.md">Evaluation</a></li>
-        <li>Connect your own MCP client: <span class="id">https://northwind-drift-agent.vercel.app/mcp</span>
-          (<a href="https://github.com/sudarshan032/northwind-drift-agent#connect-an-mcp-client">how</a>)</li>
-      </ul>
-      <figure class="trace-fig">
-        <img src="/static/img/trace.png" alt="Recorded agent run for CHG-HEADLINE, each step in plain words with its tool: read the change, CMDB and real impact (4 versus 107 components), 51 hidden links seen by the interface engine, owners, memory, changes on the host, then two actions: a work note and a CAB review request." loading="lazy">
-        <figcaption class="label-muted">A recorded run of the agent on CHG-HEADLINE: nine steps, two actions, $0.0032.</figcaption>
-      </figure>
+    <section class="l-sec watch" aria-labelledby="l-watch">
+      <div class="l-visual watch-trace">
+        <ol class="trace mini" aria-label="Excerpt of a recorded investigation of CHG-HEADLINE">
+          <li><span class="n">1</span><div><p class="tool">Read change request CHG-HEADLINE and what it targets <span class="id tool-id">get_change</span></p><p class="res">Apply ESXi security patch and reboot dc1-host-07</p></div></li>
+          <li><span class="n">3</span><div><p class="tool">Computed what breaks if dc1-host-07 fails (reality) <span class="id tool-id">radius</span></p><p class="res">107 components, 51 hospitals, 51 Emergency departments</p></div></li>
+          <li><span class="n">4</span><div><p class="tool">Looked for dependencies the evidence shows but the records lack <span class="id tool-id">hidden_links</span></p><p class="res">51 hidden links, seen by the interface engine</p></div></li>
+          <li class="act-step"><span class="n">9</span><div><p class="tool">Asked the change board to review CHG-HEADLINE <span class="id tool-id">request_cab_review</span></p><p class="res">Change board review requested</p></div></li>
+        </ol>
+        <p class="watch-verdict"><span class="risk high">High risk</span> 51 hospitals affected, 51 hidden links</p>
+      </div>
+      <div class="l-text">
+        <h2 id="l-watch" class="l-title">Watch it work</h2>
+        <p class="l-body">It chooses its own steps, one tool at a time, and says why. Every number in its answer is
+          checked against the graph.</p>
+        <a class="ghost button" href="#change=CHG-HEADLINE" id="see-full">See the full investigation</a>
+      </div>
     </section>
 
-
-    <section class="ov" aria-labelledby="ov-why">
-      <h2 id="ov-why">Why a graph</h2>
-      <ul class="points">
-        <li><h3>Walking dependencies</h3><p>At 3.47 million nodes, finding the 105,713 components that depend on the
-          busiest storage array takes 38 ms inside FalkorDB against 357 ms for a tuned PostgreSQL recursive query,
-          about 9 times faster. End to end from Python, with compiled clients on both sides, it is 56 against 375
-          ms.</p></li>
-        <li><h3>Steady under load</h3><p>With 100 clients asking at once, FalkorDB's slowest answers stay lower:
-          p95 1,725 ms and p99 1,944 ms against 4,401 and 7,895 ms.* PostgreSQL keeps the higher throughput (142
-          against 87 queries a second*) and the lower median.</p></li>
-        <li><h3>Each tool for its job</h3><p>The graph walks, SQL describes. For the biggest radius, FalkorDB finding
-          the components and PostgreSQL adding their details took 714 ms, against 944 ms for PostgreSQL alone.* For
-          the full question on its own, PostgreSQL (908 ms) is faster than FalkorDB (1,324 ms).</p></li>
-      </ul>
-      <p class="label-muted">Measured on one laptop with identical answers from both systems. * FalkorDB measured with
-        the Python client's slower pure-Python reply parser (without hiredis). Method and every table:
-        <a href="https://github.com/sudarshan032/northwind-drift-agent/blob/master/bench/RESULTS.md">bench/RESULTS.md</a>.</p>
+    <section class="l-sec why" aria-labelledby="l-why">
+      <div class="l-text narrow5">
+        <h2 id="l-why" class="l-title">Following dependencies is what graphs are built for.</h2>
+        <p class="l-body">At 3.5 million components, finding everything that depends on one storage array takes 38 ms in
+          FalkorDB and 357 ms in a tuned PostgreSQL. PostgreSQL is better at the final reporting step, so the fastest
+          design uses both.</p>
+        <a class="link-a" href="#hood=benchmark">All measurements</a>
+      </div>
+      <figure class="l-visual wide7"><div class="bars" id="bars-landing"></div></figure>
     </section>
 
-    <section class="ov" aria-labelledby="ov-do">
-      <h2 id="ov-do">What you can do here</h2>
-      <ul class="todo">
-        <li><a href="#change=CHG-HEADLINE">Change review</a>: see what a <button type="button" class="term" data-term="change-request">change request</button> really affects, next to what the CMDB says.</li>
-        <li><a href="#findings">Findings</a>: every gap the graph checks found, explained by the agent, with a proposed fix you can approve or reject.</li>
-        <li><a href="#incident">Incident</a>: describe a symptom and watch the agent trace it to the likely cause.</li>
-        <li><a href="#sources">Sources</a>: the eleven discovery tools behind the evidence, with a raw record from each.</li>
-        <li><a href="#chat">Chat</a>: ask questions in plain words; answers come from graph queries.</li>
-        <li><a href="#scale">Scale</a>: how FalkorDB and PostgreSQL compare as the hospital system grows.</li>
-      </ul>
+    <section class="l-sec l-full proof" aria-labelledby="l-proof">
+      <h2 id="l-proof" class="sr">Proof and try it</h2>
+      <div class="facts">
+        <p>Tested on 9 scenarios, 4 never seen during development: 7 correct.</p>
+        <p>About $0.002 per investigation.</p>
+        <p>All data is fictional; the code is open source.</p>
+      </div>
+      <div class="actions">
+        <a class="primary button" href="#change=CHG-HEADLINE">Review a change</a>
+        <a class="ghost button" href="#ask">Ask the agent</a>
+        <a class="ghost button" href="#hood">Look under the hood</a>
+      </div>
     </section>
 
-    <section class="ov" aria-labelledby="ov-glossary">
-      <h2 id="ov-glossary">Glossary</h2>
-      <dl class="glossary" id="glossary"></dl>
-    </section>
-
-    <footer class="ov about" aria-labelledby="ov-about">
-      <h2 id="ov-about">About this demo</h2>
-      <p>All systems, people, changes and incidents are fictional. AI explanations come from OpenAI gpt-6-luna and are
-        saved in advance on the public site, with a small daily allowance of live answers in Chat. Approvals are real
-        and change the graph, but the demo resets every day and whenever someone presses “Reset demo”. Open source:
-        <a href="https://github.com/sudarshan032/northwind-drift-agent">GitHub</a>,
-        <a href="https://github.com/sudarshan032/northwind-drift-agent/blob/master/README.md">README</a> and
-        <a href="https://github.com/sudarshan032/northwind-drift-agent/blob/master/bench/RESULTS.md">benchmark results</a>.</p>
-      <p>Built for Graph Hacks 2026 (WeMakeDevs × FalkorDB).</p>
+    <footer class="l-foot">
+      <p><a href="https://github.com/sudarshan032/northwind-drift-agent">GitHub</a>
+        <a href="https://github.com/sudarshan032/northwind-drift-agent/blob/master/README.md">README</a>
+        <a href="https://github.com/sudarshan032/northwind-drift-agent/blob/master/bench/RESULTS.md">Benchmark results</a></p>
+      <p>Built for Graph Hacks 2026 (WeMakeDevs × FalkorDB)</p>
     </footer>
   </section>
 
   <!-- Change review -->
   <section id="tab-change" role="tabpanel" aria-labelledby="tab-btn-change" class="screen change" hidden>
-    <div class="intro">
-      <h2>What you're looking at</h2>
-      <p>Each <button type="button" class="term" data-term="change-request">change request</button> on the left is planned work. The big sentence compares what the
-        <button type="button" class="term" data-term="cmdb">CMDB</button> says it will affect with what the evidence shows; below are the counts, the dependency map,
-        the hidden links and who to warn. <button type="button" class="link" data-tour="0">Show me</button></p>
+    <div class="page-head">
+      <h1 class="page-title">Review a change</h1>
+      <p class="page-lede">Pick a planned <button type="button" class="term" data-term="change-request">change</button>. You'll see what the records say it affects, and what it really affects.</p>
+      <p class="try"><strong>Try this:</strong> open CHG-HEADLINE, then ask the agent to review it.
+        <button type="button" class="link" data-tour="1">Show me</button></p>
     </div>
     <aside class="change-list" aria-label="Changes">
       <h2 class="list-head">Upcoming changes</h2>
       <ul id="upcoming" class="changes"></ul>
-      <h2 class="list-head">Past changes</h2>
-      <ul id="past" class="changes"></ul>
+      <details class="past-changes">
+        <summary class="list-head">Past changes</summary>
+        <ul id="past" class="changes"></ul>
+      </details>
     </aside>
     <article class="review panel" id="review" aria-live="polite">
       <div class="review-head">
@@ -205,9 +194,8 @@
           <h2 id="agent-head">Agent investigation</h2>
           <button type="button" class="primary" id="agent-run">Ask the agent to review</button>
         </div>
-        <p class="sub">The Change Guardian picks its own graph tools (served over MCP), says why at each step, then
-          decides, acts and remembers. Notes, CAB flags and alerts are recorded at once; CMDB fixes still wait for a
-          person.</p>
+        <p class="sub">The agent picks its own graph tools, one step at a time, and says why. Then it decides, writes a
+          note on the change and warns the right people. Fixes to the records still wait for a person.</p>
         <div id="agent-out" class="agent-out" aria-live="polite"></div>
         <div class="remembers" id="agent-memory" aria-labelledby="mem-head" hidden>
           <h3 id="mem-head">What the agent remembers</h3>
@@ -219,6 +207,7 @@
             <button type="button" class="ghost" id="reset-memory">Reset memory</button>
           </div>
         </div>
+        <p class="agent-foot label-muted"><span id="agent-spend"></span> <span id="llm-status"></span></p>
       </section>
 
       <h2>Impact</h2>
@@ -267,25 +256,23 @@
       <h2>Who to warn</h2>
       <div id="warn"></div>
 
-      <section class="ai" aria-labelledby="ai-head">
-        <h2 id="ai-head">AI explanation</h2>
+      <details class="ai">
+        <summary>Read the agent's written explanation</summary>
+        <h2 id="ai-head" class="sr">AI explanation</h2>
         <p class="notice" id="ai-notice" hidden></p>
         <div class="prose" id="ai-text"></div>
-      </section>
+      </details>
     </article>
   </section>
 
   <!-- Findings -->
   <section id="tab-findings" role="tabpanel" aria-labelledby="tab-btn-findings" class="screen" hidden>
-    <div class="screen-head">
-      <h1>Findings</h1>
-      <p class="intro-text">Every row is one <button type="button" class="term" data-term="drift">drift</button> the graph checks found: a gap between the <button type="button" class="term" data-term="cmdb">CMDB</button> and the
-        evidence, explained by the agent, with a proposed fix. Open a row to see the evidence, then approve or reject
-        the fix; nothing changes without a person. <button type="button" class="link" data-tour="6">Show me</button></p>
-      <p class="sub label-muted">A CMDB update changes only a <button type="button" class="term" data-term="ci">CI</button>'s
-        existence, its <span class="id">os_version</span>, <span class="id">serial_number</span>,
-        <span class="id">ip_address</span>, <span class="id">support_group</span> or
-        <span class="id">status</span>, or a relationship. Everything else becomes a ticket.</p>
+    <div class="page-head">
+      <h1 class="page-title">Findings</h1>
+      <p class="page-lede">Every row is a gap between the hospital's IT records and what its systems really do, found by
+        the graph checks and explained by the agent, with a fix for a person to approve.</p>
+      <p class="try"><strong>Try this:</strong> open the first finding and approve it, then review CHG-HEADLINE again.
+        <button type="button" class="link" data-tour="5">Show me</button></p>
     </div>
     <div class="filters" role="group" aria-label="Filter findings">
       <label>Severity <select id="f-sev"></select></label>
@@ -293,84 +280,112 @@
       <label>Source <select id="f-src"></select></label>
       <label>Action <select id="f-act"></select></label>
       <label>Status <select id="f-status"></select></label>
-      <button type="button" class="ghost" id="scan">Run drift scan</button>
+      <button type="button" class="ghost" id="scan">Run the checks again</button>
       <p class="count" id="f-count" aria-live="polite"></p>
     </div>
     <table class="data findings">
       <caption class="sr">Findings sorted by severity</caption>
       <thead><tr><th scope="col">Severity</th><th scope="col">Finding</th><th scope="col">Affected CI</th>
-        <th scope="col">Sources</th><th scope="col">Proposed action</th><th scope="col">Status</th>
+        <th scope="col">Sources</th><th scope="col"><button type="button" class="term" data-term="proposed-action">Proposed action</button></th><th scope="col">Status</th>
         <th scope="col">Type</th></tr></thead>
       <tbody id="findings"></tbody>
     </table>
   </section>
 
-  <!-- Incident -->
-  <section id="tab-incident" role="tabpanel" aria-labelledby="tab-btn-incident" class="screen narrow" hidden>
-    <div class="screen-head">
-      <h1>Incident</h1>
-      <p class="intro-text">Describe what staff are seeing. The agent searches the graph for what the affected
-        <button type="button" class="term" data-term="interface">interfaces</button> have in common, what changed on it recently, and the path from the cause to the
-        symptom.</p>
-      <p class="sub label-muted" id="incident-note">The example symptom below has a saved AI investigation.</p>
+  <!-- Ask the agent (Incident and Chat merged, REDESIGN_SPEC 6) -->
+  <section id="tab-ask" role="tabpanel" aria-labelledby="tab-btn-ask" class="screen ask-page" hidden>
+    <div class="page-head">
+      <h1 class="page-title">Ask the agent</h1>
+      <p class="page-lede">Describe a problem and the agent investigates it in the graph, or ask a question about the
+        hospital's systems. Every answer says where it came from.</p>
+      <p class="try"><strong>Try this:</strong> pick “ED critical results delayed at H03, H17 and H22”.</p>
     </div>
-    <form class="ask" id="incident-form">
-      <label for="symptom" class="sr">Symptom</label>
-      <input id="symptom" type="text" autocomplete="off" placeholder="ED critical results delayed at H03, H17 and H22">
-      <button type="submit" class="primary">Ask the agent</button>
-    </form>
-    <div id="incident-out" class="agent-out" aria-live="polite"></div>
-  </section>
-
-  <!-- Sources -->
-  <section id="tab-sources" role="tabpanel" aria-labelledby="tab-btn-sources" class="screen" hidden>
-    <div class="screen-head">
-      <h1>Sources</h1>
-      <p class="intro-text">These are the eleven <button type="button" class="term" data-term="discovery-source">discovery sources</button> behind the evidence. Each
-        stands in for a real tool and uses that tool's own export format; the line under each name says what it would
-        be in a real hospital. Open a sample to see one raw record and the evidence row made from it.</p>
-    </div>
-    <table class="data sources">
-      <caption class="sr">Discovery sources</caption>
-      <thead><tr><th scope="col">Source</th><th scope="col">What it reveals</th><th scope="col">Stands in for</th>
-        <th scope="col">Raw format</th><th scope="col" class="num">Records</th><th scope="col">Time window</th>
-        <th scope="col"><span class="sr">Sample</span></th></tr></thead>
-      <tbody id="sources"></tbody>
-    </table>
-  </section>
-
-  <!-- Chat -->
-  <section id="tab-chat" role="tabpanel" aria-labelledby="tab-btn-chat" class="screen narrow" hidden>
-    <div class="screen-head">
-      <h1>Chat</h1>
-      <p class="intro-text">Ask about the hospital's systems in plain words, or pick a suggested question. Answers
-        come from graph queries and link to the components they used; each says whether it came from the graph or
-        from the AI.</p>
-    </div>
-    <ol class="conversation" id="conversation" aria-live="polite"></ol>
-    <form class="ask" id="chat-form">
-      <label for="question" class="sr">Question</label>
-      <input id="question" type="text" autocomplete="off" maxlength="500" placeholder="What breaks if lrc-db-01 fails, and who should I call?">
+    <form class="ask-box" id="ask-form">
+      <label for="ask-input" class="sr">Describe a problem or ask a question</label>
+      <input id="ask-input" type="text" autocomplete="off" maxlength="500" placeholder="Describe a problem or ask a question">
+      <div class="segmented" role="group" aria-label="What should the agent do?">
+        <button type="button" data-mode="incident" aria-pressed="false">Investigate a problem</button>
+        <button type="button" data-mode="question" aria-pressed="true">Ask a question</button>
+      </div>
       <button type="submit" class="primary">Ask</button>
     </form>
-    <div class="suggest" role="group" aria-labelledby="chips-head">
-      <h2 id="chips-head" class="label-muted">Suggested questions</h2>
-      <div class="chips" id="chips"></div>
+    <div class="chip-groups">
+      <div role="group" aria-labelledby="chips-problem-h"><h2 id="chips-problem-h" class="chip-h">Something's wrong</h2>
+        <div class="chips" id="chips-problem"></div></div>
+      <div role="group" aria-labelledby="chips-head"><h2 id="chips-head" class="chip-h">Questions</h2>
+        <div class="chips" id="chips"></div></div>
     </div>
+    <ol class="conversation" id="conversation" aria-live="polite"></ol>
   </section>
-  <!-- Scale (static: results of bench/, no live computation) -->
-  <section id="tab-scale" role="tabpanel" aria-labelledby="tab-btn-scale" class="screen" hidden>
-    <div class="screen-head">
-      <h1>Scale</h1>
-      <p class="intro-text">What was measured: the same blast-radius questions on FalkorDB and a tuned PostgreSQL, on
-        the same data from 49 thousand to 3.47 million nodes, on one laptop. Main conclusion: walking dependencies is
-        much faster in the graph, the full question with every detail is faster in PostgreSQL, and using both is
-        fastest for the biggest cases.</p>
-      <p class="sub label-muted">Both systems returned identical answers in every case. These are recorded results,
-        not computed live.</p>
+
+  <!-- Under the hood (REDESIGN_SPEC 7) -->
+  <section id="tab-hood" role="tabpanel" aria-labelledby="tab-btn-hood" class="screen hood" hidden>
+    <div class="page-head">
+      <h1 class="page-title">Under the hood</h1>
+      <p class="page-lede">Where the evidence comes from, how fast the graph is, how the agent was tested, and how to
+        use its tools yourself.</p>
     </div>
-    <div id="scale-out"><span class="skel"></span><span class="skel"></span><span class="skel wide"></span></div>
+    <nav class="subnav" aria-label="Under the hood">
+      <a href="#hood=sources">Evidence sources</a><a href="#hood=benchmark">Benchmark</a>
+      <a href="#hood=tested">How the agent was tested</a><a href="#hood=mcp">Connect an MCP client</a>
+      <a href="#hood=glossary">Glossary</a>
+    </nav>
+
+    <section class="h-sec" id="hood-sources" aria-labelledby="hs-h">
+      <h2 id="hs-h" class="sec-title">Evidence sources</h2>
+      <p class="sec-lede">Eleven tools a real hospital already runs export what systems actually do. A connector per tool
+        turns its records into evidence, and everything lands in one graph next to the records.</p>
+      <div class="pipeline" aria-hidden="true"><span>11 tools</span><span class="arrow-l"></span><span>connectors</span><span class="arrow-l"></span><span>one graph</span></div>
+      <ul class="source-list" id="sources"></ul>
+    </section>
+
+    <section class="h-sec" id="hood-benchmark" aria-labelledby="hb-h">
+      <h2 id="hb-h" class="sec-title">Benchmark</h2>
+      <div id="scale-out"><span class="skel"></span><span class="skel"></span></div>
+    </section>
+
+    <section class="h-sec" id="hood-tested" aria-labelledby="ht-h">
+      <h2 id="ht-h" class="sec-title">How the agent was tested</h2>
+      <p class="sec-lede">Nine scenarios with known answers: five used while building the agent, four held out and run
+        once at the end. An answer counts as correct only with the right cause, an accepted risk level, the right team
+        warned and every number and name found in the graph.</p>
+      <table class="data plain eval">
+        <caption class="sr">Agent evaluation on the current data (gpt-6-luna, one run each)</caption>
+        <thead><tr><th scope="col">Scenario</th><th scope="col">Set</th><th scope="col">Cause</th><th scope="col">Risk</th>
+          <th scope="col">Warned the right team</th><th scope="col">Checked against the graph</th><th scope="col" class="num">Cost</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Patch on dc1-host-07 (headline)</th><td>Development</td><td>Right</td><td>Right</td><td>Yes</td><td>Yes</td><td class="num">$0.0032</td></tr>
+          <tr><th scope="row">Failing backup at H02</th><td>Development</td><td>Right</td><td>Right</td><td>Yes</td><td>Yes</td><td class="num">$0.0010</td></tr>
+          <tr><th scope="row">Wrong owner of the RIS database</th><td>Development</td><td>Right</td><td>Right</td><td>Yes</td><td>Yes</td><td class="num">$0.0021</td></tr>
+          <tr><th scope="row">Unregistered app reading patient records</th><td>Development</td><td>Right</td><td>Right</td><td>Yes</td><td>Yes</td><td class="num">$0.0008</td></tr>
+          <tr><th scope="row">Stale dependency in a change review</th><td>Development</td><td>Wrong</td><td>Right</td><td>No</td><td>Yes</td><td class="num">$0.0023</td></tr>
+          <tr><th scope="row">No off-site copy of patient data</th><td>Held out</td><td>Right</td><td>Right</td><td>Yes</td><td>Yes</td><td class="num">$0.0014</td></tr>
+          <tr><th scope="row">Patient data copied abroad</th><td>Held out</td><td>Right</td><td>Right</td><td>Yes</td><td>Yes</td><td class="num">$0.0006</td></tr>
+          <tr><th scope="row">Admin queries outside a change window</th><td>Held out</td><td>Right</td><td>Right</td><td>Yes</td><td>Yes</td><td class="num">$0.0009</td></tr>
+          <tr><th scope="row">Unknown gateway on the network</th><td>Held out</td><td>Right</td><td>Right</td><td>No</td><td>Yes</td><td class="num">$0.0012</td></tr>
+        </tbody>
+      </table>
+      <p class="sec-note">7 of 9 correct, $0.0135 in total. The five development scenarios shaped the agent's tools
+        (the first run scored 2 of 5); the four held-out ones were added later and run once, untouched. Full results:
+        <a href="https://github.com/sudarshan032/northwind-drift-agent/blob/master/docs/records/AGENT_EVAL.md">AGENT_EVAL.md</a>.</p>
+      <p class="sec-note" id="hood-status"></p>
+    </section>
+
+    <section class="h-sec" id="hood-mcp" aria-labelledby="hm-h">
+      <h2 id="hm-h" class="sec-title">Connect an MCP client</h2>
+      <p class="sec-lede">The agent's read-only graph tools are an <button type="button" class="term" data-term="mcp">MCP</button> server. Any MCP client can use them.</p>
+      <p class="mcp-url"><span class="id">https://northwind-drift-agent.vercel.app/mcp</span></p>
+      <div class="snippet"><pre id="mcp-snippet" tabindex="0">{"mcpServers": {"change-guardian": {"url": "https://northwind-drift-agent.vercel.app/mcp"}}}</pre>
+        <button type="button" class="ghost" id="copy-snippet">Copy</button></div>
+      <ul class="tool-list" id="mcp-tools"><li class="empty">Loading the tool list from the server…</li></ul>
+    </section>
+
+    <section class="h-sec" id="hood-glossary" aria-labelledby="hg-h">
+      <h2 id="hg-h" class="sec-title">Glossary</h2>
+      <dl class="glossary" id="glossary"></dl>
+    </section>
   </section>
+
   <div class="tooltip" id="tooltip" role="tooltip" hidden></div>
   <div hidden id="definitions"></div>
   <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>

@@ -1,4 +1,6 @@
-# Northwind drift agent
+# Change Guardian: an AI agent on FalkorDB that catches what the CMDB misses
+
+An AI agent that checks IT changes against what systems actually do. Demo hospital: Northwind Health (fictional).
 
 **What breaks when this fails, and who do I call?** A CMDB says one thing and production does another.
 This project keeps both in one FalkorDB graph: what the CMDB declares, and what traffic, scans, backups and

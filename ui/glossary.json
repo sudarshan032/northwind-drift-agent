@@ -59,6 +59,10 @@
     "fhir": [
       "FHIR",
       "Fast Healthcare Interoperability Resources: the modern web standard (HL7 FHIR) for reading patient records through an API; SMART on FHIR apps use it."
+    ],
+    "proposed-action": [
+      "Proposed action",
+      "A CMDB update changes only whether a record exists, its os_version, serial_number, ip_address, support_group or status, or a relationship, and only after a person approves it. Everything else becomes a ticket."
     ]
   },
   "drift_types": {

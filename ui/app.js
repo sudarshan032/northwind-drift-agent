@@ -96,7 +96,7 @@ function isDark() {
 }
 function syncThemeButton() {
   const b = $("#theme"), dark = isDark();
-  b.textContent = dark ? "Light theme" : "Dark theme";
+  b.setAttribute("aria-label", dark ? "Switch to light theme" : "Switch to dark theme");
   b.setAttribute("aria-pressed", String(dark));
 }
 try { const t = localStorage.getItem("theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) { /* storage off */ }
@@ -133,7 +133,7 @@ async function llmStatus() {
   } catch (e) { $("#llm-status").textContent = "AI status unknown"; }
 }
 
-const TABS = ["overview", "change", "findings", "incident", "sources", "chat", "scale"];
+const TABS = ["how", "change", "findings", "ask", "hood"];
 function showTab(tab, focus = false) {
   $("#drawer").hidden = true;
   $("#scrim").hidden = true;
@@ -147,8 +147,7 @@ function showTab(tab, focus = false) {
   if (focus) $(`#tab-btn-${tab}`).focus();
   if (tab === "change" && (!current || stale)) { stale = false; current?.kind === "ci" ? selectComponent(current.id) : selectChange(current?.id || "CHG-HEADLINE"); }
   if (tab === "findings") loadFindings();
-  if (tab === "sources") loadSources();
-  if (tab === "scale") loadScale();
+  if (tab === "hood") { loadSources(); loadScale(); loadMcpTools(); }
 }
 $$(".tabs [role=tab]").forEach((b) => {
   b.onclick = () => { showTab(b.dataset.tab); history.replaceState(null, "", `#${b.dataset.tab}`); };
@@ -793,7 +792,9 @@ async function loadFindings() {
   fillSelect($("#f-type"), types.map(([t, k]) => [t, `${t} ${cap(k)}`]), "Drift type");
   fillSelect($("#f-src"), [...new Set(findings.flatMap((f) => f.sources || []))].sort().map((s) => [s, srcName(s)]), "Source");
   fillSelect($("#f-act"), Object.entries(ACTION), "Action");
+  const firstFill = !$("#f-status").options.length;
   fillSelect($("#f-status"), [["open", "Open"], ["approved", "Approved"], ["rejected", "Rejected"]], "Status");
+  if (firstFill) $("#f-status").value = "open";  // default filter: open findings
   renderFindings();
   const open = location.hash.startsWith("#findings=") ? decodeURIComponent(location.hash.slice(10)) : null;
   if (open && $("#drawer").hidden) openFinding(open);
@@ -813,8 +814,8 @@ function renderFindings() {
   const rows = findings.filter((f) => (!v("#f-sev") || f.severity === v("#f-sev")) && (!v("#f-type") || f.type === v("#f-type"))
     && (!v("#f-src") || (f.sources || []).includes(v("#f-src"))) && (!v("#f-act") || f.action === v("#f-act"))
     && (!v("#f-status") || f.status === v("#f-status")));
-  $("#f-count").textContent = rows.length === findings.length ? plural(findings.length, "finding")
-    : `${rows.length} of ${plural(findings.length, "finding")}`;
+  const st = v("#f-status");
+  $("#f-count").textContent = `${rows.length.toLocaleString()} ${st ? `${st} ` : ""}${rows.length === 1 ? "finding" : "findings"}`;
   const PAGE = 20;  // phones: the full list is ~10,000 px tall, so show 20 and a button for the rest
   const cut = matchMedia("(max-width: 960px)").matches && !findingsAll && rows.length > PAGE + 5;
   const shown = cut ? rows.slice(0, PAGE) : rows;
@@ -919,21 +920,32 @@ async function openFinding(id) {
   });
 }
 
-// ================================================================ sources
+// ================================================================ sources (Under the hood; static bundle)
 let sources = [];
+const LEARNED = {  // "What Change Guardian learned from it", one plain sentence per source
+  cmdb_export: (e) => `The records list ${e.name} (${(e.class || "").replace(/^cmdb_ci_/, "").replace(/_/g, " ")}) at ${e.site}, owned by ${e.support_group}.`,
+  discovery_scanner: (e) => `A scan found ${e.hostname} at ${e.ip_address}, running ${e.os} ${e.os_version}.`,
+  apm_otel: (e) => `${e.client} calls ${e.server}${e.count ? `, ${Number(e.count).toLocaleString()} calls` : ""}${e.days_seen ? `, seen on ${e.days_seen} days` : ""}.`,
+  netflow: (e) => `${e.client} talks to ${e.server} on the network${e.days_seen ? `, seen on ${e.days_seen} days` : ""}.`,
+  interface_engine: (e) => `${e.client} writes to ${e.server}${e.days_seen ? `, seen on ${e.days_seen} of 14 days` : ""}.`,
+  backup_software: (e) => `${e.object} is backed up to ${e.target}: ${e.jobs} jobs, ${e.failures} failed, last ${e.last_status || "run"} ${day(e.last_run)}.`,
+  storage_telemetry: (e) => `${e.source_array} replicates to ${e.target_array} (${e.mode}, ${e.state}).`,
+  identity_sso: (e) => `User ${e.user} signed in to ${e.target} ${e.count} times.`,
+  db_audit: (e) => `User ${e.user} ran ${e.action} work on ${e.target} ${e.count} times.`,
+  hr_feed: (e) => `Account ${e.id} belongs to someone whose employment status is ${e.status} (since ${e.effective_date}).`,
+  itsm_history: (e) => `${e.team} resolved ${e.incidents_resolved} incidents and made ${e.changes_implemented} changes on ${e.ci} in ${e.period_days} days.`,
+};
+const lowerFirst = (t) => /^[A-Z](?![A-Z])/.test(t) ? t[0].toLowerCase() + t.slice(1) : t;  // keeps HR, SSO, CMDB
 async function loadSources() {
-  const tb = $("#sources");
-  if (!sources.length) tb.innerHTML = Array.from({ length: 6 }, () => `<tr><td colspan="7"><span class="skel"></span></td></tr>`).join("");
+  const ul = $("#sources");
+  if (sources.length) return;
+  ul.innerHTML = `<li><span class="skel"></span></li>`;
   await glossaryP;
-  try { sources = await api("/sources"); }
-  catch (e) { banner(e.message); tb.innerHTML = ""; return; }
-  tb.innerHTML = sources.map((s, i) => `<tr>
-      <th scope="row" data-label="Source"><span>${esc(srcName(s.name))}<br><span class="id label-muted">${esc(s.name)}</span>
-        ${GLOSS.sources?.[s.name] ? `<span class="line2 plain">In a real hospital: ${esc(GLOSS.sources[s.name][0].toLowerCase() + GLOSS.sources[s.name].slice(1))}</span>` : ""}</span></th>
-      <td data-label="What it reveals">${esc(s.reveals)}</td><td data-label="Stands in for">${esc(s.tool)}</td>
-      <td class="line2" data-label="Raw format">${esc(s.raw)}</td>
-      <td class="num" data-label="Records">${(s.raw_records ?? 0).toLocaleString()}</td><td data-label="Time window">${esc(cap(s.window))}</td>
-      <td data-label="">${s.sample ? `<button type="button" class="ghost" data-i="${i}">View sample</button>` : ""}</td></tr>`).join("");
+  try { sources = await api("/static/sources.json"); }
+  catch (e) { ul.innerHTML = `<li class="empty">The source list is not bundled with this build.</li>`; return; }
+  ul.innerHTML = sources.map((s, i) => `<li><h3>${esc(srcName(s.name))}</h3>
+      <p>In a real hospital this is ${esc(lowerFirst(GLOSS.sources?.[s.name] || s.tool))}</p>
+      ${s.sample ? `<button type="button" class="ghost" data-i="${i}">See an example</button>` : ""}</li>`).join("");
   $$("#sources button[data-i]").forEach((b) => { b.onclick = () => showSample(Number(b.dataset.i)); });
   const want = location.hash.startsWith("#sources=") ? decodeURIComponent(location.hash.slice(9)) : null;
   if (want && $("#drawer").hidden) showSample(sources.findIndex((s) => s.name === want));
@@ -943,12 +955,21 @@ function showSample(i) {
   const s = sources[i];
   if (!s) return;
   history.replaceState(null, "", `#sources=${encodeURIComponent(s.name)}`);
-  openDrawer(`${esc(srcName(s.name))}: one raw record and the evidence it produced`,
-    `<p class="sub">${esc(s.tool)}. Raw file <span class="id">${esc(s.sample.raw_file)}</span>.</p>
-     <div class="pair"><section><h3>Raw record</h3><pre class="raw" tabindex="0">${esc(Array.isArray(s.sample.raw) ? s.sample.raw.join("\n") : pretty(s.sample.raw))}</pre></section>
-     <section><h3>Evidence row</h3><pre class="raw" tabindex="0">${esc(pretty(s.sample.evidence))}</pre></section></div>`, "", true);
+  const raw = Array.isArray(s.sample.raw) ? s.sample.raw.join("\n") : pretty(s.sample.raw);
+  const lines = raw.split("\n"), short = lines.slice(0, 12).join("\n");
+  const e = s.sample.evidence || {};
+  let learned = "";
+  try { learned = (LEARNED[s.name] || (() => ""))(e); } catch (err) { learned = ""; }
+  const fields = Object.entries(e).filter(([k, v]) => !["source", "source_record", "key"].includes(k) && v !== "" && v != null && typeof v !== "object").slice(0, 10);
+  openDrawer(`${esc(srcName(s.name))}: an example`,
+    `<section><h3>What the tool exported</h3><p class="sub">${esc(s.tool)}, file <span class="id">${esc(s.sample.raw_file)}</span></p>
+       <pre class="raw raw-box" tabindex="0" id="raw-rec">${esc(short)}</pre>
+       ${lines.length > 12 ? `<button type="button" class="link" id="raw-more">Show full record</button>` : ""}</section>
+     <section><h3>What Change Guardian learned from it</h3>${learned ? `<p class="learned">${esc(learned)}</p>` : ""}
+       ${dl(fields.map(([k, v]) => [cap(k.replace(/_/g, " ")), esc(String(v))]))}
+       <details><summary>Show raw evidence</summary><pre class="raw" tabindex="0">${esc(pretty(e))}</pre></details></section>`, "", true);
+  $("#raw-more")?.addEventListener("click", (ev) => { $("#raw-rec").textContent = raw; ev.target.remove(); });
 }
-
 // ================================================================ incident
 const TOOL_TEXT = {
   search_components: (i) => `Searched the CMDB for “${i.text}”`,
@@ -985,24 +1006,43 @@ function linkPath(p) {
 function stateLine(r) {
   return r.notice ? `<p class="notice">${esc(noticeText(r.notice))}</p>` : "";
 }
-$("#incident-form").onsubmit = async (e) => {
+let askMode = "question";
+const PROBLEMS = ["ED critical results delayed at H03, H17 and H22",
+  "Radiology at H02 needs the PACS image cache database restored after a disk fault, but the backup console has shown a failed job for it every night this week.",
+  "Tickets about slow RIS database queries wait for days in the NW-Imaging-Systems queue, who say the database is not theirs; radiology worklists are late at several hospitals.",
+  "Security noticed an unfamiliar app reading patient records through the EMR's FHIR API, launched by cardiology users at H17."];
+function setAskMode(m) {
+  askMode = m;
+  $$("[data-mode]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.mode === m)));
+}
+$$("[data-mode]").forEach((b) => { b.onclick = () => setAskMode(b.dataset.mode); });
+$("#chips-problem").innerHTML = PROBLEMS.map((q) => `<button type="button" class="chip">${esc(q)}</button>`).join("");
+$$("#chips-problem .chip").forEach((b) => { b.onclick = () => { setAskMode("incident"); investigate(b.textContent); }; });
+$("#ask-form").onsubmit = (e) => {
   e.preventDefault();
-  const symptom = $("#symptom").value.trim() || $("#symptom").placeholder;
-  const ev = await runAgent("incident", symptom, $("#incident-out"));
+  const q = $("#ask-input").value.trim();
+  if (!q) { $("#ask-input").focus(); return; }
+  $("#ask-input").value = "";
+  askMode === "incident" ? investigate(q) : ask(q);
+};
+async function investigate(symptom) {
+  const li = document.createElement("li");
+  li.innerHTML = `<p class="q">${esc(symptom)}</p><div class="a"><p class="by">Investigation by the agent</p><div class="agent-out"></div></div>`;
+  $("#conversation").prepend(li);
+  const box = $(".agent-out", li);
+  const ev = await runAgent("incident", symptom, box);
   const v = ev.find((x) => x.type === "verdict");
   if (v && !v.stopped?.startsWith("no live agent")) return;
-  await classicIncident(symptom);  // no live agent and no recorded run: the earlier cached investigation
-};
-async function classicIncident(symptom) {
-  const out = $("#incident-out");
+  await classicIncident(symptom, box);  // no live agent and no recorded run: the earlier saved investigation
+}
+async function classicIncident(symptom, out) {
   out.innerHTML = `<span class="skel"></span><span class="skel"></span><span class="skel"></span>`;
   let r;
   try { r = await api("/incident", { method: "POST", body: JSON.stringify({ symptom }) }); }
   catch (err) { out.innerHTML = `<p class="notice">${esc(err.message)}</p>`; return; }
   if (MODE === "public" && !r.steps.length) {
-    out.innerHTML = `<p class="notice">Only the example symptom has a saved AI investigation on this public demo. Try
-      <button type="button" class="link" id="incident-example">${esc($("#symptom").placeholder)}</button>.</p>`;
-    $("#incident-example").onclick = () => { $("#symptom").value = ""; $("#incident-form").requestSubmit(); };
+    out.innerHTML = `<p class="notice">This problem has no live or saved investigation right now. Try one of the examples
+      under “Something's wrong”.</p>`;
     return;
   }
   out.innerHTML = `<p class="notice">No live agent run is available for this symptom right now; this is the earlier saved investigation.</p><div class="result">
@@ -1021,17 +1061,12 @@ const BY = { graph: "Answered from the graph", cached_ai: "Saved AI answer, chec
   live_ai: "Live AI answer, checked against the graph" };
 function renderChips(list) {
   $("#chips").innerHTML = list.map((q) => `<button type="button" class="chip">${esc(q)}</button>`).join("");
-  $$("#chips .chip").forEach((b) => { b.onclick = () => ask(b.textContent); });
+  $$("#chips .chip").forEach((b) => { b.onclick = () => { setAskMode("question"); ask(b.textContent); }; });
 }
-$("#chat-form").onsubmit = (e) => {
-  e.preventDefault();
-  ask($("#question").value.trim() || $("#question").placeholder);
-  $("#question").value = "";
-};
 async function ask(q) {
   const li = document.createElement("li");
   li.innerHTML = `<p class="q">${esc(q)}</p><div class="a"><span class="skel"></span><span class="skel"></span></div>`;
-  $("#conversation").appendChild(li);
+  $("#conversation").prepend(li);
   let r;
   try { r = await api("/chat", { method: "POST", body: JSON.stringify({ message: q }) }); }
   catch (err) { $(".a", li).innerHTML = `<p class="notice">${esc(err.message)}</p>`; return; }
@@ -1045,68 +1080,138 @@ async function ask(q) {
   llmStatus();
 }
 
-// ================================================================ scale (static benchmark results)
-let scale = null;
-const SCALE_CHARTS = {
-  "time-vs-size": ["Query time vs size, depth 6 and 10 (busiest storage array)",
-    "Log-log chart: median milliseconds against node count. FalkorDB traversal is the lowest line at large sizes; PostgreSQL full radius is below FalkorDB full radius at every size."],
-  "time-vs-depth": ["Query time vs depth, per size",
-    "Median milliseconds against depth 2, 4, 6 and 10 for four sizes; times flatten after depth 6 because the impact graph is at most six hops deep."],
-  "concurrency-p95": ["p95 latency vs concurrent clients, per size",
-    "FalkorDB has the lower p95 at every size and client count; both rise with clients."],
-  "memory-vs-size": ["Memory and disk vs size",
-    "FalkorDB memory grows with the graph and reaches 2.6 GB at 3.47M nodes; PostgreSQL uses less memory and more disk."],
-};
-function paintScaleCharts() {
-  $$("#scale-out img[data-chart]").forEach((img) => { img.src = `/static/scale/${img.dataset.chart}-${isDark() ? "dark" : "light"}.svg`; });
+// ================================================================ benchmark (Under the hood) and the bar charts
+// Measured numbers (bench/RESULTS.md). "*" = FalkorDB measured with the pure-Python reply parser (without hiredis).
+const BENCH = [
+  { label: "Walk the dependencies", unit: "ms in the database", f: 38, p: 357,
+    cap: "Finding the 105,713 components that depend on the busiest storage array at 3.47 million nodes: FalkorDB is about 9 times faster." },
+  { label: "Full report", unit: "ms end to end", f: 1324, p: 908,
+    cap: "The walk plus the details people need (owners, departments, hospitals): PostgreSQL is faster at this reporting step." },
+  { label: "Both together", unit: "ms end to end", f: 714, p: 944, fname: "FalkorDB + PostgreSQL", pname: "PostgreSQL alone", star: true,
+    cap: "FalkorDB walks, PostgreSQL adds the details: the fastest design for big changes." },
+  { label: "Slowest answers with 100 users", unit: "ms, 95th percentile", f: 1725, p: 4401, star: true,
+    cap: "With 100 people asking at once, FalkorDB's slowest answers stay well below PostgreSQL's." },
+];
+function barsSVG(rows, width = 600) {
+  // drawn at the container's real width, so labels keep their token sizes on a phone
+  const W = Math.max(300, Math.round(width || 600)), narrow = W < 480, rowH = narrow ? 128 : 108;
+  const x0 = narrow ? 0 : 190, maxW = W - x0 - 80, top = narrow ? 18 : 0;
+  let y = 0, out = "";
+  for (const r of rows) {
+    const m = Math.max(r.f, r.p);
+    const bar = (cls, name, v, yy, star) => `<text class="bar-sys" x="0" y="${yy + 15 - (narrow ? 20 : 0)}">${esc(name)}</text>
+      <rect class="${cls}" x="${x0}" y="${yy}" width="${Math.max(2, (v / m) * maxW)}" height="20" rx="2"/>
+      <text class="bar-val" x="${x0 + Math.max(2, (v / m) * maxW) + 8}" y="${yy + 15}">${v.toLocaleString()} ms${star ? "*" : ""}</text>`;
+    const g = narrow ? 20 : 0;
+    out += `<text class="bar-label" x="0" y="${y + 18}">${esc(r.label)}</text><text class="bar-sys" x="${W - 4}" y="${y + 18}" text-anchor="end">${esc(r.unit)}</text>
+      ${bar("bar-f", r.fname || "FalkorDB", r.f, y + 32 + g, r.star)}${bar("bar-p", r.pname || "PostgreSQL", r.p, y + 62 + 2 * g, false)}`;
+    y += rowH;
+  }
+  const desc = rows.map((r) => `${r.label}: ${r.fname || "FalkorDB"} ${r.f} ms, ${r.pname || "PostgreSQL"} ${r.p} ms`).join("; ");
+  return `<svg viewBox="0 0 ${W} ${y - 14}" role="img" aria-label="${esc(desc)}">${out}</svg>`;
 }
+function paintScaleCharts() { /* charts are SVG drawn with tokens: nothing to repaint on a theme change */ }
+let scale = null;
 const ms = (x) => x >= 100 ? Math.round(x).toLocaleString() : x.toFixed(1);
-const NOH = `<br><span class="label-muted">FalkorDB measured without hiredis</span>`;
 async function loadScale() {
   if (scale) return;
   const out = $("#scale-out");
   try { scale = await api("/static/scale/scale.json"); }
   catch (e) { out.innerHTML = `<p class="notice">The benchmark results are not bundled with this build.</p>`; return; }
-  const s = scale, t = s.top, d = s.depth10, c = s.concurrency, hw = s.hardware;
-  const nodes = (n) => n >= 1e6 ? `${(n / 1e6).toFixed(2)}M` : `${Math.round(n / 1e3)}k`;
-  const row = (label, f, p, better) => `<tr><th scope="row">${label}</th><td class="num${better === "f" ? " win" : ""}">${f}</td>
-    <td class="num${better === "p" ? " win" : ""}">${p}</td></tr>`;
-  const win = (a, b, lowerBetter = true) => (lowerBetter ? a < b : a > b) ? "f" : "p";
+  const s = scale, t = s.top, d = s.depth10, c = s.concurrency;
+  const row = (label, f, p, lower = true, star = false) => {
+    const fw = lower ? f.v < p.v : f.v > p.v;
+    return `<tr><th scope="row">${label}</th><td class="num">${f.t}${star ? "*" : ""}</td><td class="num">${p.t}</td>
+      <td class="winner">${fw ? "FalkorDB" : "PostgreSQL"}</td></tr>`;
+  };
+  const v = (x, t = ms(x)) => ({ v: x, t });
   out.innerHTML = `
-    <p class="verdict scale-verdict">At ${nodes(t.nodes)} nodes the traversal is faster in FalkorDB.
-      The full question is faster in PostgreSQL.</p>
-    <h2>Key numbers at ${t.nodes.toLocaleString()} nodes, ${t.edges.toLocaleString()} edges, ${t.hospitals.toLocaleString()} hospitals</h2>
-    <table class="compare scale-table">
-      <caption class="sr">FalkorDB and PostgreSQL at the largest size; the better value is marked</caption>
-      <thead><tr><th scope="col">Measure</th><th scope="col">FalkorDB</th><th scope="col">PostgreSQL</th></tr></thead>
+    <p class="sec-lede">At ${(t.nodes / 1e6).toFixed(2)} million components, walking dependencies is much faster in FalkorDB;
+      the final report with every detail is faster in PostgreSQL; using both is fastest for big changes. Both systems
+      gave identical answers in every case. These are recorded results from one laptop, not computed live.</p>
+    <div class="bench-grid">${BENCH.map((b) => `<figure class="bars">${barsSVG([b], out.clientWidth > 700 ? (out.clientWidth - 24) / 2 : out.clientWidth)}<figcaption class="bars-cap">${esc(b.cap)}</figcaption></figure>`).join("")}</div>
+    <table class="data plain bench-table">
+      <caption class="sec-title">All key numbers</caption>
+      <thead><tr><th scope="col">Measure</th><th scope="col" class="num">FalkorDB</th><th scope="col" class="num">PostgreSQL</th><th scope="col">Winner</th></tr></thead>
       <tbody>
-        ${row(`Traversal only, ${d.reach.falkordb.reached.toLocaleString()} components reached (median ms)${NOH}`, ms(d.reach.falkordb.median_ms), ms(d.reach.postgres.median_ms), win(d.reach.falkordb.median_ms, d.reach.postgres.median_ms))}
-        ${row(`Full radius, same start, end to end (median ms)${NOH}`, `${ms(d.radius.falkordb.median_ms)} <span class="label-muted">(${ms(d.radius.falkordb.server_ms)} in the database)</span>`, ms(d.radius.postgres.median_ms), win(d.radius.falkordb.median_ms, d.radius.postgres.median_ms))}
-        ${row(`Full radius of <span class="id">dc1-host-07</span>, ${d.headline_radius.falkordb.reached.toLocaleString()} reached (median ms)${NOH}`, ms(d.headline_radius.falkordb.median_ms), ms(d.headline_radius.postgres.median_ms), win(d.headline_radius.falkordb.median_ms, d.headline_radius.postgres.median_ms))}
-        ${row(`Change review CHG-HEADLINE (median ms)${NOH}`, ms(s.review.falkordb.median_ms), ms(s.review.postgres.median_ms), win(s.review.falkordb.median_ms, s.review.postgres.median_ms))}
-        ${row(`100 clients: queries per second${NOH}`, ms(c.falkordb_100.throughput_qps), ms(c.postgres_100.throughput_qps), win(c.falkordb_100.throughput_qps, c.postgres_100.throughput_qps, false))}
-        ${row(`100 clients: p95 latency (ms)${NOH}`, ms(c.falkordb_100.p95_ms), ms(c.postgres_100.p95_ms), win(c.falkordb_100.p95_ms, c.postgres_100.p95_ms))}
-        ${row("Peak memory (MB)", s.memory_mb.falkordb.toLocaleString(), s.memory_mb.postgres.toLocaleString(), win(s.memory_mb.falkordb, s.memory_mb.postgres))}
-        ${row("On disk (MB)", s.disk_mb.falkordb.toLocaleString(), s.disk_mb.postgres.toLocaleString(), win(s.disk_mb.falkordb, s.disk_mb.postgres))}
-        ${row("Load time (s)", ms(s.load_s.falkordb), ms(s.load_s.postgres), win(s.load_s.falkordb, s.load_s.postgres))}
+        ${row("Walk the dependencies, inside the database (ms)", v(38), v(357))}
+        ${row(`Walk the dependencies, end to end, ${d.reach.falkordb.reached.toLocaleString()} components (ms)`, v(d.reach.falkordb.median_ms), v(d.reach.postgres.median_ms), true, true)}
+        ${row("Full report, end to end (ms)", v(d.radius.falkordb.median_ms), v(d.radius.postgres.median_ms), true, true)}
+        ${row("Full report of dc1-host-07 (ms)", v(d.headline_radius.falkordb.median_ms), v(d.headline_radius.postgres.median_ms), true, true)}
+        ${row("Change review of CHG-HEADLINE (ms)", v(s.review.falkordb.median_ms), v(s.review.postgres.median_ms), true, true)}
+        ${row("100 users: answers per second", v(c.falkordb_100.throughput_qps), v(c.postgres_100.throughput_qps), false, true)}
+        ${row("100 users: slowest 5% of answers (ms)", v(c.falkordb_100.p95_ms), v(c.postgres_100.p95_ms), true, true)}
+        ${row("Memory (MB)", v(s.memory_mb.falkordb, s.memory_mb.falkordb.toLocaleString()), v(s.memory_mb.postgres, s.memory_mb.postgres.toLocaleString()))}
+        ${row("On disk (MB)", v(s.disk_mb.falkordb, s.disk_mb.falkordb.toLocaleString()), v(s.disk_mb.postgres, s.disk_mb.postgres.toLocaleString()))}
+        ${row("Load time (s)", v(s.load_s.falkordb), v(s.load_s.postgres))}
       </tbody>
     </table>
-    <p class="sub">The better value in each row is marked "better". Identical results in every compared case
-      (${s.sizes.map((z) => `${nodes(z.nodes)}: gate ${z.gate}`).join(", ")}).</p>
-    ${Object.entries(SCALE_CHARTS).map(([k, [title, alt]]) => `<figure class="chart${k === "memory-vs-size" ? " narrow" : ""}" tabindex="0" aria-label="${esc(title)}"><figcaption><h2>${title}</h2></figcaption>
-      <img data-chart="${k}" alt="${esc(alt)}" loading="lazy"></figure>`).join("")}
-    <h2>Setup</h2>
-    <dl class="kv scale-kv">
-      <dt>Hardware</dt><dd>${esc(hw.cpu)}, ${esc(hw.cores)} cores, ${Math.round(hw.ram_bytes / 2 ** 30)} GB RAM; Docker ${esc(hw.docker)} with a ${(hw.docker_vm_memory_bytes / 2 ** 30).toFixed(1)} GB VM</dd>
-      <dt>Limits</dt><dd>${esc(s.settings.limits.memory.toUpperCase())}B memory and ${esc(s.settings.limits.cpus)} CPUs per database container</dd>
-      <dt>Systems</dt><dd><span class="id">${esc(s.settings.falkordb)}</span> and <span class="id">${esc(s.settings.postgres)}</span></dd>
-      <dt>Sizes</dt><dd>${s.sizes.map((z) => `${z.nodes.toLocaleString()} nodes (${z.hospitals} hospitals)`).join(", ")}</dd>
-      <dt>Method</dt><dd>${s.settings.runs} timed runs after warm-up per query; ${s.settings.concurrency_seconds} s per concurrency level; same impact edges in both systems</dd>
-    </dl>
-    <p>Full method, every table and the limits of this benchmark:
-      <a href="https://github.com/sudarshan032/northwind-drift-agent/blob/master/bench/RESULTS.md">bench/RESULTS.md</a>.</p>`;
-  paintScaleCharts();
+    <p class="sec-note">* FalkorDB measured with the Python client's slower pure-Python reply parser (without hiredis);
+      with hiredis the end-to-end walk is 56 ms and the full report 1,324 ms. Full method, research-style charts and
+      every table: <a href="https://github.com/sudarshan032/northwind-drift-agent/blob/master/bench/RESULTS.md">bench/RESULTS.md</a>.</p>`;
 }
+
+// ================================================================ landing visuals
+const MM_DEFS = `<defs>
+  <marker id="mm-default" class="mk-default" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z"/></marker>
+  <marker id="mm-signal" class="mk-signal" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z"/></marker></defs>`;
+function miniMap(x, real) {
+  const names = ["Emergency care", "ED critical results", "ORU-CRIT-H03", "lrc-db-01", "dc1-host-07"];
+  let out = "";
+  names.forEach((n, i) => {
+    const y = 8 + i * 62;
+    out += `<rect class="box" x="${x}" y="${y}" width="220" height="36" rx="3"/><text class="t" x="${x + 12}" y="${y + 23}">${esc(n)}</text>`;
+    if (i < 4) {
+      const y1 = y + 36, y2 = y + 62;
+      if (i === 2) out += real ? `<path class="ln e-observed_only" d="M${x + 110},${y1} V${y2}" marker-end="url(#mm-signal)"/><text class="gap-mark found-t" x="${x + 122}" y="${y1 + 17}">the link exists</text>`
+        : `<text class="gap-mark" x="${x + 122}" y="${y1 + 17}">no link recorded</text>`;
+      else out += `<path class="ln e-confirmed" d="M${x + 110},${y1} V${y2}" marker-end="url(#mm-default)"/>`;
+    }
+  });
+  return out;
+}
+function drawLanding() {
+  const mm = $("#mm-map");
+  if (mm && !mm.innerHTML) {
+    mm.innerHTML = MM_DEFS + `<g class="edge">${miniMap(14, false)}</g>`;
+    $("#mm-real").innerHTML = `<g class="edge">${miniMap(14, true)}</g>`;
+  }
+  const b = $("#bars-landing");
+  if (b) b.innerHTML = barsSVG(BENCH.slice(0, 3), b.clientWidth) + `<p class="bars-cap">At 3.47 million components. * FalkorDB measured without hiredis.</p>`;
+}
+let heroTimer = null;
+function heroPlay() {
+  const svg = $("#chain-hero");
+  if (!svg) return;
+  clearTimeout(heroTimer);
+  svg.classList.remove("is-real");
+  $("#hero-caption").textContent = "What the records say: only lab reporting is affected.";
+  heroTimer = setTimeout(() => {
+    svg.classList.add("is-real");
+    $("#hero-caption").textContent = "What actually happens: Emergency departments at 51 hospitals lose critical lab results.";
+  }, 1500);
+}
+$("#hero-replay").onclick = heroPlay;
+
+// ================================================================ MCP tools (Under the hood)
+let mcpLoaded = false;
+async function loadMcpTools() {
+  if (mcpLoaded) return;
+  mcpLoaded = true;
+  const ul = $("#mcp-tools");
+  try {
+    const r = await fetch("/mcp", { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream",
+      "MCP-Protocol-Version": "2025-06-18" }, body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} }) });
+    const tools = (await r.json()).result.tools;
+    const lead = (d) => (String(d || "").match(/^.*?[.!?](?=\s+[A-Z(]|$)/) || [d])[0];  // ignores "e.g." and "i.e."
+    ul.innerHTML = tools.map((t) => `<li><span class="id">${esc(t.name)}</span>${esc(lead(t.description))}</li>`).join("");
+    $("#mcp-tools").setAttribute("aria-label", `${tools.length} tools`);
+  } catch (e) { ul.innerHTML = `<li class="empty">The tool list could not be loaded; the server lists them at /mcp.</li>`; mcpLoaded = false; }
+}
+$("#copy-snippet").onclick = async () => {
+  try { await navigator.clipboard.writeText($("#mcp-snippet").textContent); toast("Copied"); }
+  catch (e) { toast("Select the text and copy it"); }
+};
 
 // ================================================================ agent investigation (AGENT_V2_SPEC 5)
 const usd = (x) => `$${(x || 0) < 0.01 ? (x || 0).toFixed(4) : (x || 0).toFixed(2)}`;
@@ -1223,11 +1328,13 @@ $("#reset-memory").onclick = async () => {
 
 // ================================================================ guided tour (SITE_SPEC 2): drives the real UI
 const TOUR = [
-  { title: "A routine change", text: "A routine EMR upgrade. The CMDB and the evidence agree, so the impact is known: low risk.",
-    go: async () => { await openChange("CHG0031513"); return $("#verdict"); } },
-  { title: "A security patch", text: "A security patch on one server. The CMDB says it only touches lab reporting.",
-    go: async () => { await openChange("CHG-HEADLINE"); return $(".review-head"); } },
-  { title: "What the evidence says", text: "The evidence says otherwise: 51 hospitals' Emergency departments depend on it.",
+  { title: "One patch, two answers", text: "The records say patching dc1-host-07 only touches lab reporting. In reality it cuts off critical lab results to Emergency departments at 51 hospitals.",
+    go: async () => {
+      if (!$("#drawer").hidden) closeDrawer();
+      showTab("how"); history.replaceState(null, "", "#how"); scrollTo(0, 0); heroPlay();
+      return $("#hero-fig");
+    } },
+  { title: "Review a change", text: "Here is that patch as a change request. The records count 4 affected components; the evidence finds 107, at 51 hospitals.",
     go: async () => { await openChange("CHG-HEADLINE"); return $("#compare"); } },
   { title: "The agent investigates", text: "The agent picks graph tools over MCP one step at a time and says why.",
     go: async () => {
@@ -1373,9 +1480,15 @@ async function route() {
     await selectComponent(params.get("ci"), params.get("path")?.split(",") || null);
     return;
   }
-  const tab = h.slice(1).split("=")[0];
-  if (!TABS.includes(tab) || tab === "overview") {
-    showTab("overview");
+  let tab = h.slice(1).split("=")[0];
+  // old routes (before REDESIGN_SPEC) land on the new pages
+  if (tab === "incident" || tab === "chat") { setAskMode(tab === "incident" ? "incident" : "question"); tab = "ask"; }
+  if (tab === "sources" || tab === "scale") { showTab("hood"); hoodGo(tab === "sources" ? "sources" : "benchmark"); return; }
+  if (tab === "hood") { showTab("hood"); hoodGo(h.split("=")[1]); return; }
+  if (!TABS.includes(tab) || tab === "how") {
+    showTab("how");
+    drawLanding();
+    if (!heroPlayed) { heroPlayed = true; heroPlay(); }
     (window.requestIdleCallback || setTimeout)(() => ensureChanges().catch(() => {}));  // warm the change list
     return;
   }
@@ -1385,7 +1498,12 @@ async function route() {
   showTab("change");
   await selectChange(id, false);
 }
-window.addEventListener("hashchange", () => { if (/^#(ci|change|findings|sources)=|^#(overview|findings|incident|sources|chat|change|scale)?$/.test(location.hash)) route(); });
+let heroPlayed = false;
+function hoodGo(sub) {
+  const el = sub && $(`#hood-${sub}`);
+  if (el) requestAnimationFrame(() => el.scrollIntoView({ block: "start" }));
+}
+window.addEventListener("hashchange", () => { if (/^#(ci|change|findings|sources|hood)=|^#(how|overview|findings|incident|sources|chat|change|scale|ask|hood)?$/.test(location.hash)) route(); });
 let resizeTimer;
 window.addEventListener("resize", () => {
   clearTimeout(resizeTimer);
@@ -1396,11 +1514,10 @@ function applyState(st) {
   MODE = st.mode;
   VERSION = st.version;
   $("#reset").hidden = MODE !== "public";
-  $("#incident-note").hidden = MODE !== "public";
   renderLlm(st.llm || {});
   const ag = st.agent || {};
-  $("#agent-spend").hidden = !ag.cap;
-  $("#agent-spend").textContent = `Agent spend today ${usd(ag.spend_today)} of ${usd(ag.cap)}`;
+  $("#agent-spend").textContent = ag.cap ? `Agent spend today ${usd(ag.spend_today)} of ${usd(ag.cap)}.` : "";
+  $("#hood-status").textContent = `${$("#llm-status").textContent}. ${$("#agent-spend").textContent}`;
   renderChips(st.chips || []);
 }
 async function dataChanged() {

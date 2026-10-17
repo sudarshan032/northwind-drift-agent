@@ -29,6 +29,7 @@
   --t-21: 21px;
   --t-28: 28px;
   --t-40: 40px;
+  --t-48: 48px;                 /* landing headline only */
   --w-body: 400;
   --w-strong: 600;
   --lh-body: 1.5;
@@ -44,6 +45,7 @@
   --s-32: 32px;
   --s-48: 48px;
   --s-64: 64px;
+  --s-96: 96px;                 /* between landing sections */
 
   /* shape and lines */
   --r-control: 6px;
@@ -60,7 +62,7 @@
   --faded: 0.3;
 
   /* layout */
-  --content-max: 1440px;
+  --content-max: 1120px;       /* one centred content width on every page (REDESIGN_SPEC 2) */
   --gutter: 24px;
   --list-w: 300px;
   --drawer-w: 560px;
@@ -86,6 +88,8 @@
 
   /* motion: only in response to the user */
   --motion: 180ms;
+  --mask-on: #FFFFFF;           /* SVG mask: white = visible (not a visible colour) */
+  --motion-draw: 900ms;         /* the landing chain: the one orchestrated motion */
 }
 
 @media (prefers-color-scheme: dark) {
@@ -131,5 +135,5 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  :root { --motion: 0ms; }
+  :root { --motion: 0ms; --motion-draw: 0ms; }
 }

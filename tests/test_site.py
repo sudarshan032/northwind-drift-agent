@@ -23,25 +23,42 @@ def _read(name):
         return f.read()
 
 
-def test_overview_and_tour_markup():
+def test_landing_and_tour_markup():
+    """REDESIGN_SPEC: Change Guardian naming, five pages, the landing story, the six-step tour."""
     html, js = _read("index.html"), _read("app.js")
-    assert 'id="tab-btn-overview"' in html and html.index("tab-btn-overview") < html.index("tab-btn-change")
     text = re.sub(r"<[^>]+>", "", html)
-    assert "Watch the agent review a change" in text and "Graph Hacks 2026 (WeMakeDevs × FalkorDB)" in text
-    assert "Your CMDB says this patch is safe. Your hospital network disagrees." in text
+    assert "<title>Change Guardian</title>" in html and "Northwind drift agent" not in text
+    assert "An AI agent that checks IT changes against what systems actually do." in text
+    assert "Demo hospital: Northwind Health (fictional)" in text
+    tabs = re.findall(r'role="tab" id="tab-btn-(\w+)"', html)
+    assert tabs == ["how", "change", "findings", "ask", "hood"] and 'TABS = ["how", "change", "findings", "ask", "hood"]' in js
+    assert "Before you patch a hospital server, see what it really breaks." in text
+    assert "Hospital IT keeps a map. The map goes out of date." in text
+    assert len(re.findall(r"<li><svg class=\"seq-ico\"", html)) == 4
+    assert "Following dependencies is what graphs are built for." in text and 'id="bars-landing"' in html
+    assert "Tested on 9 scenarios, 4 never seen during development: 7 correct." in text and "·" not in text
+    assert "Graph Hacks 2026 (WeMakeDevs × FalkorDB)" in text and "found by the agent" in html
     assert 'id="tour-start"' in html and 'role="dialog"' in html and 'id="tour-next"' in html
-    assert len(re.findall(r'class="flow4"|<li><h3>The (record|evidence|gap|agent)</h3>', html)) == 5
-    assert "uses lrc-db-01, not in CMDB," in html and "all 51 hospitals" in html
-    assert js.count("{ title: ") == 7 and 'TABS = ["overview"' in js  # seven tour steps (two agent steps), overview first
-    for n in ("38 ms", "357 ms", "1,725", "7,895", "714 ms, against 944 ms"):  # measured numbers (bench/RESULTS.md)
-        assert n in html
+    assert js.count("{ title: ") == 6  # landing, review, agent, acts and remembers, missing link, fix
+    for n in ("38 ms", "357 ms"):
+        assert n in text
+    for old in ("incident", "chat", "sources", "scale", "overview"):  # old routes still land somewhere
+        assert old in js.split("old routes")[1].split("if (!TABS")[0] or old == "overview"
+    assert '"/static/sources.json"' in js and '<img data-chart' not in js  # static sources, no plot images
+
+
+def test_sources_bundle_matches_data():
+    import json
+    assert json.load(open(os.path.join(UI, "sources.json"))) == json.load(
+        open(os.path.join(UI, "..", "data_demo", "normalised", "sources.json")))
 
 
 def test_glossary_terms_accessible():
     g = json.loads(_read("glossary.json"))
     html, js = _read("index.html"), _read("app.js")
     want = {"cmdb", "ci", "drift", "blast-radius", "declared-observed", "hl7", "interface", "service-offering",
-            "business-service", "discovery-source", "change-request", "agent", "mcp", "memory-graph", "fhir"}
+            "business-service", "discovery-source", "change-request", "agent", "mcp", "memory-graph", "fhir",
+            "proposed-action"}
     assert set(g["terms"]) == want and all(len(v) == 2 and v[1] for v in g["terms"].values())
     used = set(re.findall(r'data-term="([^"]+)"', html))
     assert used and used <= want
