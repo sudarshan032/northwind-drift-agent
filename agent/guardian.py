@@ -187,24 +187,23 @@ def memory_context(g, memory, kind, trigger):
 HEARTBEAT_S = 5
 
 
-async def beat(make, every=None):
-    """Await make() and yield ("heartbeat", None) every `every` seconds while waiting, then ("result", value).
-    Keeps the stream alive through proxies and clients while the model or a tool is slow."""
-    task = asyncio.ensure_future(make())
-    while True:
-        done, _ = await asyncio.wait({task}, timeout=every or HEARTBEAT_S)
-        if done:
-            yield "result", task.result()
-            return
-        yield "heartbeat", None
+def call_tool_sync(server, name, args):
+    """One MCP tool call on its own event loop (run in a worker thread): the stream's loop only polls."""
+    from mcp import Client
+
+    async def go():
+        async with Client(server) as c:
+            return await c.call_tool(name, args)
+    return anyio.run(go)
 
 
 _POOL = None
 
 
 async def beat_thread(fn, every=None):
-    """Run a blocking call (the model) in a plain worker thread, polling it: no extra asyncio task, which stalled
-    the stream on Vercel's runtime; yields heartbeats like beat()."""
+    """Run a blocking call (the model, or a tool call on its own loop) in a plain worker thread and poll it,
+    yielding ("heartbeat", None) every `every` seconds while waiting, then ("result", value). Keeps the stream alive
+    through proxies and clients. (An extra asyncio task for the MCP call stalled the stream on Vercel's runtime.)"""
     global _POOL
     import concurrent.futures
     if _POOL is None:
@@ -270,7 +269,7 @@ async def investigate(g, memory, kind, trigger, llm, mcp_server, *, max_steps=MA
                     res = acts.call(call["name"], args)
                     text = json.dumps(res, default=str)
                 else:
-                    async for tag, val in beat(lambda: client.call_tool(call["name"], args), heartbeat_s):
+                    async for tag, val in beat_thread(lambda: call_tool_sync(mcp_server, call["name"], args), heartbeat_s):
                         if tag == "heartbeat":
                             yield {"type": "heartbeat"}
                         else:
