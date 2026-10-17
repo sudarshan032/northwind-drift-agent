@@ -3,14 +3,14 @@
 :root {
   color-scheme: light;
   /* colour: two records of the same hospital. declared = CMDB, signal = evidence that contradicts it */
-  --paper: #F5F7F6;
+  --paper: #F2F5F8;            /* page: cool clinical paper (DESIGN_FINAL 2) */
   --surface: #FFFFFF;
-  --ink: #18212B;
-  --ink-muted: #55606B;
-  --rule: #D7DDE1;
+  --ink: #16202B;
+  --ink-muted: #56616D;
+  --rule: #D3DBE3;
   --rule-strong: #6B7782;       /* graph lines and arrowheads: 4.3:1 on paper */
-  --declared: #2F5D8A;
-  --signal: #B8322B;
+  --declared: #2C5A8C;
+  --signal: #B73228;
   --caution: #9A6400;
   --steady: #2E6B48;
   --signal-tint: #F8E6E4;       /* impacted node fill; ink 13.5:1 on it */
@@ -23,6 +23,9 @@
   --grid-line: rgba(47, 93, 138, 0.07);
   --hover-fill: #F0F4F8;        /* caution text on it 4.5:1, ink-muted 5.8:1 */
   --active-fill: #D8E3EE;
+  --frame-line: #C3CDD8;        /* the frame's vertical and horizontal rules */
+  --net-line: rgba(44, 90, 140, 0.08);   /* margin network: blueprint blue at 8% */
+  --net-signal: rgba(183, 50, 40, 0.2);  /* the one missing link in each margin */
 
   /* type */
   --font-ui: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -62,6 +65,16 @@
   --t-22: 22px;
   --t-32: 32px;
   --t-56: 56px;
+  --t-18: 18px;                 /* landing body */
+  --t-36: 36px;                 /* section and page titles */
+  --t-60: 60px;                 /* hero headline */
+  --ls-hero: -0.025em;
+  --lh-hero: 1.05;
+  --node-sq: 8px;               /* square node where a frame rule meets the frame */
+  --step-sq: 28px;              /* square step number on the agent's sequence */
+  --icon: 20px;                 /* header icons */
+  --bar-h: 24px;                /* benchmark bars */
+  --s-80: 80px;
   --r-none: 0;
   --line: 1px;
   --line-graph: 1.5px;
@@ -74,7 +87,12 @@
   --faded: 0.3;
 
   /* layout */
-  --content-max: 1120px;       /* one centred content width on every page (REDESIGN_SPEC 2) */
+  --content-max: 1120px;
+  --frame-landing: 1280px;      /* landing frame incl. 48 px inner padding (DESIGN_FINAL 3) */
+  --frame-tool: 1440px;         /* tool pages: frame incl. 32 px inner padding */
+  --map-w: 420px;               /* each of the two landing maps */
+  --net-w: 360px;               /* margin network tile */
+  --net-h: 960px;
   --gutter: 24px;
   --list-w: 300px;
   --drawer-w: 560px;
@@ -127,6 +145,9 @@
     --grid-line: rgba(127, 168, 212, 0.07);
     --hover-fill: #222C38;      /* signal text on it 4.9:1 */
     --active-fill: #2E3C4B;
+    --frame-line: #3A4652;
+    --net-line: rgba(127, 168, 212, 0.06);
+    --net-signal: rgba(240, 112, 104, 0.16);
   }
 }
 
@@ -152,6 +173,9 @@
   --grid-line: rgba(127, 168, 212, 0.07);
   --hover-fill: #222C38;
   --active-fill: #2E3C4B;
+  --frame-line: #3A4652;
+  --net-line: rgba(127, 168, 212, 0.06);
+  --net-signal: rgba(240, 112, 104, 0.16);
 }
 
 @media (prefers-reduced-motion: reduce) {

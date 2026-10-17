@@ -479,3 +479,9 @@ Clarified, not changed:
 - "Demo hospital: Northwind Health (fictional)" sits under the hero buttons rather than in the header, so the header
   stays one light row (name, navigation, Reset demo, theme icon).
 - The eval table on Under the hood shows the v2-data run (7/9) in plain words; AGENT_EVAL.md stays the full record.
+
+## 98. DESIGN_FINAL_SPEC choices (18 Oct)
+- `ui/app.css` rewritten as one stylesheet (reset, base, frame primitives, components, pages, responsive); the only `!important` is `[hidden]`. The tour card's phone position is now set by CSS after app.js clears its inline position.
+- The frame width follows the page through `body[data-page]` (landing 1,280 px, tools 1,440 px). The header content sits on the frame lines while the frame is narrower than the screen, and is inset by the frame padding once the frame touches the screen edges. At that point the frame is clipped sideways, so the edge nodes never cause sideways scrolling.
+- Margin network: an inline SVG `<pattern>` (5 × 12 seeded points per 360 × 960 px tile, mulberry32, seeds 42 and 7), so it is the same picture on every load, drawn once and coloured by tokens. The dashed missing link spans rows 3–5 of the first tile, next to the frame. It is hidden below 1,200 px and under forced colours or higher contrast.
+- Hero: the chain diagram is taller than the text at 1,440 px, so some paper shows under the buttons. I kept the spec's 60 px headline and top alignment rather than shrinking the diagram.

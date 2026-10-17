@@ -138,6 +138,7 @@ function showTab(tab, focus = false) {
   $("#drawer").hidden = true;
   $("#scrim").hidden = true;
   hideTip();
+  document.body.dataset.page = tab;  // the frame width (landing 1,280 px, tool pages 1,440 px)
   for (const t of TABS) {
     const b = $(`#tab-btn-${t}`), on = t === tab;
     b.setAttribute("aria-selected", String(on));
@@ -1098,17 +1099,17 @@ const BENCH = [
 ];
 function barsSVG(rows, width = 600) {
   // drawn at the container's real width, so labels keep their token sizes on a phone
-  const W = Math.max(300, Math.round(width || 600)), narrow = W < 480, rowH = narrow ? 128 : 108;
+  const W = Math.max(300, Math.round(width || 600)), narrow = W < 480, rowH = narrow ? 140 : 120, bh = px("--bar-h");
   const x0 = narrow ? 0 : 190, maxW = W - x0 - 80, top = narrow ? 18 : 0;
   let y = 0, out = "";
   for (const r of rows) {
     const m = Math.max(r.f, r.p);
-    const bar = (cls, name, v, yy, star) => `<text class="bar-sys" x="0" y="${yy + 15 - (narrow ? 20 : 0)}">${esc(name)}</text>
-      <rect class="${cls}" x="${x0}" y="${yy}" width="${Math.max(2, (v / m) * maxW)}" height="20" rx="2"/>
-      <text class="bar-val" x="${x0 + Math.max(2, (v / m) * maxW) + 8}" y="${yy + 15}">${v.toLocaleString()} ms${star ? "*" : ""}</text>`;
+    const bar = (cls, name, v, yy, star) => `<text class="bar-sys" x="0" y="${yy + bh / 2 + 5 - (narrow ? 20 + bh / 2 - 10 : 0)}">${esc(name)}</text>
+      <rect class="${cls}" x="${x0}" y="${yy}" width="${Math.max(2, (v / m) * maxW)}" height="${bh}" rx="2"/>
+      <text class="bar-val" x="${x0 + Math.max(2, (v / m) * maxW) + 8}" y="${yy + bh / 2 + 5}">${v.toLocaleString()} ms${star ? "*" : ""}</text>`;
     const g = narrow ? 20 : 0;
     out += `<text class="bar-label" x="0" y="${y + 18}">${esc(r.label)}</text><text class="bar-sys" x="${W - 4}" y="${y + 18}" text-anchor="end">${esc(r.unit)}</text>
-      ${bar("bar-f", r.fname || "FalkorDB", r.f, y + 32 + g, r.star)}${bar("bar-p", r.pname || "PostgreSQL", r.p, y + 62 + 2 * g, false)}`;
+      ${bar("bar-f", r.fname || "FalkorDB", r.f, y + 32 + g, r.star)}${bar("bar-p", r.pname || "PostgreSQL", r.p, y + 40 + bh + 2 * g, false)}`;
     y += rowH;
   }
   const desc = rows.map((r) => `${r.label}: ${r.fname || "FalkorDB"} ${r.f} ms, ${r.pname || "PostgreSQL"} ${r.p} ms`).join("; ");
@@ -1183,6 +1184,37 @@ function drawLanding() {
   const b = $("#bars-landing");
   if (b) b.innerHTML = barsSVG(BENCH.slice(0, 3), b.clientWidth) + `<p class="bars-cap">At 3.47 million components. * FalkorDB measured without hiredis.</p>`;
 }
+// the margins (DESIGN_FINAL_SPEC 2): a faint, static dependency network either side of the frame, the same picture on
+// every load (seeded), with the one dashed missing link near the hero. Drawn once; CSS hides it below 1,200 px.
+function netSVG(seed, side) {
+  let a = seed;
+  const rnd = () => { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t ^= t + Math.imul(t ^ (t >>> 7), 61 | t); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  const W = px("--net-w"), H = px("--net-h"), cols = 5, rows = 12, dx = W / cols, dy = H / rows, near = side === "l" ? cols - 1 : 0;
+  const pt = [];
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+    const keep = c === near && r >= 3 && r <= 5 ? r !== 4 : rnd() < 0.6;  // the missing link's ends exist, nothing between them
+    pt.push(keep ? [Math.round(dx / 2 + c * dx + (rnd() - 0.5) * dx * 0.5), Math.round(dy / 2 + r * dy + (rnd() - 0.5) * dy * 0.5)] : null);
+  }
+  const at = (r, c) => c >= 0 && c < cols ? pt[((r % rows) + rows) % rows * cols + c] : null;
+  let edges = "", nodes = "";
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+    const p = at(r, c);
+    if (!p) continue;
+    nodes += `<rect class="nn" x="${p[0] - 3}" y="${p[1] - 3}" width="6" height="6"/>`;
+    for (const [rr, cc] of [[r, c + 1], [r + 1, c], [r + 1, c + 1], [r + 1, c - 1]]) {
+      const q = at(rr, cc);
+      if (!q || rnd() > (rr === r || cc === c ? 0.55 : 0.2)) continue;
+      const y2 = q[1] + (rr >= rows ? H : 0);  // wraps into the next tile: drawn in both, so the pattern is seamless
+      edges += `<line class="ne" x1="${p[0]}" y1="${p[1]}" x2="${q[0]}" y2="${y2}"/>` + (rr >= rows ? `<line class="ne" x1="${p[0]}" y1="${p[1] - H}" x2="${q[0]}" y2="${q[1]}"/>` : "");
+    }
+  }
+  const [p, q] = [at(3, near), at(5, near)];
+  return `<svg aria-hidden="true" focusable="false"><defs><pattern id="net-${side}" width="${W}" height="${H}" patternUnits="userSpaceOnUse">${edges}${nodes}</pattern></defs>
+    <rect width="100%" height="100%" fill="url(#net-${side})"/><line class="nx" x1="${p[0]}" y1="${p[1]}" x2="${q[0]}" y2="${q[1]}"/>
+    <rect class="nn" x="${p[0] - 3}" y="${p[1] - 3}" width="6" height="6"/><rect class="nn" x="${q[0] - 3}" y="${q[1] - 3}" width="6" height="6"/></svg>`;
+}
+document.body.insertAdjacentHTML("afterbegin", `<div class="net net-l">${netSVG(42, "l")}</div><div class="net net-r">${netSVG(7, "r")}</div>`);
+
 let heroTimer = null;
 function heroPlay() {
   const svg = $("#chain-hero");
@@ -1445,6 +1477,7 @@ function placeTour() {
   if (matchMedia("(max-width: 960px)").matches) {  // the card is pinned to the bottom (CSS); flip it to the top if needed
     const atBottom = cost(gap, innerHeight - h - gap), atTop = cost(gap, gap);
     card.classList.toggle("at-top", atTop < atBottom);
+    card.style.left = card.style.top = "";  // pinned by CSS
     return;
   }
   const cx = (x) => Math.max(gap, Math.min(x, innerWidth - w - gap)), cy = (y) => Math.max(gap, Math.min(y, innerHeight - h - gap));

@@ -26,7 +26,7 @@
     </nav>
     <div class="head-actions">
       <button class="text-btn" type="button" id="reset" hidden title="Undo every approval and restore the demo data">Reset demo</button>
-      <button class="icon-btn" type="button" id="theme" aria-pressed="false" aria-label="Switch to dark theme"><svg class="ico-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg><svg class="ico-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.5"/><path d="M12 1.5v3M12 19.5v3M1.5 12h3M19.5 12h3M4.6 4.6l2.1 2.1M17.3 17.3l2.1 2.1M4.6 19.4l2.1-2.1M17.3 6.7l2.1-2.1"/></svg></button>
+      <button class="icon-btn" type="button" id="theme" aria-pressed="false" aria-label="Switch to dark theme"><svg class="ico-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M22.5 14.5A10.75 10.75 0 1 1 9.5 1.5a9 9 0 0 0 13 13z"/></svg><svg class="ico-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="5"/><path d="M12 1.75v2.5M12 19.75v2.5M1.75 12h2.5M19.75 12h2.5M4.75 4.75l1.8 1.8M17.45 17.45l1.8 1.8M4.75 19.25l1.8-1.8M17.45 6.55l1.8-1.8"/></svg></button>
     </div>
   </div>
 </header>
@@ -36,7 +36,7 @@
 <main id="main" tabindex="-1">
   <!-- How it works (landing, REDESIGN_SPEC 4) -->
   <section id="tab-how" role="tabpanel" aria-labelledby="tab-btn-how" class="landing">
-    <section class="l-sec band tint grid hero" aria-labelledby="hero-title">
+    <section class="l-sec hero" aria-labelledby="hero-title">
       <div class="l-text">
         <h1 id="hero-title" class="display">Before you patch a hospital server, see what it really breaks.</h1>
         <p class="tagline-hero">An AI agent that checks IT changes against what systems actually do.</p>
@@ -82,7 +82,7 @@
       </figure>
     </section>
 
-    <section class="l-sec band" aria-labelledby="l-problem">
+    <section class="l-sec problem" aria-labelledby="l-problem">
       <div class="l-text">
         <h2 id="l-problem" class="l-title">Hospital IT keeps a map. The map goes out of date.</h2>
         <p class="l-body">Every hospital keeps a record of its systems and what depends on what, called a
@@ -92,12 +92,13 @@
       <div class="l-visual mini-pair">
         <figure><svg class="mini-maps" id="mm-map" viewBox="0 0 250 320" role="img" aria-label="On the map: the same five systems, with no link recorded between ORU-CRIT-H03 and lrc-db-01"></svg>
           <figcaption>On the map</figcaption></figure>
+        <p class="mm-gap">one link missing</p>
         <figure><svg class="mini-maps" id="mm-real" viewBox="0 0 250 320" role="img" aria-label="In reality: the link from ORU-CRIT-H03 to lrc-db-01 exists"></svg>
           <figcaption>In reality</figcaption></figure>
       </div>
     </section>
 
-    <section class="l-sec band tint l-full" aria-labelledby="l-agent">
+    <section class="l-sec l-full" aria-labelledby="l-agent">
       <h2 id="l-agent" class="l-title">What the agent does</h2>
       <ol class="seq">
         <li><svg class="seq-ico" viewBox="0 0 32 32" aria-hidden="true"><rect x="7" y="4" width="18" height="24" rx="2"/><path d="M11 11h10M11 16h10M11 21h6"/></svg>
@@ -112,7 +113,7 @@
       <p class="l-body seq-after">And it remembers what people approved or rejected, in its own <button type="button" class="term" data-term="memory-graph">memory graph</button>.</p>
     </section>
 
-    <section class="l-sec band watch" aria-labelledby="l-watch">
+    <section class="l-sec watch" aria-labelledby="l-watch">
       <div class="l-visual watch-trace">
         <ol class="trace mini" aria-label="Excerpt of a recorded investigation of CHG-HEADLINE">
           <li><span class="n">1</span><div><p class="tool">Read change request CHG-HEADLINE and what it targets <span class="id tool-id">get_change</span></p><p class="res">Apply ESXi security patch and reboot dc1-host-07</p></div></li>
@@ -120,6 +121,7 @@
           <li><span class="n">4</span><div><p class="tool">Looked for dependencies the evidence shows but the records lack <span class="id tool-id">hidden_links</span></p><p class="res">51 hidden links, seen by the interface engine</p></div></li>
           <li class="act-step"><span class="n">9</span><div><p class="tool">Asked the change board to review CHG-HEADLINE <span class="id tool-id">request_cab_review</span></p><p class="res">Change board review requested</p></div></li>
         </ol>
+        <p class="trace-cap">4 of 9 steps shown</p>
         <p class="watch-verdict"><span class="risk high">High risk</span> 51 hospitals affected, 51 hidden links</p>
       </div>
       <div class="l-text">
@@ -130,18 +132,18 @@
       </div>
     </section>
 
-    <section class="l-sec band tint why" aria-labelledby="l-why">
-      <div class="l-text narrow5">
+    <section class="l-sec why" aria-labelledby="l-why">
+      <div class="l-text">
         <h2 id="l-why" class="l-title">Following dependencies is what graphs are built for.</h2>
         <p class="l-body">At 3.5 million components, finding everything that depends on one storage array takes 38 ms in
           FalkorDB and 357 ms in a tuned PostgreSQL. PostgreSQL is better at the final reporting step, so the fastest
           design uses both.</p>
         <a class="link-a" href="#hood=benchmark">All measurements</a>
       </div>
-      <figure class="l-visual wide7"><div class="bars" id="bars-landing"></div></figure>
+      <figure class="l-visual"><div class="bars" id="bars-landing"></div></figure>
     </section>
 
-    <section class="l-sec band l-full proof" aria-labelledby="l-proof">
+    <section class="l-sec l-full proof" aria-labelledby="l-proof">
       <h2 id="l-proof" class="sr">Proof and try it</h2>
       <div class="facts">
         <p>Tested on 9 scenarios, 4 never seen during development: 7 correct.</p>
@@ -155,7 +157,7 @@
       </div>
     </section>
 
-    <footer class="l-foot band tint">
+    <footer class="l-foot">
       <p><a href="https://github.com/sudarshan032/northwind-drift-agent">GitHub</a>
         <a href="https://github.com/sudarshan032/northwind-drift-agent/blob/master/README.md">README</a>
         <a href="https://github.com/sudarshan032/northwind-drift-agent/blob/master/bench/RESULTS.md">Benchmark results</a></p>

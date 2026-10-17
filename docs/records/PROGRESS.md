@@ -64,3 +64,4 @@ Re-read this file, RUN_PROMPT.md and DATA_SPEC.md after any context compaction.
 - 2026-10-18 REDESIGN_SPEC P0 + P1 done on branch redesign (naming, design system, five pages, landing story, Ask the agent, Under the hood, tour); screenshots in docs/screenshots/redesign.
 - 2026-10-18 Domain alias change-guardian.vercel.app (old URL kept); finding impact sentence shown once.
 - 2026-10-18 Visual styling pass (full-width header, tinted bands with grid, frames, 44 px controls, dark tokens contrast-checked).
+- 2026-10-18 DESIGN_FINAL_SPEC: one clean stylesheet, framed column with square nodes, seeded margin network, 1,280/1,440 frames, wider tool layouts, equal theme icons.
