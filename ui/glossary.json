@@ -1,16 +1,65 @@
 {
   "terms": {
-    "cmdb": ["CMDB", "Configuration management database: the official record of every IT system and what depends on what. Change approvers use it to judge what a change will affect."],
-    "ci": ["CI", "Configuration item: one record in the CMDB, such as a server, a database, an application or an interface."],
-    "drift": ["Drift", "A gap between what the CMDB records and what the evidence shows systems actually do, for example a connection that exists but was never recorded."],
-    "blast-radius": ["Blast radius", "Everything that stops working, directly or further down the chain, if one component fails or is taken down for a change."],
-    "declared-observed": ["Declared vs observed", "Declared: written in the CMDB by people. Observed: seen in the evidence from discovery tools. Where the two disagree, that is drift."],
-    "hl7": ["HL7", "The message standard hospitals use to move clinical data, such as lab results and orders, between systems."],
-    "interface": ["Interface", "A feed that carries HL7 messages from one system to another, for example critical lab results to an Emergency department."],
-    "service-offering": ["Service offering", "One concrete part of a business service for one place or group, such as the critical results feed of one hospital's Emergency department."],
-    "business-service": ["Business service", "Something the hospital provides that people notice when it stops, such as Emergency care, Pharmacy or Lab reporting."],
-    "discovery-source": ["Discovery source", "A tool that reports what systems actually do: network scanners, traffic metrics, the interface engine, backup software and access logs."],
-    "change-request": ["Change request", "A planned piece of IT work, such as a patch or an upgrade, that must be reviewed and approved before it happens."]
+    "cmdb": [
+      "CMDB",
+      "Configuration management database: the official record of every IT system and what depends on what. Change approvers use it to judge what a change will affect."
+    ],
+    "ci": [
+      "CI",
+      "Configuration item: one record in the CMDB, such as a server, a database, an application or an interface."
+    ],
+    "drift": [
+      "Drift",
+      "A gap between what the CMDB records and what the evidence shows systems actually do, for example a connection that exists but was never recorded."
+    ],
+    "blast-radius": [
+      "Blast radius",
+      "Everything that stops working, directly or further down the chain, if one component fails or is taken down for a change."
+    ],
+    "declared-observed": [
+      "Declared vs observed",
+      "Declared: written in the CMDB by people. Observed: seen in the evidence from discovery tools. Where the two disagree, that is drift."
+    ],
+    "hl7": [
+      "HL7",
+      "The message standard hospitals use to move clinical data, such as lab results and orders, between systems."
+    ],
+    "interface": [
+      "Interface",
+      "A feed that carries HL7 messages from one system to another, for example critical lab results to an Emergency department."
+    ],
+    "service-offering": [
+      "Service offering",
+      "One concrete part of a business service for one place or group, such as the critical results feed of one hospital's Emergency department."
+    ],
+    "business-service": [
+      "Business service",
+      "Something the hospital provides that people notice when it stops, such as Emergency care, Pharmacy or Lab reporting."
+    ],
+    "discovery-source": [
+      "Discovery source",
+      "A tool that reports what systems actually do: network scanners, traffic metrics, the interface engine, backup software and access logs."
+    ],
+    "change-request": [
+      "Change request",
+      "A planned piece of IT work, such as a patch or an upgrade, that must be reviewed and approved before it happens."
+    ],
+    "agent": [
+      "Agent",
+      "A program that uses an AI model to decide its own next step: here it chooses graph queries one at a time, then gives a checked verdict and acts (notes, alerts, proposed fixes)."
+    ],
+    "mcp": [
+      "MCP",
+      "Model Context Protocol: an open standard for offering tools to AI models. The graph queries are an MCP server, so the agent (or any MCP client) can list and call them."
+    ],
+    "memory-graph": [
+      "Memory graph",
+      "A separate FalkorDB graph where the agent stores its investigations and what people approved or rejected, so it can recall them next time."
+    ],
+    "fhir": [
+      "FHIR",
+      "Fast Healthcare Interoperability Resources: the modern web standard (HL7 FHIR) for reading patient records through an API; SMART on FHIR apps use it."
+    ]
   },
   "drift_types": {
     "D1": "Undocumented dependency: the evidence shows one system using another, but the CMDB has no such relationship.",

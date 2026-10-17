@@ -370,6 +370,15 @@ a.button { display: inline-flex; align-items: center; text-decoration: none; }
 .memory ul { margin: var(--s-4) 0 0; padding-left: var(--s-24); }
 .agent-verdict { display: grid; gap: var(--s-8); background: var(--surface); border: var(--line) solid var(--rule); padding: var(--s-16); }
 .agent-verdict h3 { display: flex; gap: var(--s-12); align-items: center; }
+.remembers { display: grid; gap: var(--s-8); border: var(--line) dashed var(--steady); background: var(--surface); padding: var(--s-12) var(--s-16); }
+.remembers h3 { color: var(--steady); }
+.remembers h4 { font-size: var(--t-13); color: var(--ink-muted); }
+.facts { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--s-4); }
+.flag-ok, .flag-no { font-size: var(--t-13); font-weight: var(--w-strong); padding: 0 var(--s-8); border-radius: var(--r-control); border: var(--line) solid currentColor; }
+.flag-ok { color: var(--steady); }
+.flag-no { color: var(--signal); }
+.trace .tool-id { font-size: var(--t-13); color: var(--ink-muted); font-weight: var(--w-body); }
+.proof { margin: 0; padding-left: var(--s-24); display: grid; gap: var(--s-4); }
 .past summary { cursor: pointer; font-weight: var(--w-strong); }
 .past-list { margin: var(--s-8) 0; padding-left: var(--s-24); display: grid; gap: var(--s-4); }
 .mem-actions { display: flex; gap: var(--s-8); flex-wrap: wrap; }

@@ -362,6 +362,7 @@ async function selectChange(id, push = true) {
   banner("");
   if ($("#agent-out").dataset.change !== id) { $("#agent-out").innerHTML = ""; $("#agent-out").dataset.change = id; }
   renderReview(true);
+  loadMemory();
   llmStatus();
 }
 
@@ -958,6 +959,21 @@ const TOOL_TEXT = {
   get_component: (i) => `Read the CMDB record of ${i.name}`,
   get_neighbourhood: (i) => `Listed the neighbours of ${i.name}`,
   change_review: (i) => `Reviewed change ${i.change_id}`,
+  get_change: (i) => `Read change request ${i.change_id} and what it targets`,
+  hidden_links: (i) => `Looked for dependencies of ${i.component} that the evidence shows but the CMDB lacks`,
+  stale_links: (i) => `Looked for CMDB links around ${i.component} that no traffic confirms`,
+  protection_check: () => `Checked which patient-data systems lack an off-site copy`,
+  access_check: () => `Checked for access with no grant, by disabled users or outside change windows`,
+  critical_nodes: () => `Ranked the single points of failure in the observed call graph`,
+  findings_about: (i) => `Read the open findings about ${(i.components || []).slice(0, 4).join(", ")}`,
+  findings_by_type: (i) => `Listed the open ${i.drift_type} findings across the estate`,
+  unregistered_app_path: (i) => `Traced how the unregistered app ${i.app} reaches patient data`,
+  recall: (i) => `Recalled memory about ${(i.components || []).slice(0, 4).join(", ")}${(i.components || []).length > 4 ? " and others" : ""}`,
+  add_change_note: (i) => `Added a work note to change ${i.change_id}`,
+  request_cab_review: (i) => `Asked the change board (CAB) to review ${i.change_id}`,
+  notify_owner: (i) => `Notified ${i.team} about ${i.component}`,
+  propose_cmdb_fix: (i) => `Proposed a CMDB fix for ${(i.components || []).slice(0, 3).join(", ")} (waits for a person)`,
+  open_ticket: (i) => `Opened a ticket on ${i.component} for ${i.assignment_group}`,
 };
 const toolText = (s) => (TOOL_TEXT[s.tool] || (() => `Ran ${s.tool}`))(s.input || {});
 function linkCI(name) { return `<a href="#ci=${encodeURIComponent(name)}" class="id">${esc(name)}</a>`; }
@@ -1044,6 +1060,7 @@ function paintScaleCharts() {
   $$("#scale-out img[data-chart]").forEach((img) => { img.src = `/static/scale/${img.dataset.chart}-${isDark() ? "dark" : "light"}.svg`; });
 }
 const ms = (x) => x >= 100 ? Math.round(x).toLocaleString() : x.toFixed(1);
+const NOH = `<br><span class="label-muted">FalkorDB measured without hiredis</span>`;
 async function loadScale() {
   if (scale) return;
   const out = $("#scale-out");
@@ -1062,12 +1079,12 @@ async function loadScale() {
       <caption class="sr">FalkorDB and PostgreSQL at the largest size; the better value is marked</caption>
       <thead><tr><th scope="col">Measure</th><th scope="col">FalkorDB</th><th scope="col">PostgreSQL</th></tr></thead>
       <tbody>
-        ${row(`Traversal only, ${d.reach.falkordb.reached.toLocaleString()} components reached (median ms)`, ms(d.reach.falkordb.median_ms), ms(d.reach.postgres.median_ms), win(d.reach.falkordb.median_ms, d.reach.postgres.median_ms))}
-        ${row("Full radius, same start, end to end (median ms)", `${ms(d.radius.falkordb.median_ms)} <span class="label-muted">(${ms(d.radius.falkordb.server_ms)} in the database)</span>`, ms(d.radius.postgres.median_ms), win(d.radius.falkordb.median_ms, d.radius.postgres.median_ms))}
-        ${row(`Full radius of <span class="id">dc1-host-07</span>, ${d.headline_radius.falkordb.reached.toLocaleString()} reached (median ms)`, ms(d.headline_radius.falkordb.median_ms), ms(d.headline_radius.postgres.median_ms), win(d.headline_radius.falkordb.median_ms, d.headline_radius.postgres.median_ms))}
-        ${row("Change review CHG-HEADLINE (median ms)", ms(s.review.falkordb.median_ms), ms(s.review.postgres.median_ms), win(s.review.falkordb.median_ms, s.review.postgres.median_ms))}
-        ${row("100 clients: queries per second", ms(c.falkordb_100.throughput_qps), ms(c.postgres_100.throughput_qps), win(c.falkordb_100.throughput_qps, c.postgres_100.throughput_qps, false))}
-        ${row("100 clients: p95 latency (ms)", ms(c.falkordb_100.p95_ms), ms(c.postgres_100.p95_ms), win(c.falkordb_100.p95_ms, c.postgres_100.p95_ms))}
+        ${row(`Traversal only, ${d.reach.falkordb.reached.toLocaleString()} components reached (median ms)${NOH}`, ms(d.reach.falkordb.median_ms), ms(d.reach.postgres.median_ms), win(d.reach.falkordb.median_ms, d.reach.postgres.median_ms))}
+        ${row(`Full radius, same start, end to end (median ms)${NOH}`, `${ms(d.radius.falkordb.median_ms)} <span class="label-muted">(${ms(d.radius.falkordb.server_ms)} in the database)</span>`, ms(d.radius.postgres.median_ms), win(d.radius.falkordb.median_ms, d.radius.postgres.median_ms))}
+        ${row(`Full radius of <span class="id">dc1-host-07</span>, ${d.headline_radius.falkordb.reached.toLocaleString()} reached (median ms)${NOH}`, ms(d.headline_radius.falkordb.median_ms), ms(d.headline_radius.postgres.median_ms), win(d.headline_radius.falkordb.median_ms, d.headline_radius.postgres.median_ms))}
+        ${row(`Change review CHG-HEADLINE (median ms)${NOH}`, ms(s.review.falkordb.median_ms), ms(s.review.postgres.median_ms), win(s.review.falkordb.median_ms, s.review.postgres.median_ms))}
+        ${row(`100 clients: queries per second${NOH}`, ms(c.falkordb_100.throughput_qps), ms(c.postgres_100.throughput_qps), win(c.falkordb_100.throughput_qps, c.postgres_100.throughput_qps, false))}
+        ${row(`100 clients: p95 latency (ms)${NOH}`, ms(c.falkordb_100.p95_ms), ms(c.postgres_100.p95_ms), win(c.falkordb_100.p95_ms, c.postgres_100.p95_ms))}
         ${row("Peak memory (MB)", s.memory_mb.falkordb.toLocaleString(), s.memory_mb.postgres.toLocaleString(), win(s.memory_mb.falkordb, s.memory_mb.postgres))}
         ${row("On disk (MB)", s.disk_mb.falkordb.toLocaleString(), s.disk_mb.postgres.toLocaleString(), win(s.disk_mb.falkordb, s.disk_mb.postgres))}
         ${row("Load time (s)", ms(s.load_s.falkordb), ms(s.load_s.postgres), win(s.load_s.falkordb, s.load_s.postgres))}
@@ -1094,7 +1111,7 @@ async function loadScale() {
 const usd = (x) => `$${(x || 0) < 0.01 ? (x || 0).toFixed(4) : (x || 0).toFixed(2)}`;
 function stepHTML(e) {
   return `<li class="${e.action ? "act-step" : ""}"><span class="n">${esc(e.n)}</span>
-    <div><p class="tool"><span class="id">${esc(e.tool)}</span>${e.action ? ` <span class="flag-act">Action</span>` : ""}</p>
+    <div><p class="tool">${esc(toolText({ tool: e.tool, input: e.args }))} <span class="id tool-id">${esc(e.tool)}</span>${e.action ? ` <span class="flag-act">Action</span>` : ""}</p>
     ${e.why ? `<p class="why">${esc(e.why)}</p>` : ""}<p class="res">${esc(friendly(e.summary))}</p>
     <p class="meta">${esc(e.ms ?? 0)} ms${e.cost ? `, ${usd(e.cost)}` : ""}</p></div></li>`;
 }
@@ -1106,7 +1123,7 @@ function verdictHTML(e) {
     <h3>Verdict ${riskLabel(v.risk)}</h3>
     ${e.valid ? "" : `<p class="notice">${esc(e.rejected ? `The agent's verdict was set aside because ${e.rejected}. This is the rule-based review instead.`
       : e.stopped ? `The agent stopped early (${e.stopped}). This is the rule-based review instead.` : "Rule-based review.")}</p>`}
-    ${v.root_cause ? `<p>Most responsible: ${ci(v.root_cause)}</p>` : ""}
+    ${v.root_cause ? `<p>Likely cause: ${ci(v.root_cause)}</p>` : ""}
     ${(v.reasons || []).length ? `<ul class="prose">${v.reasons.map((r) => `<li>${inline(friendly(r))}</li>`).join("")}</ul>` : ""}
     ${links.length ? `<p class="used">Hidden links (${links.length}): ${links.slice(0, 4).map((l) => `<span class="id">${esc(l)}</span>`).join(", ")}${links.length > 4 ? " and more" : ""}</p>` : ""}
     ${(v.warn || []).length ? `<table class="data plain"><thead><tr><th scope="col">Warn</th><th scope="col">About</th><th scope="col">Why</th></tr></thead><tbody>${
@@ -1152,12 +1169,24 @@ async function runAgent(kind, trigger, box) {
   loadPast();
   return events;
 }
+async function loadMemory() {
+  const box = $("#mem-facts");
+  if (!box) return;
+  const names = current?.kind === "change" && review?.graph ? review.graph.nodes.map((n) => n.id).slice(0, 300) : [];
+  if (!names.length) { box.innerHTML = `<p class="empty">Open a change to see what the agent remembers about it.</p>`; return; }
+  let m;
+  try { m = await api(`/agent/memory?components=${enc(names.join(","))}`); } catch (e) { return; }
+  const facts = [...m.confirmed.map((f) => ["Confirmed", f]), ...m.rejected.map((f) => ["Rejected", f])];
+  box.innerHTML = facts.length ? `<ul class="facts">${facts.slice(0, 6).map(([k, f]) => `<li><span class="flag-${k === "Confirmed" ? "ok" : "no"}">${k}</span> ${esc(f.statement)}</li>`).join("")}</ul>`
+    : `<p class="empty">Nothing yet about this change's components. Approving or rejecting a finding teaches the agent; it recalls that in later reviews.</p>`;
+}
 async function loadPast() {
+  loadMemory();
   let rows = [];
   try { rows = await api("/agent/investigations?limit=10"); } catch (e) { return; }
   $("#agent-past").innerHTML = rows.length ? rows.map((x) => `<li><button type="button" class="link" data-inv="${esc(x.id)}">${esc(x.trigger)}</button>
     ${riskLabel(x.verdict?.risk, true)} <span class="label-muted">${esc(when(x.time))}${x.recorded ? ", recorded" : ""}</span></li>`).join("")
-    : `<li class="empty">No investigations yet. Ask the agent to review a change.</li>`;
+    : `<li class="empty">No live investigations yet (recorded runs are not stored). Ask the agent to review a change.</li>`;
   $$("#agent-past [data-inv]").forEach((b) => { b.onclick = async () => {
     const inv = await api(`/agent/investigations/${enc(b.dataset.inv)}`);
     const box = $("#agent-out");
@@ -1191,6 +1220,21 @@ const TOUR = [
     go: async () => { await openChange("CHG-HEADLINE"); return $(".review-head"); } },
   { title: "What the evidence says", text: "The evidence says otherwise: 51 hospitals' Emergency departments depend on it.",
     go: async () => { await openChange("CHG-HEADLINE"); return $("#compare"); } },
+  { title: "The agent investigates", text: "The agent picks graph tools over MCP one step at a time and says why.",
+    go: async () => {
+      await openChange("CHG-HEADLINE");
+      if (!tourRun) { $("#agent-out").innerHTML = ""; tourRun = runAgent("change", "CHG-HEADLINE", $("#agent-out")); }
+      await new Promise((r) => setTimeout(r, 1200));
+      return $("#agent-out");
+    } },
+  { title: "It acts and remembers", text: "It wrote a note on the change and asked the change board to review it. Approvals and rejections go into its memory graph for next time.",
+    go: async () => {
+      await openChange("CHG-HEADLINE");
+      if (!tourRun) tourRun = runAgent("change", "CHG-HEADLINE", $("#agent-out"));
+      await tourRun;
+      return $("#agent-out .agent-verdict") || $("#agent-out");
+    },
+    then: () => $("#agent-memory") },
   { title: "The missing link", text: "This is the missing link: the interface engine shows every critical-results interface stores messages in lrc-db-01, but nobody recorded it.",
     go: async () => {
       await openChange("CHG-HEADLINE");
@@ -1207,7 +1251,7 @@ const TOUR = [
       return $("#drawer");
     } },
 ];
-let tourOn = false, tourAt = 0, tourTarget = null, tourReturn = null;
+let tourOn = false, tourAt = 0, tourTarget = null, tourReturn = null, tourRun = null, tourTimer = null;
 async function openChange(id) {
   if ($("#tab-change").hidden) showTab("change");
   if (!$("#drawer").hidden) closeDrawer();
@@ -1217,6 +1261,9 @@ async function openChange(id) {
 function startTour(i = 0) {
   tourReturn = document.activeElement;
   tourOn = true;
+  tourRun = null;
+  clearInterval(tourTimer);
+  tourTimer = setInterval(placeTour, 500);  // the trace grows while it streams
   tourStep(i);
 }
 async function tourStep(i) {
@@ -1232,9 +1279,19 @@ async function tourStep(i) {
   if (!tourOn || tourAt !== i) return;
   (tourTarget?.id === "drawer" ? $("#drawer") : document.body).appendChild(card);  // inside the dialog while it is open
   card.hidden = false;
-  if (tourTarget && tourTarget.id !== "drawer") tourTarget.scrollIntoView({ block: "center", behavior: "auto" });
+  if (tourTarget && tourTarget.id !== "drawer") {  // tall targets (the trace) from their top
+    tourTarget.scrollIntoView({ block: tourTarget.offsetHeight > innerHeight * 0.7 ? "start" : "center", behavior: "auto" });
+  }
   requestAnimationFrame(placeTour);
   $("#tour-title").focus();
+  if (step.then) {
+    setTimeout(() => {
+      if (!tourOn || tourAt !== i) return;
+      tourTarget = step.then();
+      tourTarget?.scrollIntoView({ block: "center", behavior: "auto" });
+      requestAnimationFrame(placeTour);
+    }, 3500);
+  }
 }
 function placeTour() {
   if (!tourOn) return;
@@ -1258,6 +1315,7 @@ function placeTour() {
 }
 function endTour() {
   tourOn = false;
+  clearInterval(tourTimer);
   $("#tour").hidden = true;
   $("#spot").hidden = true;
   document.body.appendChild($("#tour"));

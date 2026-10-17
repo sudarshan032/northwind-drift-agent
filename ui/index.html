@@ -45,10 +45,10 @@
   <section id="tab-overview" role="tabpanel" aria-labelledby="tab-btn-overview" class="screen overview">
     <div class="hero">
       <h1>Your <button type="button" class="term" data-term="cmdb">CMDB</button> says this patch is safe. Your hospital network disagrees.</h1>
-      <p class="lede">Northwind drift agent compares what the configuration database claims with what systems actually
-        do, finds the gaps, and shows the real impact of a change before it happens.</p>
+      <p class="lede">An AI agent that checks every change against what systems actually do, finds what the CMDB is
+        missing, and acts before anything breaks.</p>
       <div class="actions">
-        <button type="button" class="primary" id="tour-start">Start the guided tour</button>
+        <button type="button" class="primary" id="tour-start">Watch the agent review a change</button>
         <a class="ghost button" href="#change=CHG-HEADLINE">Go to change review</a>
       </div>
       <p class="label-muted">All data is fictional: Northwind Health is an invented health system sized like a large US one.</p>
@@ -77,11 +77,18 @@
 
     <section class="ov" aria-labelledby="ov-agent">
       <h2 id="ov-agent">The agent investigates, decides and acts</h2>
-      <p>Ask the Change Guardian to review a change or chase a symptom. It chooses graph tools one at a time through
-        MCP (the same read-only tools any MCP client can use at <span class="id">/mcp</span>), says why at each step,
+      <p>Ask the Change Guardian (<button type="button" class="term" data-term="agent">agent</button>) to review a change or chase a symptom. It chooses graph tools one
+        at a time through <button type="button" class="term" data-term="mcp">MCP</button> (the same read-only tools any MCP client can use at <span class="id">/mcp</span>), says why at each step,
         then gives a checked verdict and acts: a work note on the change, a CAB review, alerts to the right owners, a
         proposed CMDB fix that waits for a person. It remembers what people approved or rejected in its own FalkorDB
-        memory graph and recalls it next time.</p>
+        <button type="button" class="term" data-term="memory-graph">memory graph</button> and recalls it next time.</p>
+      <ul class="proof">
+        <li>Tested on 9 scenarios (change reviews and incidents), 4 of them held out during development: 7 of 9
+          correct, about $0.002 per investigation.
+          <a href="https://github.com/sudarshan032/northwind-drift-agent/blob/master/docs/records/AGENT_EVAL.md">Evaluation</a></li>
+        <li>Connect your own MCP client: <span class="id">https://northwind-drift-agent.vercel.app/mcp</span>
+          (<a href="https://github.com/sudarshan032/northwind-drift-agent#connect-an-mcp-client">how</a>)</li>
+      </ul>
       <figure class="trace-fig">
         <img src="/static/img/trace.png" alt="Recorded agent run for CHG-HEADLINE: get_change, declared and real radius (4 versus 107 components), 51 hidden links seen by the interface engine, who to page, recall, changes on the host, then two actions: a work note and a CAB review request." loading="lazy">
         <figcaption class="label-muted">A recorded run of the agent on CHG-HEADLINE: nine steps, two actions, $0.0032.</figcaption>
@@ -126,15 +133,14 @@
           about 9 times faster. End to end from Python, with compiled clients on both sides, it is 56 against 375
           ms.</p></li>
         <li><h3>Steady under load</h3><p>With 100 clients asking at once, FalkorDB's slowest answers stay lower:
-          p95 1,725 ms and p99 1,944 ms against 4,401 and 7,895 ms. PostgreSQL keeps the higher throughput (142
-          against 87 queries a second) and the lower median. FalkorDB measured without hiredis (slower
-          client).</p></li>
-        <li><h3>Each tool for its job</h3><p>The graph walks, SQL describes: FalkorDB finding the components and
-          PostgreSQL adding their details was fastest end to end for big radii (714 against 944 ms, measured
-          without hiredis (slower client)); for the full question, PostgreSQL alone is faster than FalkorDB
-          alone (1,324 against 908 ms at the largest radius, with hiredis).</p></li>
+          p95 1,725 ms and p99 1,944 ms against 4,401 and 7,895 ms.* PostgreSQL keeps the higher throughput (142
+          against 87 queries a second*) and the lower median.</p></li>
+        <li><h3>Each tool for its job</h3><p>The graph walks, SQL describes. For the biggest radius, FalkorDB finding
+          the components and PostgreSQL adding their details took 714 ms, against 944 ms for PostgreSQL alone.* For
+          the full question on its own, PostgreSQL (908 ms) is faster than FalkorDB (1,324 ms).</p></li>
       </ul>
-      <p class="label-muted">Measured on one laptop with identical answers from both systems. Method and every table:
+      <p class="label-muted">Measured on one laptop with identical answers from both systems. * FalkorDB measured with
+        the Python client's slower pure-Python reply parser (without hiredis). Method and every table:
         <a href="https://github.com/sudarshan032/northwind-drift-agent/blob/master/bench/RESULTS.md">bench/RESULTS.md</a>.</p>
     </section>
 
@@ -142,7 +148,7 @@
       <h2 id="ov-do">What you can do here</h2>
       <ul class="todo">
         <li><a href="#change=CHG-HEADLINE">Change review</a>: see what a <button type="button" class="term" data-term="change-request">change request</button> really affects, next to what the CMDB says.</li>
-        <li><a href="#findings">Findings</a>: every gap the agent found, with a proposed fix you can approve or reject.</li>
+        <li><a href="#findings">Findings</a>: every gap the graph checks found, explained by the agent, with a proposed fix you can approve or reject.</li>
         <li><a href="#incident">Incident</a>: describe a symptom and watch the agent trace it to the likely cause.</li>
         <li><a href="#sources">Sources</a>: the eleven discovery tools behind the evidence, with a raw record from each.</li>
         <li><a href="#chat">Chat</a>: ask questions in plain words; answers come from graph queries.</li>
@@ -163,6 +169,7 @@
         <a href="https://github.com/sudarshan032/northwind-drift-agent">GitHub</a>,
         <a href="https://github.com/sudarshan032/northwind-drift-agent/blob/master/README.md">README</a> and
         <a href="https://github.com/sudarshan032/northwind-drift-agent/blob/master/bench/RESULTS.md">benchmark results</a>.</p>
+      <p>Built for Graph Hacks 2026 (WeMakeDevs × FalkorDB).</p>
     </footer>
   </section>
 
@@ -199,14 +206,16 @@
           decides, acts and remembers. Notes, CAB flags and alerts are recorded at once; CMDB fixes still wait for a
           person.</p>
         <div id="agent-out" class="agent-out" aria-live="polite"></div>
-        <details class="past" id="agent-past-box">
-          <summary>Past investigations and memory</summary>
+        <div class="remembers" id="agent-memory" aria-labelledby="mem-head">
+          <h3 id="mem-head">What the agent remembers</h3>
+          <div id="mem-facts"></div>
+          <h4>Earlier investigations</h4>
           <ul id="agent-past" class="past-list"></ul>
           <div class="mem-actions">
             <button type="button" class="ghost" id="reset-data">Reset data, keep memory</button>
             <button type="button" class="ghost" id="reset-memory">Reset memory</button>
           </div>
-        </details>
+        </div>
       </section>
 
       <h2>Impact</h2>
@@ -267,9 +276,9 @@
   <section id="tab-findings" role="tabpanel" aria-labelledby="tab-btn-findings" class="screen" hidden>
     <div class="screen-head">
       <h1>Findings</h1>
-      <p class="intro-text">Every row is one <button type="button" class="term" data-term="drift">drift</button>: a gap between the <button type="button" class="term" data-term="cmdb">CMDB</button> and the evidence,
-        with the fix the agent proposes. Open a row to see the evidence, then approve or reject the fix; nothing
-        changes without a person. <button type="button" class="link" data-tour="4">Show me</button></p>
+      <p class="intro-text">Every row is one <button type="button" class="term" data-term="drift">drift</button> the graph checks found: a gap between the <button type="button" class="term" data-term="cmdb">CMDB</button> and the
+        evidence, explained by the agent, with a proposed fix. Open a row to see the evidence, then approve or reject
+        the fix; nothing changes without a person. <button type="button" class="link" data-tour="6">Show me</button></p>
       <p class="sub label-muted">A CMDB update changes only a <button type="button" class="term" data-term="ci">CI</button>'s
         existence, its <span class="id">os_version</span>, <span class="id">serial_number</span>,
         <span class="id">ip_address</span>, <span class="id">support_group</span> or

@@ -58,3 +58,4 @@ Re-read this file, RUN_PROMPT.md and DATA_SPEC.md after any context compaction.
 - 2026-10-16 Held-out scenarios H1-H4 run once: 3/4; README tracks section.
 - 2026-10-17 Service-map fix (per-hospital offerings), data regenerated, local and cloud reloaded, eval v2 data 7/9.
 - 2026-10-17 Explanations and chat on OpenAI gpt-6-luna; prewarm $0.0063, all grounded.
+- 2026-10-17 Site polish: hero, 7-step tour with the agent, visible memory, plain trace steps, accuracy wording, numbers footnote, proof lines, glossary, footer.

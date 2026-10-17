@@ -27,12 +27,13 @@ def test_overview_and_tour_markup():
     html, js = _read("index.html"), _read("app.js")
     assert 'id="tab-btn-overview"' in html and html.index("tab-btn-overview") < html.index("tab-btn-change")
     text = re.sub(r"<[^>]+>", "", html)
+    assert "Watch the agent review a change" in text and "Graph Hacks 2026 (WeMakeDevs × FalkorDB)" in text
     assert "Your CMDB says this patch is safe. Your hospital network disagrees." in text
     assert 'id="tour-start"' in html and 'role="dialog"' in html and 'id="tour-next"' in html
     assert len(re.findall(r'class="flow4"|<li><h3>The (record|evidence|gap|agent)</h3>', html)) == 5
     assert "uses lrc-db-01, not in CMDB," in html and "all 51 hospitals" in html
-    assert js.count("{ title: ") == 5 and 'TABS = ["overview"' in js  # five tour steps, overview first
-    for n in ("38 ms", "357 ms", "1,725", "7,895", "714 against 944"):  # measured numbers (bench/RESULTS.md)
+    assert js.count("{ title: ") == 7 and 'TABS = ["overview"' in js  # seven tour steps (two agent steps), overview first
+    for n in ("38 ms", "357 ms", "1,725", "7,895", "714 ms, against 944 ms"):  # measured numbers (bench/RESULTS.md)
         assert n in html
 
 
@@ -40,7 +41,7 @@ def test_glossary_terms_accessible():
     g = json.loads(_read("glossary.json"))
     html, js = _read("index.html"), _read("app.js")
     want = {"cmdb", "ci", "drift", "blast-radius", "declared-observed", "hl7", "interface", "service-offering",
-            "business-service", "discovery-source", "change-request"}
+            "business-service", "discovery-source", "change-request", "agent", "mcp", "memory-graph", "fhir"}
     assert set(g["terms"]) == want and all(len(v) == 2 and v[1] for v in g["terms"].values())
     used = set(re.findall(r'data-term="([^"]+)"', html))
     assert used and used <= want
