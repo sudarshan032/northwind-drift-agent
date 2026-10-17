@@ -805,7 +805,8 @@ function affected(f) {
 function firstSentence(s) {
   const t = String(s || "").replace(/\*\*/g, "").replace(/^\s*what is wrong:\s*/i, "");  // AI answers often open with this label
   const m = t.match(/^.*?[.!?](\s|$)/);
-  return cap((m ? m[0] : t).trim());
+  const out = (m ? m[0] : t).trim();
+  return /^[a-z0-9]+[-.]/.test(out) ? out : cap(out);  // never capitalise a CI name such as ris-db-01
 }
 function renderFindings() {
   const v = (id) => $(id).value;
