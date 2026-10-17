@@ -889,7 +889,8 @@ async function openFinding(id) {
   catch (e) { $("#drawer-body").innerHTML = `<p>${esc(e.message)}</p>`; return; }
   const isTicket = f.action === "ticket";
   const rr = f.evidence?.real_radius;
-  const impact = rr && rr.components ? `<p class="label-muted">If ${esc(f.subjects?.[0] || "it")} fails: ${esc(plural(rr.components, "component"))}, ${
+  const saysImpact = /\bif\s+\S+\s+fails\b/i.test(f.explanation || "");  // the explanation already states it: once only
+  const impact = rr && rr.components && !saysImpact ? `<p class="label-muted">If ${esc(f.subjects?.[0] || "it")} fails: ${esc(plural(rr.components, "component"))}, ${
     esc(plural(rr.hospitals || 0, "hospital"))}, ${esc(plural(rr.business_services || 0, "business service"))}.</p>` : "";
   const body = `<p class="meta-row"><span class="risk sev ${esc(f.severity)}">${esc(cap(f.severity))}</span>
       <span>${esc(f.type)}</span><span>${esc(cap(f.status))}${f.resolved ? ", resolved" : ""}</span>

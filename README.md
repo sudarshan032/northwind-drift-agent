@@ -23,7 +23,7 @@ database moved to the Hyderabad integration team.
 
 ## Live demo
 
-**https://northwind-drift-agent.vercel.app** (Vercel Hobby, function in `bom1` Mumbai; FalkorDB Cloud free tier in
+**https://change-guardian.vercel.app** (the earlier address https://northwind-drift-agent.vercel.app still works; Vercel Hobby, function in `bom1` Mumbai; FalkorDB Cloud free tier in
 AWS ap-south-1, the same region).
 
 - It runs the demo subset (all 51 hospitals, the full drift catalogue, 6,636 components) in public mode
@@ -353,7 +353,7 @@ evidence}`. Every step streams to the "Agent investigation" panel (tool, why, re
 ```
 
 - **MCP.** The read-only tools are an MCP server: streamable HTTP at `/mcp` (live:
-  `https://northwind-drift-agent.vercel.app/mcp`) and stdio (`uv run python -m agent.mcp_tools`). The agent itself
+  `https://change-guardian.vercel.app/mcp`) and stdio (`uv run python -m agent.mcp_tools`). The agent itself
   selects tools through an MCP client connected to the same server. Action tools are not on the MCP server.
 - **Memory.** Approving a finding writes a confirmed Fact, rejecting it a rejected Fact (`northwind_memory`,
   per-user graphs `northwind_memory_<user>` with `?user=`). The agent recalls them; triage does not re-raise a
@@ -415,8 +415,8 @@ Claude Desktop (`claude_desktop_config.json`), local stdio server against the lo
   "python", "-m", "agent.mcp_tools"], "env": {"FALKORDB_HOST": "localhost", "FALKORDB_PORT": "6379"}}}}
 ```
 
-Any client that speaks streamable HTTP can use the live server: `https://northwind-drift-agent.vercel.app/mcp`
-(read-only, no key). From Python: `async with mcp.Client("https://northwind-drift-agent.vercel.app/mcp") as c:
+Any client that speaks streamable HTTP can use the live server: `https://change-guardian.vercel.app/mcp`
+(read-only, no key). From Python: `async with mcp.Client("https://change-guardian.vercel.app/mcp") as c:
 await c.list_tools()`.
 
 ### The earlier flows

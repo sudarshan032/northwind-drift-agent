@@ -40,7 +40,7 @@ All data is synthetic, deterministic (seed 42), no personal data.
 
 ## Known facts and pitfalls
 - FalkorDB Cloud free tier: 100 MB, no TLS (connect with FALKORDB_TLS=false). Instance in AWS ap-south-1; Vercel functions run in bom1.
-- Live demo: https://northwind-drift-agent.vercel.app (public mode: cached AI answers only, approvals stored in FalkorDB, daily reset).
+- Live demo: https://change-guardian.vercel.app (old alias https://northwind-drift-agent.vercel.app still works) (public mode: cached AI answers only, approvals stored in FalkorDB, daily reset).
 - Git author must be the owner (noreply address set). Local branch `backup/pre-author-rewrite` must never be pushed.
 - FalkorDB quirks: no nested reduce(); unlabelled patterns skip indexes (use `:Component`); default query timeout raised to 10 s.
 
