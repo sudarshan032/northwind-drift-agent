@@ -6,7 +6,8 @@ show its reason. At most `max_steps` model calls; the last one has no tools and 
 verdict {risk, root_cause, reasons, hidden_links, warn, actions, evidence}. The verdict is checked with the
 grounding rules (every number and CI name must appear in a tool result; an incident's named change must target
 the most specific shared dependency). A rejected verdict is replaced by a rule-based one and the rejection is
-shown in the trace. Each finished investigation is written to the memory graph (agent.memory).
+shown in the trace. hidden_links is a direct tool result, so it is filled from the hidden_links tool calls, not
+written by the model. Each finished investigation is written to the memory graph (agent.memory).
 
 `investigate()` is an async generator of events (start, memory, note, step, verdict, done), streamed to the UI.
 """
@@ -50,22 +51,25 @@ target; medium when the real impact is larger than recorded; low when it is not 
 Risk for an incident: high when patient data is exposed, unprotected or cannot be restored, or a patient-safety
 service is down; medium when a clinical service is degraded or slowed (for example tickets routed to the wrong team);
 low when no service is affected.
-Use only numbers and names that appear in tool results. You have at most {steps} model calls; the last one has no
-tools and must give the verdict, so gather evidence early and keep calls few."""
+Use only numbers and names that appear in tool results, written exactly as the results give them. You may
+summarise ("51 hidden links to lrc-db-01") but never invent an identifier or a label for a link (such as
+"interface-to-lrc-db-01"). You have at most {steps} model calls; the last one has no tools and must give the verdict,
+so gather evidence early and keep calls few."""
 
 FINAL = ("Tools are now disabled. From the evidence below give your verdict as JSON with exactly these keys: "
          "risk (high|medium|low), root_cause (the component or change most responsible, or null), reasons (short "
-         "sentences), hidden_links (\"A -> B\" strings), warn (objects with team, component, why), actions (what "
-         "you did or recommend), evidence (tool names you relied on). Use only names and numbers from the evidence.")
+         "sentences), warn (objects with team, component, why), actions (what you did or recommend), evidence (tool "
+         "names you relied on). Use only names and numbers from the evidence, written exactly as it gives them; you may "
+         "summarise (\"51 hidden links to lrc-db-01\") but never invent identifiers. The hidden links are listed "
+         "from the hidden_links tool results, so do not write them.")
 
 VERDICT_SCHEMA = {
     "type": "object", "additionalProperties": False,
-    "required": ["risk", "root_cause", "reasons", "hidden_links", "warn", "actions", "evidence"],
+    "required": ["risk", "root_cause", "reasons", "warn", "actions", "evidence"],
     "properties": {
         "risk": {"type": "string", "enum": ["high", "medium", "low"]},
         "root_cause": {"type": ["string", "null"]},
         "reasons": {"type": "array", "items": {"type": "string"}},
-        "hidden_links": {"type": "array", "items": {"type": "string"}},
         "warn": {"type": "array", "items": {"type": "object", "additionalProperties": False,
                                             "required": ["team", "component", "why"],
                                             "properties": {"team": {"type": "string"}, "component": {"type": "string"},
@@ -116,6 +120,17 @@ def summarise(name, res):
     if name in A.SPECS:
         return A.summary(name, res)
     return G.step_found(name, res)
+
+
+def tool_hidden_links(trace):
+    """Hidden links exactly as the hidden_links tool returned them ("src -> dst"), in order, without repeats.
+    The verdict's list is filled from these, never from the model's output."""
+    out = []
+    for t in trace:
+        if t["tool"] == "hidden_links" and isinstance(t["result"], dict):
+            out += [f"{e['src']} -> {e['dst']}" for e in t["result"].get("hidden_links") or []
+                    if isinstance(e, dict) and e.get("src") and e.get("dst")]
+    return list(dict.fromkeys(out))
 
 
 def flatten(v):
@@ -305,6 +320,8 @@ async def investigate(g, memory, kind, trigger, llm, mcp_server, *, max_steps=MA
             if charge is not None:
                 charge(reply.cost)
             verdict = parse_json(reply.text)
+            if isinstance(verdict, dict):  # a direct tool result: taken from the tools, not from the model
+                verdict["hidden_links"] = tool_hidden_links(trace)
             rejected = check_verdict(g, kind, verdict, trace, trigger)
         except LLMUnavailable as e:
             stop_reason = f"model unavailable ({e})"

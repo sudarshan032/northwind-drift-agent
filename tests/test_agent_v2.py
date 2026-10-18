@@ -45,13 +45,13 @@ VERDICT = {"risk": "high", "root_cause": "lrc-db-01", "reasons": ["dc1-host-07 r
            "evidence": ["radius"]}
 
 
-def script():
+def script(verdict=None):
     return L.FakeLLM([{"tool": "get_change", "input": {"change_id": "CHG-HEADLINE", "why": "find the target"}},
                       {"tool": "radius", "input": {"component": "dc1-host-07", "layer": "real", "why": "real impact"}},
                       {"tool": "hidden_links", "input": {"component": "dc1-host-07", "why": "they differ"}},
                       {"tool": "add_change_note", "input": {"change_id": "CHG-HEADLINE", "note": "51 hospitals",
                                                             "why": "record the real impact"}},
-                      {"text": "enough evidence"}, {"text": json.dumps(VERDICT)}])
+                      {"text": "enough evidence"}, {"text": json.dumps(verdict or VERDICT)}])
 
 
 def run(g, mem, kind, trigger, llm, **k):
@@ -102,6 +102,18 @@ def test_tool_loop_trace_actions_and_memory(env):
     inv = mem.investigation(ev[-1]["id"])
     assert inv["verdict"]["risk"] == "high" and [s["tool"] for s in inv["steps"]][:2] == ["get_change", "radius"]
     assert mem.recall(["lrc-db-01"])["investigations"][0]["id"] == ev[-1]["id"]
+
+
+def test_hidden_links_come_from_tools_not_the_model(env):
+    _, g, mem = env
+    invented = {**VERDICT, "hidden_links": ["interface-to-lrc-db-01"]}
+    v = run(g, mem, "change", "CHG-HEADLINE", script(invented))[-2]
+    assert v["valid"], v["rejected"]
+    links = v["verdict"]["hidden_links"]
+    assert "interface-to-lrc-db-01" not in links and "ORU-CRIT-H01 -> lrc-db-01" in links and len(links) == 51
+    in_reasons = {**invented, "reasons": ["The interface-to-lrc-db-01 link reaches 51 hospitals."]}
+    v = run(g, mem, "change", "CHG-HEADLINE", script(in_reasons))[-2]
+    assert not v["valid"] and "interface-to-lrc-db-01" in v["rejected"]  # still strict for what the model writes
 
 
 def test_step_cap_and_invalid_verdict(env):
