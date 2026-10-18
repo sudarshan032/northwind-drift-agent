@@ -87,12 +87,13 @@ def drive(db, graph, budget_s, triage, after, memory_graph, data=DATA):
     lock = db.select_graph(lock_name(graph))
     if step == 0:
         log.warning("demo graph %s is %s: reloading from %s", graph, st, data)
-    ld, first = None, step
+    ld, ran = None, 0
     while step < len(STEPS):
-        if step > first and time.time() - t0 > budget_s:  # at least one step per call
+        if ran and time.time() - t0 > budget_s:  # at least one step per call
             lock.query("MATCH (r:Restore {owner: $me}) SET r.until = 0.0", {"me": me})  # next caller continues
             return {"status": "restoring", "step": step, "of": len(STEPS), "next": STEPS[step]}
         name = STEPS[step]
+        ran += 1
         t = time.perf_counter()
         if name == "wipe":
             for gname in (graph, memory_graph):
@@ -111,6 +112,12 @@ def drive(db, graph, budget_s, triage, after, memory_graph, data=DATA):
             triage(db.select_graph(graph))
         elif name == "finish":
             g = db.select_graph(graph)
+            n = g.query("MATCH (c:Component) RETURN count(c)").result_set[0][0]
+            if n < expected(data):  # the graph was emptied again during the reload: start over
+                log.warning("reload incomplete (%d components): starting again", n)
+                step = 0
+                lock.query("MATCH (r:Restore {owner: $me}) SET r.step = 0", {"me": me})
+                continue
             mark_loaded(g, data)
             ensure_memory(db, memory_graph)
             after(g)

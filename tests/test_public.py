@@ -147,6 +147,13 @@ def test_reload_after_database_restart(public):
     assert recover.state(M._db, M.GRAPH, data) == "restoring"
     r = client.get("/findings")
     assert r.status_code == 503 and r.json() == {"restarting": True, "detail": M.RESTARTING}
+    for _ in range(len(recover.STEPS) - 2):  # up to the last step ...
+        M._db.select_graph(recover.lock_name(M.GRAPH)).query("MATCH (r:Restore) SET r.until = 0.0")
+        M.restore(0)
+    M._db.select_graph(M.GRAPH).delete()  # ... the database restarts again: finish must not mark it loaded
+    M._db.select_graph(recover.lock_name(M.GRAPH)).query("MATCH (r:Restore) SET r.until = 0.0")
+    assert M.restore(0)["status"] == "restoring" and recover.state(M._db, M.GRAPH, data) == "restoring"
+    assert M._db.select_graph(recover.lock_name(M.GRAPH)).query("MATCH (r:Restore) RETURN r.step").result_set[0][0] <= 1
     held = recover._claim(M._db, M.GRAPH, "a")  # one instance holds the lease ...
     assert held is not None and recover._claim(M._db, M.GRAPH, "b") is None  # ... a second one waits
     M._db.select_graph(recover.lock_name(M.GRAPH)).query("MATCH (r:Restore) SET r.until = 0.0")  # lease ran out
