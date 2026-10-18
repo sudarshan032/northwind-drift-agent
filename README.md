@@ -3,7 +3,7 @@
 **Change Guardian** (this repository: `northwind-drift-agent`) is an AI agent on FalkorDB that checks IT changes
 against what systems actually do, so a "low-risk" patch that really reaches 51 hospitals is caught before it runs.
 
-**Live demo:** https://change-guardian.vercel.app · **Video:** _(link to be added)_ · **Blog:** _(link to be added)_ ·
+**Live demo:** https://change-guardian.vercel.app · **Video:** https://youtu.be/FjRZv8ZxBCE · **Blog:** _(link to be added)_ ·
 **MCP server:** `https://change-guardian.vercel.app/mcp`
 
 ## Rules checklist
@@ -14,7 +14,7 @@ against what systems actually do, so a "low-risk" patch that really reaches 51 h
 | Graph data model | [Graph data model](#graph-data-model) (Mermaid diagram, node and edge tables), loader [`ingest/load.py`](ingest/load.py) |
 | Cypher queries and graph algorithms | [Cypher the product depends on](#cypher-the-product-depends-on) (BFS, shortest path, betweenness, variable-length paths); all queries in [`graph/queries.py`](graph/queries.py), impact layer in [`graph/impact.py`](graph/impact.py) |
 | Why FalkorDB | [Why FalkorDB is essential](#why-falkordb-is-essential) |
-| Demo video | _(link to be added)_ |
+| Demo video | https://youtu.be/FjRZv8ZxBCE |
 | Deployment | https://change-guardian.vercel.app ([Live demo](#live-demo): Vercel + FalkorDB Cloud) |
 | Hackathon tracks | [Hackathon tracks](#hackathon-tracks) |
 | AI disclosure | [AI disclosure](#ai-disclosure) |
