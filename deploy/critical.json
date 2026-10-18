@@ -1,0 +1,52 @@
+[
+ {
+  "name": "emr-app",
+  "label": "Application",
+  "score": 60921.5
+ },
+ {
+  "name": "lis-app",
+  "label": "Application",
+  "score": 42767.5
+ },
+ {
+  "name": "ADT-EMR-LIS",
+  "label": "Interface",
+  "score": 10667.75
+ },
+ {
+  "name": "ORM-EMR-LIS",
+  "label": "Interface",
+  "score": 10667.75
+ },
+ {
+  "name": "ris-app",
+  "label": "Application",
+  "score": 6265.0
+ },
+ {
+  "name": "sso-app",
+  "label": "Application",
+  "score": 5662.5
+ },
+ {
+  "name": "MDM-RIS-EMR",
+  "label": "Interface",
+  "score": 2456.5
+ },
+ {
+  "name": "ORU-RIS-EMR",
+  "label": "Interface",
+  "score": 2456.5
+ },
+ {
+  "name": "ADT-EMR-SCHED",
+  "label": "Interface",
+  "score": 1839.0
+ },
+ {
+  "name": "sched-app",
+  "label": "Application",
+  "score": 1617.0
+ }
+]

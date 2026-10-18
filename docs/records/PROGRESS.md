@@ -66,3 +66,4 @@ Re-read this file, RUN_PROMPT.md and DATA_SPEC.md after any context compaction.
 - 2026-10-18 Visual styling pass (full-width header, tinted bands with grid, frames, 44 px controls, dark tokens contrast-checked).
 - 2026-10-18 DESIGN_FINAL_SPEC: one clean stylesheet, framed column with square nodes, seeded margin network, 1,280/1,440 frames, wider tool layouts, equal theme icons.
 - 2026-10-18 Submission hardening: README reviewer section (rules checklist, 5-minute path, why FalkorDB, data model diagram and tables, key Cypher), claims audit (README + site copy), AI disclosure draft, hourly automatic reset + keep-alive (/cron/tick, GitHub Actions); 127 tests.
+- 2026-10-18 Self-healing demo graph (deploy/recover.py: marker + count check, 19-step resumable reload behind a lease, 503 restarting + UI banner), cron-job.org tick every 10 min.

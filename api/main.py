@@ -83,8 +83,48 @@ def memory(user=None):
     """The agent's memory graph (agent.memory), next to the CMDB graph in the same FalkorDB."""
     from agent.memory import Memory
     graph()
-    base = "northwind_memory" if GRAPH == "northwind" else f"{GRAPH}_memory"  # one memory per CMDB graph
-    return Memory(TimedDB(_db), user, base)
+    return Memory(TimedDB(_db), user, memory_base())
+
+
+def memory_base():
+    return "northwind_memory" if GRAPH == "northwind" else f"{GRAPH}_memory"  # one memory per CMDB graph
+
+
+# Self-healing (public mode, deploy.recover): FalkorDB Cloud's free tier has no persistence, so a restart can leave
+# the graph empty. The cold start, /api/state (the UI's first call, polled while restarting) and /cron/tick reload
+# it step by step from the bundled demo data; meanwhile API calls answer 503 {"restarting": true}.
+RESTARTING = "The demo is restarting, back in about a minute."
+UNREACHABLE = "The demo database is not answering. Please try again in a few minutes."
+OK_TTL_S = 30  # an instance re-checks the graph at most this often
+_ok_until = [0.0]
+
+
+def restore(budget_s):
+    """Reload steps within budget_s; None when the demo graph is fine, else the progress."""
+    from agent import grounding
+    from deploy import recover
+    graph()
+
+    def after(g):
+        bump(g)
+        _risk.clear()
+        grounding._names.pop(GRAPH, None)
+    res = recover.drive(_db, GRAPH, budget_s, triage=lambda g: flows.triage(g, llm()), after=after,
+                        memory_graph=memory_base(), data=DATA)
+    if res is None or res["status"] == "restored":
+        _ok_until[0] = time.time() + OK_TTL_S
+    return res
+
+
+def demo_ready():
+    if time.time() < _ok_until[0]:
+        return True
+    from deploy import recover
+    graph()
+    if recover.state(_db, GRAPH, DATA) != "ok":
+        return False
+    _ok_until[0] = time.time() + OK_TTL_S
+    return True
 
 
 class TimedDB:
@@ -104,19 +144,52 @@ CACHE = {"versioned": "public, max-age=3600, s-maxage=86400, stale-while-revalid
          "static": "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400"}
 
 
+def unavailable(msg):
+    from fastapi.responses import JSONResponse
+    return JSONResponse({"restarting": msg == RESTARTING, "detail": msg}, status_code=503,
+                        headers={"Cache-Control": "no-store", "Retry-After": "15"})
+
+
+async def gate(request, cold):
+    """Public mode, API paths: None when the demo graph is ready, else the 503 to send instead."""
+    import asyncio
+    try:
+        if (cold or request.url.path == "/api/state") and not await asyncio.to_thread(demo_ready):
+            await asyncio.to_thread(restore, 25)
+        if not await asyncio.to_thread(demo_ready):
+            return unavailable(RESTARTING)
+        if cold:  # a dirty demo left behind by an earlier instance is reset before the first answer
+            await asyncio.to_thread(auto_reset, graph(), True)
+    except Exception as e:  # FalkorDB unreachable: say so instead of a stack of failed calls
+        log.warning("demo check failed: %s", type(e).__name__)
+        return unavailable(UNREACHABLE)
+    return None
+
+
 @app.middleware("http")
 async def server_timing(request, call_next):
     r = {"db": 0.0, "v": request.query_params.get("v"), "cache": None, "stored": None}
-    if _cold[0] and PUBLIC and not request.url.path.startswith(("/static/", "/cron/")):
-        import asyncio
-        try:  # a dirty demo left behind by an earlier instance is restored before the first answer
-            await asyncio.to_thread(auto_reset, graph(), True)
-        except Exception as e:  # never block the request on it
-            log.warning("cold-start reset check failed: %s", type(e).__name__)
+    path = request.url.path
+    gated = PUBLIC and not path.startswith(("/static/", "/cron/")) and path not in ("/", "/api/health")
+    if gated:
+        blocked = await gate(request, _cold[0])
+        if blocked is not None:
+            return blocked
     tok = _req.set(r)
     t = time.perf_counter()
     try:
         resp = await call_next(request)
+    except Exception:
+        _ok_until[0] = 0.0
+        if gated:  # the graph went away mid-request (instance restart): the reload is under way or due
+            import asyncio
+            try:
+                ready = await asyncio.to_thread(demo_ready)
+            except Exception:
+                return unavailable(UNREACHABLE)
+            if not ready:
+                return unavailable(RESTARTING)
+        raise
     finally:
         _req.reset(tok)
     total = (time.perf_counter() - t) * 1000
@@ -638,16 +711,20 @@ def cron_reset(authorization: str | None = Header(default=None)):
 
 @app.get("/cron/tick")
 def cron_tick():
-    """Hourly keep-alive and reset check (GitHub Actions schedule; Vercel Hobby crons run once a day). Public and
-    safe to call: it reads one count, and resets only a demo that has been dirty for an hour and idle for 10 minutes
-    (POST /reset is public anyway). The query also keeps the FalkorDB Cloud free instance in use; free instances
+    """Keep-alive, reload and reset check (cron-job.org and GitHub Actions schedules; Vercel Hobby crons run once a
+    day). Public and safe to call: it reloads the demo graph only if it is missing or incomplete (deploy.recover),
+    and resets only a demo that has been dirty for an hour and idle for 10 minutes (POST /reset is public anyway). The query also keeps the FalkorDB Cloud free instance in use; free instances
     unused for a day are stopped, and deleted after 7 days."""
     if not PUBLIC:
         raise HTTPException(409, "only in public mode")
+    rec = restore(30)  # a restart emptied the graph: reload, in steps across ticks if needed
+    if rec is not None and rec["status"] != "restored":
+        return rec
     g = graph()
     n = g.query("MATCH (c:Component) RETURN count(c)").result_set[0][0]
-    res = auto_reset(g)
-    return {"status": "ok", "components": n, "reset": res is not None,
+    res = auto_reset(g) if rec is None else None
+    return {"status": "ok", "components": n, "memory_graph": memory_base() in _db.list_graphs(),
+            "reloaded": rec is not None, "reset": res is not None,
             **({"approvals_undone": res["approvals_undone"]} if res else {})}
 
 

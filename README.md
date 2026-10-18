@@ -118,9 +118,20 @@ AWS ap-south-1, the same region).
   walkthrough is not reset under them. The node is deleted in the same query that claims the reset, so several
   function instances never reset twice (`api/main.py` `auto_reset`).
 - **Keep-alive.** FalkorDB Cloud stops a free instance that is not used for a day and deletes it after 7 days, with
-  no persistence or backups (R21). A GitHub Actions schedule ([`.github/workflows/keepalive.yml`](.github/workflows/keepalive.yml))
-  calls `GET /cron/tick` every hour: one query against the graph, then the hourly reset check. The daily Vercel cron
-  (`/cron/reset`, 21:00 UTC, Hobby allows once a day) still resets everything once a day.
+  no persistence or backups (R21). A cron-job.org job calls `GET /cron/tick` every 10 minutes, and a GitHub Actions
+  schedule ([`.github/workflows/keepalive.yml`](.github/workflows/keepalive.yml)) calls it every hour as a backup:
+  a graph check, the reload below if needed, then the hourly reset check. The daily Vercel cron (`/cron/reset`,
+  21:00 UTC, Hobby allows once a day) still resets everything once a day.
+- **Self-healing after a database restart** ([`deploy/recover.py`](deploy/recover.py)). With no persistence, a restart
+  of the free instance can leave the graph empty. The demo graph counts as loaded only with its `:Meta {key: 'loaded'}`
+  marker (written last) and the bundled number of components (6,636). If not, `/cron/tick`, the function's cold start
+  and `/api/state` reload it from the bundled demo data (`data_demo/normalised`, `data_demo/identity`: the same load
+  as `deploy.load_cloud`), then store the precomputed critical nodes, run triage and recreate the empty memory graph.
+  The reload is 19 steps; each call runs as many as fit in its time budget (25-30 s, inside the 60 s function limit)
+  and the next call resumes. A lease in a separate graph (`northwind_restore`) makes sure only one instance reloads.
+  Meanwhile every API call answers `503 {"restarting": true}` and the site shows "The demo is restarting, back in
+  about a minute", asking again every 10 seconds (which also moves the reload on) and reloading the page when it is
+  back.
 - `GET /api/health` reports database connectivity and latency.
 - **No TLS.** FalkorDB Cloud's free tier does not offer TLS, so the live demo connects to the database
   unencrypted (username and password over plain TCP, Vercel `bom1` to AWS ap-south-1). That is acceptable only
@@ -147,7 +158,7 @@ docker compose up -d falkordb
 uv run python -m ingest.generate --seed 42 --out data/      # raw exports + connectors, ~15 s, ~390 MB
 uv run python -m ingest.connect --data data/                 # re-run the connectors alone
 uv run python -m ingest.load --data data/ --graph northwind --fresh
-uv run python -m pytest -q                                   # 127 tests; agent tests use a scripted fake LLM
+uv run python -m pytest -q                                   # 128 tests; agent tests use a scripted fake LLM
 uv run uvicorn api.main:app --port 8000
 ```
 
@@ -773,7 +784,7 @@ depend on a model.
 | GET | `/api/health` | Database connectivity and latency (503 when unreachable) |
 | POST | `/reset` | Public mode: undo every approval and restore the demo |
 | GET | `/cron/reset` | Same, for the daily Vercel cron (needs `Authorization: Bearer $CRON_SECRET`) |
-| GET | `/cron/tick` | Hourly keep-alive: one graph query, then the automatic reset if the demo has been dirty for an hour and idle for 10 minutes |
+| GET | `/cron/tick` | Keep-alive: reloads the demo graph if a restart emptied it, then the automatic reset if the demo has been dirty for an hour and idle for 10 minutes |
 | GET | `/api/state` | Mode, data version, AI status and agent spend for the UI |
 | POST | `/agent/investigate` | Run the Change Guardian on a change or a symptom; streams JSON lines (steps, verdict) |
 | GET | `/agent/memory?components=`, `/agent/investigations`, `/agent/actions` | What the agent remembers, its past runs, the actions it took |
@@ -854,9 +865,11 @@ Every decision is logged in [DECISIONS.md](docs/records/DECISIONS.md), including
 - `algo.betweenness` closed the connection on FalkorDB Cloud's free instance once (it restarted, data intact), so the
   cloud never runs it: `deploy/critical.py` computes the top 10 on a local copy of the demo subset and stores it as
   `:Meta {key: 'critical'}`, which `critical_nodes` reads first. Locally it runs live.
-- The free FalkorDB Cloud instance has no persistence or backups. The hourly keep-alive stops it being stopped for
-  inactivity; if it is ever lost, the demo is restored by re-running `uv run python -m deploy.load_cloud`. GitHub runs
-  scheduled workflows on a best-effort basis (they can start late) and pauses them after 60 days without commits.
+- The free FalkorDB Cloud instance has no persistence or backups. The keep-alive stops it being stopped for
+  inactivity, and the API reloads an emptied graph by itself; agent memory, today's spend and approvals are lost in a
+  restart (the demo comes back in its loaded state). If the instance itself is deleted (7 days unused), a new one
+  needs new credentials in Vercel and `uv run python -m deploy.load_cloud`. GitHub runs scheduled workflows on a
+  best-effort basis (they can start late) and pauses them after 60 days without commits.
 
 ## Prior art
 
@@ -878,7 +891,7 @@ ingest/               truth model, raw exporters, source connectors (sources/), 
 graph/                impact rules and Cypher queries
 agent/                LLM interface, tools, findings, approval, flows, prewarm
 api/                  FastAPI service
-deploy/               public deployment: cloud loader, cached AI answers (llm_cache/)
+deploy/               public deployment: cloud loader, self-healing reload (recover.py), cached AI answers (llm_cache/)
 .github/workflows/    hourly keep-alive for the live demo
 ui/                   the web UI (tokens.css, app.css, app.js, index.html; scale/ for the Scale tab)
 bench/                scale benchmark: code, RESULTS.md, charts/, results/ (raw JSON lines; archive/)

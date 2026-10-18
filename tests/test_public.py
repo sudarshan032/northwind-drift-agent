@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 
 import api.main as M
 from agent import llm as L
+from deploy import recover
 from tests.conftest import _load
 
 pytestmark = pytest.mark.falkordb
@@ -30,6 +31,7 @@ def public(drift_data, tmp_path_factory):
     data = str(tmp_path_factory.mktemp("pub") / "data")
     shutil.copytree(drift_data, data)
     ld = _load(data, "northwind_test_public")
+    recover.mark_loaded(ld.g, data)  # as deploy.load_cloud does
     runtime = str(tmp_path_factory.mktemp("pub_rt"))
     cache = str(tmp_path_factory.mktemp("pub_cache"))
     with open(os.path.join(cache, "models.json"), "w") as f:
@@ -127,3 +129,30 @@ def test_automatic_reset_hourly_and_cold_start(public):
     assert M.auto_reset(g) is None  # dirty for 12 minutes: the hourly check waits
     assert M.auto_reset(g, cold=True)["approvals_undone"] == 1  # a cold start restores it
     assert not g.query("MATCH (m:Meta {key: 'dirty'}) RETURN m").result_set
+
+
+def test_reload_after_database_restart(public):
+    """FalkorDB Cloud free tier: no persistence. An empty graph is reloaded from the bundled data, in steps,
+    behind a lock; meanwhile the API answers 503 "restarting" instead of errors."""
+    client, data, _, _ = public
+    client.post("/scan")
+    before = len(client.get("/findings?limit=500").json())
+    g = M.graph()
+    n = g.query("MATCH (c:Component) RETURN count(c)").result_set[0][0]
+    M._db.select_graph(M.GRAPH).delete()  # what a restart of the free instance leaves
+    M._ok_until[0] = 0.0
+    assert recover.state(M._db, M.GRAPH, data) == "missing"
+    first = M.restore(0)  # a tiny budget: one step per call, the rest at the next call
+    assert first["status"] == "restoring" and first["step"] == 1
+    assert recover.state(M._db, M.GRAPH, data) == "restoring"
+    r = client.get("/findings")
+    assert r.status_code == 503 and r.json() == {"restarting": True, "detail": M.RESTARTING}
+    held = recover._claim(M._db, M.GRAPH, "a")  # one instance holds the lease ...
+    assert held is not None and recover._claim(M._db, M.GRAPH, "b") is None  # ... a second one waits
+    M._db.select_graph(recover.lock_name(M.GRAPH)).query("MATCH (r:Restore) SET r.until = 0.0")  # lease ran out
+    t = client.get("/cron/tick").json()
+    assert t["status"] == "ok" and t["reloaded"] is True and t["components"] == n and t["memory_graph"] is True
+    assert recover.lock_name(M.GRAPH) not in M._db.list_graphs()
+    assert len(client.get("/findings?limit=500").json()) == before
+    assert client.post("/changes/CHG-HEADLINE/review").json()["facts"]["risk"] == "high"
+    assert client.get("/cron/tick").json()["reloaded"] is False  # healthy: nothing to do

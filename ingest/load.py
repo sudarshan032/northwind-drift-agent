@@ -103,9 +103,9 @@ def props(row, drop=()):
 class Loader:
     """Loads data/normalised (connector output) and data/identity (declared IAM)."""
 
-    def __init__(self, data, graph, host="localhost", port=6379, batch=BATCH):
+    def __init__(self, data, graph, host="localhost", port=6379, batch=BATCH, db=None):
         self.data = data
-        self.db = connect(host, port)  # FALKORDB_USERNAME / PASSWORD / TLS from the environment
+        self.db = db or connect(host, port)  # FALKORDB_USERNAME / PASSWORD / TLS from the environment
         self.g = self.db.select_graph(graph)
         self.batch = batch
         self.unresolved = Counter()
@@ -315,6 +315,11 @@ class Loader:
         impact.build(self.g)
 
     # ---- driver ----------------------------------------------------------
+
+    def prepare(self):
+        """State the steps share, so a load can also run one step at a time (deploy.recover)."""
+        self.aliases, self.unregistered = {}, {}
+        self.cis = {r["name"]: r for r in read_csv(self.norm("cmdb_ci.csv"))}
 
     def load(self):
         t0 = time.time()

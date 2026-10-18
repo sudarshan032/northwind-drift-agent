@@ -23,8 +23,9 @@ async function api(path, opts = {}) {
       : "The API is not reachable. Start the stack with docker compose up, then reload this page.");
   }
   if (!r.ok) {
-    let detail = "";
-    try { detail = (await r.json()).detail; } catch (e) { /* not JSON */ }
+    let detail = "", body = null;
+    try { body = await r.json(); detail = body.detail; } catch (e) { /* not JSON */ }
+    if (r.status === 503 && body && body.restarting) { restarting(body.detail); throw new ApiError(body.detail); }
     if (r.status >= 500) throw new ApiError(MODE === "public" ? "The demo database did not answer in time. Please try again in a moment."
       : "FalkorDB is not reachable or a query failed. Start it with docker compose up, then reload.");
     throw new ApiError(typeof detail === "string" ? detail : `Request failed (${r.status}).`);
@@ -32,6 +33,17 @@ async function api(path, opts = {}) {
   return r.json();
 }
 function banner(msg) { const b = $("#banner"); b.textContent = msg; b.hidden = !msg; }
+// The database restarted empty and the server is reloading the demo (deploy/recover.py): say so, ask again every
+// 10 s (each call also moves the reload on), and reload the page once it is back.
+let restartPoll = null;
+function restarting(msg) {
+  banner(msg);
+  if (restartPoll) return;
+  restartPoll = setInterval(async () => {
+    try { const r = await fetch("/api/state", { cache: "no-store" }); if (r.ok) { clearInterval(restartPoll); location.reload(); } }
+    catch (e) { /* keep waiting */ }
+  }, 10000);
+}
 
 const WHEN = new Intl.DateTimeFormat(undefined, { weekday: "short", day: "numeric", month: "short", hour: "2-digit",
                                                   minute: "2-digit", timeZoneName: "short" });

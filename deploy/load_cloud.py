@@ -115,6 +115,9 @@ def main():
         timings[cid] = {"peak_mb": pk, "risk": r["facts"]["risk"], "real": r["facts"]["real"], "declared": r["facts"]["declared"],
                         "cached_ai": r["notice"] is None, "seconds": round(time.perf_counter() - t, 2)}
     report["reviews"] = timings
+    from deploy import recover
+    recover.mark_loaded(g, a.data)  # the API's self-healing check (deploy.recover) treats it as fully loaded
+    recover.ensure_memory(db, "northwind_memory" if a.graph == "northwind" else f"{a.graph}_memory")
     report["memory_after_queries"] = memory(db, [a.graph])
     serving = max([tri_peak] + [r["peak_mb"] for r in timings.values()])
     report["fits_free_tier"] = {"limit_mb": FREE_TIER_MB, "steady_mb": report["memory_after_queries"]["used_memory_mb"],
