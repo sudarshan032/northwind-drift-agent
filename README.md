@@ -3,7 +3,7 @@
 **Change Guardian** (this repository: `northwind-drift-agent`) is an AI agent on FalkorDB that checks IT changes
 against what systems actually do, so a "low-risk" patch that really reaches 51 hospitals is caught before it runs.
 
-**Live demo:** https://change-guardian.vercel.app · **Video:** https://youtu.be/FjRZv8ZxBCE · **Blog:** _(link to be added)_ ·
+**Live demo:** https://change-guardian.vercel.app · **Video:** https://youtu.be/FjRZv8ZxBCE · **Blog:** https://dev.to/sudarshan032/change-guardian-the-ai-agent-that-finds-what-your-it-map-forgot-1m06 ·
 **MCP server:** `https://change-guardian.vercel.app/mcp`
 
 ## Rules checklist
