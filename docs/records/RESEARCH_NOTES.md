@@ -406,6 +406,15 @@ Checked 2026-10-16 against the docs and the live instance (AWS ap-south-1).
   (`total_graph_sz_mb`, matrices, node and edge blocks and attributes, indices).
   https://docs.falkordb.com/commands/graph.memory.html
 
+- **Inactivity (re-checked 18 Oct).** The free-tier page still says free instances not used for 1 day are stopped
+  and deleted after 7 days, with no persistence or backups, so data on a deleted instance cannot be recovered.
+  https://docs.falkordb.com/cloud/free-tier , https://docs.falkordb.com/cloud/tiers/free . Hence the hourly
+  keep-alive (DECISIONS #99).
+- **GitHub Actions `schedule`** (used for the keep-alive): "can be delayed during periods of high loads", runs only
+  on the default branch, shortest interval 5 minutes, and "in a public repository, scheduled workflows are
+  automatically disabled when no repository activity has occurred in 60 days."
+  https://docs.github.com/en/actions/writing-workflows/choosing-when-your-workflow-runs/events-that-trigger-workflows
+
 ## R22. OpenAI gpt-6-luna and the Responses API (16 Oct 2026)
 - **Model page** (https://developers.openai.com/api/docs/models/gpt-6-luna): model ID `gpt-6-luna`; $0.10 per 1M
   input tokens, $0.01 cached input, $0.50 output; 1,050,000-token context (128,000 max output); Responses and Chat

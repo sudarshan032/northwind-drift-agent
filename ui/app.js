@@ -1131,7 +1131,7 @@ async function loadScale() {
   };
   const v = (x, t = ms(x)) => ({ v: x, t });
   out.innerHTML = `
-    <p class="sec-lede">At ${(t.nodes / 1e6).toFixed(2)} million components, walking dependencies is much faster in FalkorDB;
+    <p class="sec-lede">At ${(t.nodes / 1e6).toFixed(2)} million nodes, walking dependencies is much faster in FalkorDB;
       the final report with every detail is faster in PostgreSQL; using both is fastest for big changes. Both systems
       gave identical answers in every case. These are recorded results from one laptop, not computed live.</p>
     <div class="bench-grid">${BENCH.map((b) => `<figure class="bars">${barsSVG([b], out.clientWidth > 700 ? (out.clientWidth - 24) / 2 : out.clientWidth)}<figcaption class="bars-cap">${esc(b.cap)}</figcaption></figure>`).join("")}</div>
@@ -1395,7 +1395,7 @@ const TOUR = [
       const small = matchMedia("(max-width: 960px)").matches;
       return (small ? $("#path-list .rel.observed")?.closest("li") : $("#canvas .e-observed_only")?.closest(".edge")) || $(".dep");
     } },
-  { title: "The fix", text: "The agent proposes adding the 51 missing relationships. Approve it, and the change is re-reviewed with the true impact. Reset demo puts it back.",
+  { title: "The fix", text: "The finding proposes adding the 51 missing relationships. Approve it, and the change is re-reviewed with the true impact. Reset demo puts it back.",
     go: async () => {
       showTab("findings");
       history.replaceState(null, "", "#findings");

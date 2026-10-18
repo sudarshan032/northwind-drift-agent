@@ -107,6 +107,12 @@ CACHE = {"versioned": "public, max-age=3600, s-maxage=86400, stale-while-revalid
 @app.middleware("http")
 async def server_timing(request, call_next):
     r = {"db": 0.0, "v": request.query_params.get("v"), "cache": None, "stored": None}
+    if _cold[0] and PUBLIC and not request.url.path.startswith(("/static/", "/cron/")):
+        import asyncio
+        try:  # a dirty demo left behind by an earlier instance is restored before the first answer
+            await asyncio.to_thread(auto_reset, graph(), True)
+        except Exception as e:  # never block the request on it
+            log.warning("cold-start reset check failed: %s", type(e).__name__)
     tok = _req.set(r)
     t = time.perf_counter()
     try:
@@ -145,6 +151,31 @@ def bump(g):
     g.query("MERGE (m:Meta {key: 'version'}) SET m.v = $v", {"v": v})
     g.query("MATCH (s:Stored) DELETE s")
     return v
+
+
+# Automatic demo reset (public mode). Every write a visitor can make (approve, reject, a live agent run) marks the
+# demo dirty in a `:Meta {key: 'dirty'}` node (first and last write). `auto_reset` restores the demo once it has been
+# dirty for an hour, or on a cold start; it waits until nobody has written for IDLE_S so a visitor's walkthrough is
+# not reset under them. The node is deleted in the same query that claims the reset, so concurrent instances
+# (Vercel runs several) reset at most once.
+RESET_EVERY_S = 3600
+IDLE_S = 600
+
+
+def touch(g):
+    g.query("MERGE (m:Meta {key: 'dirty'}) ON CREATE SET m.since = $t SET m.last = $t", {"t": time.time()})
+
+
+def auto_reset(g, cold=False):
+    """Reset if dirty and due (dirty for RESET_EVERY_S, or on a cold start) and idle for IDLE_S; else None."""
+    t = time.time()
+    claimed = g.query("MATCH (m:Meta {key: 'dirty'}) WHERE m.last <= $idle AND ($cold OR m.since <= $due) "
+                      "DELETE m RETURN count(m)",
+                      {"idle": t - IDLE_S, "due": t - RESET_EVERY_S, "cold": cold}).result_set
+    if not claimed or not claimed[0][0]:
+        return None
+    log.warning("automatic demo reset (%s)", "cold start" if cold else "hourly")
+    return reset_demo()
 
 
 def stored(g, key, fn):
@@ -300,6 +331,7 @@ def approve(fid: str, d: Decision | None = None):
     if res.get("error"):
         raise HTTPException(404 if res["error"] == "no such finding" else 409, res)
     learn(g, fid, "approve", (d or Decision()).approver)
+    touch(g)
     bump(g)
     return res
 
@@ -313,6 +345,7 @@ def reject(fid: str, d: Decision | None = None):
     if res.get("error"):
         raise HTTPException(404, res)
     learn(g, fid, "reject", d.approver, d.reason)
+    touch(g)
     bump(g)
     return res
 
@@ -579,6 +612,8 @@ def reset_demo(scope="all"):
         approval.revert(g, log["ops"])
     g.query("MATCH (r:Record) DELETE r")
     g.query("MATCH (f:Finding) DETACH DELETE f")
+    if scope == "all":  # "data" keeps memory, so the demo stays dirty until memory is cleared too
+        g.query("MATCH (m:Meta {key: 'dirty'}) DELETE m")
     impact.build(g)
     res = flows.triage(g, llm(), rejected=memory().rejected())
     bump(g)
@@ -599,6 +634,21 @@ def cron_reset(authorization: str | None = Header(default=None)):
     if not secret or authorization != f"Bearer {secret}":
         raise HTTPException(401, "cron secret required")
     return reset_demo()
+
+
+@app.get("/cron/tick")
+def cron_tick():
+    """Hourly keep-alive and reset check (GitHub Actions schedule; Vercel Hobby crons run once a day). Public and
+    safe to call: it reads one count, and resets only a demo that has been dirty for an hour and idle for 10 minutes
+    (POST /reset is public anyway). The query also keeps the FalkorDB Cloud free instance in use; free instances
+    unused for a day are stopped, and deleted after 7 days."""
+    if not PUBLIC:
+        raise HTTPException(409, "only in public mode")
+    g = graph()
+    n = g.query("MATCH (c:Component) RETURN count(c)").result_set[0][0]
+    res = auto_reset(g)
+    return {"status": "ok", "components": n, "reset": res is not None,
+            **({"approvals_undone": res["approvals_undone"]} if res else {})}
 
 
 _live = []
@@ -717,6 +767,7 @@ async def agent_investigate(body: Investigate, request: Request):
 
     async def events():
         if ok:
+            touch(g)  # a live run writes actions and memory
             async for e in guardian.investigate(g, mem, body.kind, trigger, live, mcp_tools.server,
                                                 charge=lambda usd: spend.charge(g, usd)):
                 yield json.dumps(e, default=str) + "\n"

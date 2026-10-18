@@ -106,3 +106,24 @@ def test_public_approve_reset_no_files(public):
     assert g.query("MATCH (x:UnregisteredEndpoint {name: 'cardiorisk.example.com'}) RETURN count(x)").result_set[0][0] == 1
     assert {f["status"] for f in client.get("/findings?limit=500").json()} == {"open"}
     assert os.listdir(runtime) == [] and _hash_tree(data) == before_data
+
+
+def test_automatic_reset_hourly_and_cold_start(public):
+    client, _, _, _ = public
+    g = M.graph()
+    client.post("/scan")
+    f = next(f for f in client.get("/findings?limit=500").json() if f["type"] == "D5")  # a CMDB patch
+    assert client.post(f"/findings/{f['id']}/approve").status_code == 200
+    assert client.get("/cron/tick").json()["reset"] is False  # dirty, but not yet an hour old
+    assert M.auto_reset(g, cold=True) is None  # cold start, but someone wrote in the last 10 minutes
+    t = M.time.time()
+    g.query("MATCH (m:Meta {key: 'dirty'}) SET m.since = $s, m.last = $l", {"s": t - 3700, "l": t - 700})
+    r = client.get("/cron/tick").json()
+    assert r["status"] == "ok" and r["reset"] is True and r["approvals_undone"] == 1
+    assert g.query("MATCH (r:Record) RETURN count(r)").result_set[0][0] == 0
+    assert client.get("/cron/tick").json()["reset"] is False  # clean: nothing to do
+    assert client.post(f"/findings/{f['id']}/approve").status_code == 200
+    g.query("MATCH (m:Meta {key: 'dirty'}) SET m.since = $t, m.last = $t", {"t": M.time.time() - 700})
+    assert M.auto_reset(g) is None  # dirty for 12 minutes: the hourly check waits
+    assert M.auto_reset(g, cold=True)["approvals_undone"] == 1  # a cold start restores it
+    assert not g.query("MATCH (m:Meta {key: 'dirty'}) RETURN m").result_set

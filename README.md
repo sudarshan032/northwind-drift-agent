@@ -1,4 +1,54 @@
-# Change Guardian: an AI agent on FalkorDB that catches what the CMDB misses
+# Change Guardian
+
+**Change Guardian** (this repository: `northwind-drift-agent`) is an AI agent on FalkorDB that checks IT changes
+against what systems actually do, so a "low-risk" patch that really reaches 51 hospitals is caught before it runs.
+
+**Live demo:** https://change-guardian.vercel.app · **Video:** _(link to be added)_ · **Blog:** _(link to be added)_ ·
+**MCP server:** `https://change-guardian.vercel.app/mcp`
+
+## Rules checklist
+
+| Required item | Where |
+|---|---|
+| Setup instructions | [Run](#run) (Docker, one command) and [Deploy your own](#deploy-your-own-vercel-hobby--falkordb-cloud-free-tier) |
+| Graph data model | [Graph data model](#graph-data-model) (Mermaid diagram, node and edge tables), loader [`ingest/load.py`](ingest/load.py) |
+| Cypher queries and graph algorithms | [Cypher the product depends on](#cypher-the-product-depends-on) (BFS, shortest path, betweenness, variable-length paths); all queries in [`graph/queries.py`](graph/queries.py), impact layer in [`graph/impact.py`](graph/impact.py) |
+| Why FalkorDB | [Why FalkorDB is essential](#why-falkordb-is-essential) |
+| Demo video | _(link to be added)_ |
+| Deployment | https://change-guardian.vercel.app ([Live demo](#live-demo): Vercel + FalkorDB Cloud) |
+| Hackathon tracks | [Hackathon tracks](#hackathon-tracks) |
+| AI disclosure | [AI disclosure](#ai-disclosure) |
+
+## Check it in 5 minutes
+
+1. **Open https://change-guardian.vercel.app and press "Watch it review a change".** A six-step guided tour replays a
+   recorded agent run on the headline change (about 1 minute).
+2. **Review a change → `CHG-HEADLINE`.** The CMDB says patching `dc1-host-07` touches 4 components and one
+   business service; the graph says 107 components, 51 hospitals, 51 Emergency departments: risk **high**. Open
+   `CHG0031513` (emr-app) for the control: low risk, CMDB and reality agree.
+3. **Press "Ask the agent to review".** Every step streams: the MCP tool it chose, why, the result, time and cost.
+   The public site allows a few live runs per visitor per day under a $1 daily cap; after that it replays the
+   recorded run and says so.
+4. **Findings → open the first finding (51 hidden links to `lrc-db-01`) → "Approve CMDB update"**, then review
+   `CHG-HEADLINE` again: the risk drops to low, because the CMDB now records the 51 links. **Reset demo** (header)
+   puts everything back; the demo also resets itself (see [Live demo](#live-demo)).
+5. **Call the graph tools yourself** (18 read-only MCP tools, no key):
+
+   ```bash
+   curl -s https://change-guardian.vercel.app/mcp -H 'Content-Type: application/json' \
+     -H 'Accept: application/json, text/event-stream' \
+     -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"radius","arguments":{"component":"dc1-host-07","layer":"real"}}}'
+   ```
+
+   Then read [`graph/impact.py`](graph/impact.py) (the impact rules, about 90 lines) and the queries quoted in
+   [Cypher the product depends on](#cypher-the-product-depends-on).
+
+**Accuracy, measured against an answer key:** precision and recall 100% on 109 planted drifts, 0 false positives on
+the 4 failover traps (and all 6 naming mismatches resolved to the right CI), on both the full data and the demo
+subset (`tests/test_queries.py`, `tests/test_views.py`; answer key `ground_truth.json`, catalogue in
+[Drift catalogue](#drift-catalogue)). The agent itself: 7 of 9 scenarios correct ([Agent](#agent-agent)).
+
+## What it does
 
 An AI agent that checks IT changes against what systems actually do. Demo hospital: Northwind Health (fictional).
 
@@ -12,7 +62,7 @@ logins prove. It finds the drift, computes the real blast radius of a change, an
 > are represented. Users are pseudonymous IDs; there are no names, emails or patients. City names are real
 > places used only as locations.
 
-![Change review of CHG-HEADLINE: "This change reaches 51 hospitals. The CMDB knows about none of them."](docs/screenshots/demo-2-high.png)
+![Change review of CHG-HEADLINE: "This change reaches 51 hospitals. The CMDB knows about none of them."](docs/screenshots/final-design/change-1440-light.png)
 
 **The demo moment.** `CHG-HEADLINE` patches and reboots host `dc1-host-07`. The CMDB says that touches 4
 components and one business service, LIS reporting, so the change is low risk. The graph shows otherwise.
@@ -21,6 +71,31 @@ Emergency department stages messages in it. The real radius is 51 routes, 51 hos
 and the Emergency care business service, so the risk is **HIGH**. The CMDB also names the wrong team: the
 database moved to the Hyderabad integration team.
 
+## Why FalkorDB is essential
+
+The product is a comparison of two graphs on the same nodes (what the CMDB declares, what the evidence shows),
+walked many hops deep. Take FalkorDB out and this is what goes with it:
+
+- **The impact layer** ([`graph/impact.py`](graph/impact.py)). Two derived edge types, `IMPACTS_DECLARED` and
+  `IMPACTS_REAL`, are built by Cypher `MATCH … MERGE` rules over declared structure and observed traffic, on the
+  same `:Component` nodes. Every blast radius, risk verdict and hidden-link count reads them. Without a graph store
+  they become a hand-maintained closure table that must be rebuilt on every approval.
+- **Traversals and algorithms in one call** ([`graph/queries.py`](graph/queries.py)): `algo.bfs` for the blast
+  radius (`RADIUS`), `shortestPath` for the explanation path the UI highlights (`PATH`), variable-length patterns for
+  protection gaps (`D9`, `STORES_ON|OBSERVED_BACKUP_TO|OBSERVED_REPLICATES_TO*1..6`) and common causes (`SHARED`,
+  `IMPACTS_REAL*1..6`), and `algo.betweenness` for single points of failure (`CRITICAL`). The headline (host → VM →
+  database → 51 routes → 51 Emergency departments → Emergency care) is one BFS over one edge type.
+- **The memory graph** ([`agent/memory.py`](agent/memory.py)). The agent's investigations, steps, decisions and the
+  facts people confirmed or rejected live in a second graph (`northwind_memory`) in the same FalkorDB instance,
+  using FalkorDB's multi-graph support; facts point at components by name (`:Ref`), and triage reads rejected facts
+  so it does not re-raise them.
+- **The MCP tools** ([`agent/mcp_tools.py`](agent/mcp_tools.py)). All 18 read-only tools the agent chooses from (and
+  that `/mcp` serves to any client) are thin wrappers over those Cypher queries, each with a LIMIT and a 5-second
+  timeout. The agent's reasoning is only as good as these one-call graph answers.
+
+The [benchmark](bench/RESULTS.md) measures scale trade-offs against a tuned PostgreSQL (where each is faster, how
+much memory each needs); it does not test whether the product needs a graph, which follows from the model above.
+
 ## Live demo
 
 **https://change-guardian.vercel.app** (the earlier address https://northwind-drift-agent.vercel.app still works; Vercel Hobby, function in `bom1` Mumbai; FalkorDB Cloud free tier in
@@ -28,14 +103,24 @@ AWS ap-south-1, the same region).
 
 - It runs the demo subset (all 51 hospitals, the full drift catalogue, 6,636 components) in public mode
   (`DEPLOY_MODE=public`): nothing is generated on startup and nothing is written to disk.
-- AI text is **cached only**: answers recorded with free models are bundled read-only (`deploy/llm_cache/`) and
-  shown as "Cached AI explanation". Anything not in the bundle shows the rule-based explanation with "No cached AI
-  explanation for this request". No model is called, so the demo costs nothing and cannot run out of requests.
+- **The agent runs live** (OpenAI `gpt-6-luna`) for a few runs per visitor per day (`AGENT_VISITOR_RUNS`, default 5)
+  under one daily dollar cap for the whole site (`AGENT_DAILY_USD`, $1.00). Past either limit, or when no key is set,
+  it replays the recorded run for that change or incident, labelled "Recorded run". The guided tour always replays.
+- **Explanations and suggested chat questions are cached:** answers recorded once with `python -m agent.prewarm`
+  are bundled read-only (`deploy/llm_cache/`) and shown as "Cached AI explanation"; anything not in the bundle shows
+  the rule-based explanation with a notice. Free-text chat questions get a small live allowance (15 a day for the site, 3 per visitor) under the same cap.
 - Approvals work: a CMDB update changes the graph (the demo's CMDB), and tickets, notifications, the audit trail and
   an undo log are stored as `:Record` nodes in FalkorDB. **Reset demo** (header button, `POST /reset`) undoes every
-  approval from the undo log, clears the records, rebuilds the impact layer and re-runs triage. A daily Vercel
-  cron (`/cron/reset`, 21:00 UTC, Hobby allows once a day) does the same, which also keeps the free instance from
-  being stopped for inactivity.
+  approval from the undo log, clears the records and the agent's memory, rebuilds the impact layer and re-runs triage.
+- **Automatic reset.** Every visitor write (approve, reject, a live agent run) marks the demo dirty
+  (`:Meta {key: 'dirty'}`). The demo resets itself once it has been dirty for an hour, and on a cold start of the
+  function if an earlier instance left it dirty; both wait until nobody has written for 10 minutes, so a visitor's
+  walkthrough is not reset under them. The node is deleted in the same query that claims the reset, so several
+  function instances never reset twice (`api/main.py` `auto_reset`).
+- **Keep-alive.** FalkorDB Cloud stops a free instance that is not used for a day and deletes it after 7 days, with
+  no persistence or backups (R21). A GitHub Actions schedule ([`.github/workflows/keepalive.yml`](.github/workflows/keepalive.yml))
+  calls `GET /cron/tick` every hour: one query against the graph, then the hourly reset check. The daily Vercel cron
+  (`/cron/reset`, 21:00 UTC, Hobby allows once a day) still resets everything once a day.
 - `GET /api/health` reports database connectivity and latency.
 - **No TLS.** FalkorDB Cloud's free tier does not offer TLS, so the live demo connects to the database
   unencrypted (username and password over plain TCP, Vercel `bom1` to AWS ap-south-1). That is acceptable only
@@ -50,9 +135,9 @@ open http://localhost:8000    # UI; FalkorDB browser on http://localhost:3000
 ```
 
 Everything works without an API key: detection, blast radius, change review, findings, approvals and the UI.
-For the live agent (LLM explanations, incident investigation, judgement, chat), copy `.env.example` to `.env`
-and set `OPENROUTER_API_KEY` for free models (see [Using free models](#using-free-models)), or
-`LLM_PROVIDER=anthropic` with `ANTHROPIC_API_KEY` (model `NORTHWIND_MODEL`, default `claude-sonnet-5-5`).
+For the live agent and the AI explanations, copy `.env.example` to `.env` and set `OPENAI_API_KEYS` (default
+provider, see [AI models and cost](#ai-models-and-cost)); OpenRouter free models and the Anthropic API are optional
+alternatives.
 
 Development:
 
@@ -62,7 +147,7 @@ docker compose up -d falkordb
 uv run python -m ingest.generate --seed 42 --out data/      # raw exports + connectors, ~15 s, ~390 MB
 uv run python -m ingest.connect --data data/                 # re-run the connectors alone
 uv run python -m ingest.load --data data/ --graph northwind --fresh
-uv run python -m pytest -q                                   # 102 tests; agent tests use a scripted fake LLM
+uv run python -m pytest -q                                   # 127 tests; agent tests use a scripted fake LLM
 uv run uvicorn api.main:app --port 8000
 ```
 
@@ -87,8 +172,8 @@ uv run uvicorn api.main:app --port 8000
    `.vercelignore` keeps the 390 MB data set out of the upload. The entrypoint is `index.py`.
 6. Check `https://<project>.vercel.app/api/health`: `"db": "connected"`.
 
-To refresh the cached AI answers: run the demo flows locally with a free OpenRouter key (`python -m agent.prewarm`),
-then `python -m deploy.bundle_cache` and redeploy.
+To refresh the cached AI answers: run `python -m agent.prewarm` locally with an OpenAI key, then
+`python -m deploy.bundle_cache --from runtime/llm_cache_openai` and redeploy.
 
 ## Architecture
 
@@ -105,18 +190,21 @@ flowchart LR
   L --> G[(FalkorDB: declared · evidence ·<br/>reconciliation layers)]
   I[graph/impact.py] --> G
   Q[graph/queries.py detectors, radius,<br/>change review, protection, access] --> G
-  A[agent/ LangGraph flows] --> Q
-  A -.-> C[Claude or FakeLLM]
+  A[agent/ Change Guardian tool loop<br/>+ LangGraph flows] -->|MCP tools| Q
+  A -.-> C[OpenAI gpt-6-luna,<br/>cached answers or FakeLLM]
+  A -->|memory| M[(FalkorDB: northwind_memory)]
   P[api/main.py] --> A
   P --> Q
   U[ui/ tokens, app.css, app.js] --> P
-  P -->|approve: CMDB patch| CM[CMDB export + declared edges]
-  P -->|approve: ticket| T[tickets.jsonl]
+  P -->|approve: CMDB patch| CM[declared edges<br/>+ CMDB export locally]
+  P -->|approve: ticket| T[tickets: runtime/ locally,<br/>:Record nodes in public mode]
 ```
 
-The LLM never writes to the CMDB or to declared edges. It reads through fixed, parameterised Cypher tools and
-writes only `:Finding` nodes and mock pages. A CMDB change happens only when a human approves a finding's
-proposed patch; everything else becomes a ticket. Approval re-runs the detector and appends to `runtime/audit.jsonl`.
+The LLM never writes to the CMDB or to declared edges. It reads through fixed, parameterised Cypher tools; its
+actions write only records (change notes, CAB review requests, owner notifications, tickets) and flag existing
+findings. A CMDB change happens only when a human approves a finding's proposed patch; everything else becomes a
+ticket. Approval re-runs the detector and appends to the audit trail (`runtime/audit.jsonl` locally, `:Record` nodes
+in public mode).
 
 ## Where the data comes from
 
@@ -189,26 +277,91 @@ runs, logins and lag values never go into the CMDB (`agent/approval.validate` re
 | D12 access drift | `sn_si_incident` |
 
 Tickets are ServiceNow-shaped JSON (`table`, `short_description`, `cmdb_ci`, `assignment_group`, `priority`,
-`category`, `description` with evidence and sources) appended to `runtime/tickets.jsonl`; there is no real ticketing
+`category`, `description` with evidence and sources) appended to `runtime/tickets.jsonl` (in public mode, `:Record` nodes in the graph); there is no real ticketing
 integration.
 
-## Data model
+## Graph data model
 
-The graph keeps three layers apart (every node and edge has a `layer` property):
+One FalkorDB graph (`northwind`) keeps three layers apart; every node and edge has a `layer` property. Every CI is a
+`:Component` plus a class label (ServiceNow / CSDM classes). The diagram shows the main shapes; solid = declared in
+the CMDB, dashed = evidence from a discovery source, thick = derived by [`graph/impact.py`](graph/impact.py).
 
-| Layer | Contents | Graph |
-|---|---|---|
-| **CMDB (declared)** | the `cmdb_export` connector's tables and the IAM export | `:Component` + class label, `:Site`, `:Department`, `:SupportGroup`, `:Change`, `:User`, `:Group`, `:Role`; `CONTAINS`, `DEPENDS_ON {failover}`, `RUNS_ON`, `STORES_ON`, `REPLICATES_TO`, `BACKED_UP_BY`, `CONNECTS_THROUGH`, `LOCATED_AT`, `IN_DEPARTMENT`, `MANAGED_BY`, `MEMBER_OF`, `HAS_ROLE`, `GRANTS`, `TARGETS` |
-| **Evidence (discovered / observed)** | normalised connector output, each item with `source`, `source_record`, first/last seen and measurements | `:Discovered`, `:UnregisteredEndpoint`; `OBSERVED_CALLS {source}`, `OBSERVED_NETFLOW {port}`, `OBSERVED_REPLICATES_TO`, `OBSERVED_BACKUP_TO {job_type}`, `OBSERVED_ACCESS {action}`, `OBSERVED_OWNER` |
-| **Reconciliation** | identification, analysis and findings | `IDENTIFIES {matched_by}`, `IMPACTS_*` / `AFFECTS_*`, `:Finding`, `ABOUT` |
+```mermaid
+flowchart LR
+  BS[BusinessService] -->|CONTAINS| SO[ServiceOffering]
+  SO -->|CONTAINS| IF[Interface HL7]
+  APP[Application] -->|CONTAINS| IF
+  IF -->|DEPENDS_ON| APP
+  APP -->|DEPENDS_ON| DB[Database]
+  APP -->|RUNS_ON| VM
+  DB -->|RUNS_ON| VM
+  VM -->|RUNS_ON| H[Host]
+  H -->|STORES_ON| SA[StorageArray]
+  DB -->|STORES_ON| SA
+  SA -->|REPLICATES_TO| SA
+  DB -->|BACKED_UP_BY| BT[BackupTarget]
+  MD[MedicalDevice] -->|DEPENDS_ON| APP
+  MD -->|CONNECTS_THROUGH| ND[NetworkDevice]
+  IF -->|IN_DEPARTMENT| DEP[Department]
+  ST[Site] -->|CONTAINS| DEP
+  CH[Change] -->|TARGETS| H
+  SG[SupportGroup]
+  APP -->|MANAGED_BY| SG
+  U[User] -->|MEMBER_OF| GR[Group] -->|HAS_ROLE| RO[Role] -->|GRANTS| DB
+  IF -.->|OBSERVED_CALLS| DB
+  MD -.->|OBSERVED_NETFLOW| APP
+  DB -.->|OBSERVED_BACKUP_TO| BT
+  SG -.->|OBSERVED_OWNER| DB
+  U -.->|OBSERVED_ACCESS| DB
+  DI[Discovered] -.->|IDENTIFIES| H
+  UE[UnregisteredEndpoint] -.->|OBSERVED_NETFLOW| APP
+  H ==>|IMPACTS_REAL| VM
+  DB ==>|IMPACTS_REAL| IF
+  IF ==>|AFFECTS_REAL| DEP
+  F[Finding] -->|ABOUT| DB
+```
 
-Classes follow ServiceNow and CSDM: Business Service (`cmdb_ci_service_business`), Service Offering
-(`service_offering`, the 51 per-hospital ED critical-results services, contained by `svc-emergency-care`),
-Application, Interface (HL7), Database, Virtual Machine, Server, Storage Array, Backup Target, Network Device,
-Medical Device, Endpoint / Endpoint Group. Offerings and business services are counted separately everywhere.
-Relationship names: Contains, Depends on, Runs on, Stored on, Replicates to, Backed up by, Connects to.
+Counts are from the full data set (seed 42; 49,217 nodes, 144,016 edges including the derived impact layer). The
+public demo loads a subset (all 51 hospitals, both data centres, the full drift catalogue; 6,636 components).
 
-The full data set has about 49k nodes and 142k edges.
+**Nodes**
+
+| Label | Layer | Count | What it is |
+|---|---|---|---|
+| `:Component` | CMDB | 21,772 | every CI; also carries one class label below, `name`, `status`, `site`, `support_group`, `handles_phi`, `patient_safety_impact`, `aliases` |
+| `:BusinessService`, `:ServiceOffering` | CMDB | 12, 204 | CSDM services; offerings are per hospital (ED critical results, Lab results, Imaging, Patient monitoring) |
+| `:Application`, `:Interface`, `:Database` | CMDB | 270, 253, 79 | apps, HL7 interfaces (`ORU-CRIT-H03`, …), databases (`lrc-db-01`) |
+| `:VM`, `:Host`, `:StorageArray`, `:BackupTarget` | CMDB | 247, 186, 39, 3 | infrastructure (`dc1-host-07`) |
+| `:NetworkDevice`, `:MedicalDevice`, `:Endpoint`, `:EndpointGroup`, `:ExternalService` | CMDB | 9,758, 2,275, 1,664, 6,778, 4 | the rest of the estate |
+| `:Site`, `:Department`, `:SupportGroup` | CMDB | 1,857, 3,526, 64 | hospitals, clinics, data centres; departments; teams |
+| `:Change` | CMDB | 22 | change requests (`CHG-HEADLINE`, `CHG0031513`) |
+| `:User`, `:Group`, `:Role` | CMDB (IAM) | 4,261, 6,118, 20 | pseudonymous users and their grants |
+| `:Discovered` | evidence | 11,576 | discovery-scanner records (hostname, serial, IP, OS) |
+| `:UnregisteredEndpoint` | evidence | 1 | traffic to something the CMDB does not know (the D14 FHIR app) |
+| `:Finding` | reconciliation | 59 after triage | a drift finding with evidence, sources and a proposed patch or ticket |
+| `:Record`, `:Meta`, `:Stored`, `:AgentSpend` | runtime (public mode) | small | tickets, notes, audit and undo log; data version; stored answers; daily spend |
+
+**Edges**
+
+| Type | Layer | Count | From → to | Meaning |
+|---|---|---|---|---|
+| `CONTAINS` | CMDB | 4,411 | service → offering/app/interface, app → interface, site → department | structure |
+| `DEPENDS_ON {failover}` | CMDB | 3,570 | app/interface/device → app/database | declared dependency; `failover: true` never carries impact |
+| `RUNS_ON`, `STORES_ON` | CMDB | 644, 178 | app/db → VM → host → array | hosting |
+| `REPLICATES_TO`, `BACKED_UP_BY` | CMDB | 12, 136 | array → array, db/app → backup target | declared protection |
+| `CONNECTS_THROUGH`, `LOCATED_AT`, `IN_DEPARTMENT`, `MANAGED_BY` | CMDB | 18,796, 21,772, 11,007, 21,772 | | network path, site, department, owning team |
+| `MEMBER_OF`, `HAS_ROLE`, `GRANTS`, `TARGETS` | CMDB | 4,261, 6,118, 117, 22 | user → group → role → CI; change → CI | access grants, change targets |
+| `OBSERVED_CALLS {source, days, count, p95_ms}` | evidence | 993 | app/interface → app/db | APM spans and interface-engine channels |
+| `OBSERVED_NETFLOW {port, days}` | evidence | 2,628 | device → app | netflow |
+| `OBSERVED_BACKUP_TO`, `OBSERVED_REPLICATES_TO` | evidence | 400, 12 | db/app → target, array → array | backup sessions, replica links |
+| `OBSERVED_ACCESS {action}`, `OBSERVED_OWNER` | evidence | 9,780, 14,415 | user → app/db; team → CI | sign-ins and audit; who really resolves incidents |
+| `IDENTIFIES {matched_by}` | reconciliation | 11,566 | discovered → CI | identification rule used (serial, name, IP) |
+| `IMPACTS_DECLARED`, `IMPACTS_REAL {rule}` | derived | 5,188, 5,236 | a → b: "if a fails, b is impacted" | the two blast-radius layers |
+| `AFFECTS_DECLARED`, `AFFECTS_REAL {rule}` | derived | 491, 491 | interface → consumer app / department | terminal impact (does not propagate) |
+| `ABOUT` | reconciliation | | finding → CI | what a finding is about |
+
+The agent's memory is a second graph, `northwind_memory`: `(:Investigation)-[:HAS_STEP]->(:Step)`,
+`(:Investigation)-[:DECIDED]->(:Decision)`, `(:Fact)`, `(:Feedback)`, each `-[:ABOUT]->(:Ref {name})`.
 
 **Why declared and evidence stay separate.** The gap between them is the product. Keeping both on the same nodes
 makes "in the CMDB but never seen" and "seen but never declared" a single pattern match each.
@@ -220,7 +373,7 @@ impacted": runs on, stored on, depends on and observed calls propagate; a route 
 source; a business service or offering is impacted when anything it contains is. Health checks, failover links and
 calls into telemetry sinks never carry impact.
 
-**The UI** (`ui/`, designed to [UI_SPEC.md](docs/specs/UI_SPEC.md); plan and self-critique notes in [docs/design/ui-plan.md](docs/design/ui-plan.md)) answers "is this
+**The UI** (`ui/`; current design in [docs/design/DESIGN_FINAL_SPEC.md](docs/design/DESIGN_FINAL_SPEC.md), earlier [UI_SPEC.md](docs/specs/UI_SPEC.md)) answers "is this
 change safe, and if not, what is the CMDB missing and who do I warn?". Every screen uses the same two colours for
 the two records of the hospital: blue for what the CMDB declares, red for evidence that contradicts it. The change
 review opens with a verdict sentence computed from the counts ("This change reaches 51 hospitals. The CMDB knows
@@ -233,7 +386,7 @@ dotted = in the CMDB with no evidence, dash-dot blue = failover; impact is a red
 says toggle. Every box and line is keyboard-focusable with a tooltip (source, counts, days seen, first and last
 seen). Findings are a filterable table with a drawer (evidence, path, before/after diff or ticket preview,
 "Approve CMDB update" / "Create ticket"). On phones the graph becomes the impact path as a list. Screenshots of
-every tab, light and dark, 1440 and 390 px: `docs/screenshots/`; the old UI: `docs/screenshots/before/`.
+every page, light and dark, 1440 and 390 px: `docs/screenshots/final-design/`; earlier designs in `docs/screenshots/`.
 
 ## Drift catalogue
 
@@ -256,10 +409,124 @@ These cases are injected on purpose and recorded in `data/ground_truth.json`.
 | D13 | Naming mismatch (must resolve to the same CI, not be flagged) | 5 |
 | D14 | Unregistered SMART on FHIR app used by H17 cardiology | 1 |
 
-The Cypher detectors return exactly the ground-truth keys, on both the full data and the demo subset. A
-pure-Python oracle (`tests/helpers/oracle.py`) checks the same rules independently.
+**Measured against an answer key:** precision and recall 100% on 109 planted drifts (the D1 headline counts as its
+51 links), 0 false positives on the 4 failover traps, and all 6 naming-mismatch pairs resolved to the same CI, on
+both the full data and the demo subset (`tests/test_queries.py`, `tests/test_views.py`). The answer key is
+`ground_truth.json`, written by the generator; a pure-Python oracle (`tests/helpers/oracle.py`) checks the same rules
+independently. This shows the detectors implement the catalogue on this synthetic data, not how they would score on
+a real CMDB.
 
-## Cypher queries (`graph/queries.py`)
+## Cypher the product depends on
+
+The eight queries below carry the product; each is quoted from the file it runs from.
+
+**1. Build the impact layers** ([`graph/impact.py#L39-L81`](graph/impact.py#L39-L81)). One rule list per layer;
+each rule becomes a `MERGE` of a derived edge. The `real` layer adds observed traffic, for example the rule that
+finds the headline (an interface that writes into a database depends on it):
+
+```cypher
+MATCH (a)-[e:OBSERVED_CALLS]->(b:Interface) WHERE NOT coalesce(e.health_check, false)
+WITH DISTINCT a, b WHERE a <> b
+MERGE (a)-[e:IMPACTS_REAL]->(b) SET e.rule = coalesce(e.rule, 'feeds_route')
+```
+
+**2. Blast radius with BFS** ([`graph/queries.py#L48-L66`](graph/queries.py#L48-L66)), `$rel` = `IMPACTS_DECLARED`
+or `IMPACTS_REAL`; the change review runs it twice and compares:
+
+```cypher
+MATCH (f:Component {name: $name})
+CALL algo.bfs(f, $depth, $rel) YIELD nodes
+UNWIND nodes AS n
+WITH DISTINCT n
+OPTIONAL MATCH (n)-[:%(term)s]->(t)
+OPTIONAL MATCH (n)-[:IN_DEPARTMENT]->(nd:Department)
+OPTIONAL MATCH (n)-[:LOCATED_AT]->(ns:Site)
+UNWIND [CASE WHEN t:Department THEN t END, nd] AS d
+OPTIONAL MATCH (ds:Site)-[:CONTAINS]->(d)
+UNWIND [ds, ns] AS s
+WITH collect(DISTINCT n) AS hit, collect(DISTINCT CASE WHEN NOT t:Department THEN t.name END) AS consumers,
+     collect(DISTINCT d.id) AS departments,
+     collect(DISTINCT CASE WHEN s.type ENDS WITH 'hospital' THEN s.id END) AS hospitals
+RETURN [x IN hit | {name: x.name, label: [l IN labels(x) WHERE l <> 'Component'][0],
+                    safety: x.patient_safety_impact}] AS impacted,
+       consumers, departments, hospitals
+```
+
+**3. The path that explains it** ([`graph/queries.py#L99-L104`](graph/queries.py#L99-L104)), drawn in the UI and
+quoted by the agent:
+
+```cypher
+MATCH (a:Component {name: $src}), (b {name: $dst})
+WITH a, b, shortestPath((a)-[:%(rel)s*..10]->(b)) AS p
+WHERE p IS NOT NULL
+RETURN [n IN nodes(p) | coalesce(n.name, n.id)] AS nodes, [e IN relationships(p) | e.rule] AS rules
+```
+
+**4. Undocumented dependency, D1** ([`graph/queries.py#L162-L172`](graph/queries.py#L162-L172)): traffic on at least
+3 distinct days with no declared dependency either way (`_FLAT` / `_DAYS` merge the per-message-type day lists):
+
+```cypher
+MATCH (a:Component)-[o:OBSERVED_CALLS|OBSERVED_NETFLOW]->(b:Component)
+WHERE NOT coalesce(o.health_check, false)
+WITH a, b, collect(o.days) AS dl, collect(DISTINCT o.source) AS sources
+WITH a, b, sources, {_FLAT} AS flat
+WITH a, b, sources, {_DAYS} AS days WHERE size(days) >= $min_days
+OPTIONAL MATCH (a)-[dep:DEPENDS_ON]-(b)
+WITH a, b, days, sources, count(dep) AS declared WHERE declared = 0
+RETURN ['undocumented', a.name, b.name] AS key, size(days) AS days_seen, sources
+ORDER BY key LIMIT $limit
+```
+
+**5. Protection gap, D9** ([`graph/queries.py#L219-L231`](graph/queries.py#L219-L231)): a patient-data system that
+claims an offsite backup, but no storage, backup or replication path of up to 6 hops leaves its site:
+
+```cypher
+MATCH (c:Component)
+WHERE c.status = 'operational' AND c.handles_phi = true AND c.backup_offsite = true
+      AND c.backup_policy IS NOT NULL
+OPTIONAL MATCH p = (c)-[:STORES_ON|OBSERVED_BACKUP_TO|OBSERVED_REPLICATES_TO*1..6]->(x:Component)
+WHERE x.site <> c.site
+      AND all(r IN relationships(p) WHERE type(r) <> 'OBSERVED_BACKUP_TO' OR r.last_success IS NOT NULL)
+WITH c, count(x) AS offsite WHERE offsite = 0
+OPTIONAL MATCH (c)-[b:OBSERVED_BACKUP_TO]->(t)
+WITH c, collect(t.name) AS backup_targets
+RETURN ['protection', c.name] AS key, c.site AS site, backup_targets ORDER BY key LIMIT $limit
+```
+
+**6. Common cause of a multi-site incident** ([`graph/queries.py#L483-L491`](graph/queries.py#L483-L491)): every
+component that all the affected routes need. For "ED critical results delayed at H03, H17 and H22" that is 200 rows
+(central apps, databases, hosts, arrays); `lrc-db-01` and `dc1-host-07` are among them, and the incident flow then
+narrows them down with the changes on those components and the impact path:
+
+```cypher
+MATCH (x)-[:IMPACTS_REAL*1..6]->(r:Interface)
+WHERE r.name IN $routes
+WITH x, collect(DISTINCT r.name) AS hits
+WHERE size(hits) = size($routes)
+RETURN x.name AS component, [l IN labels(x) WHERE l <> 'Component'][0] AS label, x.site AS site,
+       x.patient_safety_impact AS safety
+ORDER BY label, component LIMIT $limit
+```
+
+**7. Single points of failure** ([`graph/queries.py#L422-L427`](graph/queries.py#L422-L427)), seeded so the top 10 is
+the same every run (on FalkorDB Cloud the result is precomputed, see [Known limits](#known-limits)):
+
+```cypher
+CALL algo.betweenness({nodeLabels: $labels, relationshipTypes: ['OBSERVED_CALLS'], samplingSize: 5000,
+                       samplingSeed: 42})
+YIELD node, score
+RETURN node.name AS name, [l IN labels(node) WHERE l <> 'Component'][0] AS label, score
+ORDER BY score DESC, name LIMIT $limit
+```
+
+**8. What the agent remembers** ([`agent/memory.py#L107-L116`](agent/memory.py#L107-L116)), on the memory graph:
+
+```cypher
+MATCH (f:Fact)-[:ABOUT]->(r:Ref) WHERE r.name IN $n
+RETURN DISTINCT f.statement, f.status, f.source, f.time, f.finding ORDER BY f.time DESC LIMIT $l
+```
+
+### All queries (`graph/queries.py`)
 
 | Query | One line |
 |---|---|
@@ -292,30 +559,26 @@ Every agent tool query has a LIMIT and a 5-second timeout; a timeout returns "qu
 raising. FalkorDB runs with a 10-second default query timeout. On the full graph the heaviest query, D12, takes
 about 0.55 s.
 
-## Why a graph
+## Benchmark: FalkorDB vs PostgreSQL at scale
 
-- **Multi-hop paths across layers.** Host → VM → database → 51 routes → 51 Emergency departments → Emergency
-  care is one traversal, mixing declared structure and observed traffic.
-- **Two edge layers on the same nodes.** "Declared but never observed" and "observed but never declared" are
-  each a single pattern. A blast radius computed on declared edges only can be compared with one on observed
-  edges, on the same nodes.
-- **Built-in algorithms.** BFS for the radius, shortest paths for the explanation, betweenness for single points
-  of failure. A seeded run gives the same top 10 every time.
-
-**Does it hold up at scale? Measured, not assumed** (`bench/RESULTS.md`). The same blast-radius questions ran on
+**Does it hold up at scale? Measured, not assumed** ([bench/RESULTS.md](bench/RESULTS.md)). This measures scale
+trade-offs, not whether the product needs a graph (see [Why FalkorDB is essential](#why-falkordb-is-essential)). The same blast-radius questions ran on
 FalkorDB and on a tuned PostgreSQL 18 (recursive CTE, prepared statements, the right indexes), on the same impact
 edges, from 49k to 3.47M nodes (1,989 hospitals), in 4 GB / 4-CPU containers on one laptop. Both returned
 identical answers in every case.
 
 ![Traversal and full radius time vs size](bench/charts/time-vs-size-light.png)
 
-- **Traversal: FalkorDB pulls ahead as the radius grows.** For the largest radius (105,713 components at 3.47M
-  nodes) one BFS call takes 203 ms against 375 ms for the recursive query.
-- **The full question, end to end: PostgreSQL is 2-3x faster at every size** (908 ms against 1,882 ms for that
-  radius; the headline change review 31 ms against 82 ms). Much of FalkorDB's time is the Python client decoding
-  the nested result: 756 ms is spent in the database.
-- **Under load, FalkorDB has the steadier tail** (p95 1.7 s against 4.4 s at 100 clients on 3.47M nodes), PostgreSQL
-  the higher throughput (142 against 87 queries/s) and the lower median.
+- **Traversal: FalkorDB is much faster inside the database.** For the largest radius (105,713 components at 3.47M
+  nodes) one BFS takes 38 ms in FalkorDB against 357 ms for PostgreSQL's recursive query, and FalkorDB is 2-13x
+  faster server side in every traversal case. End to end from Python with compiled reply parsers on both sides
+  (hiredis, psycopg's C extension): 56 against 375 ms.
+- **The full question, end to end: PostgreSQL is faster** (traversal plus consumers, departments and hospitals:
+  1,324 against 908 ms at the largest radius, 60 against 30 ms for `dc1-host-07`, with hiredis). Splitting the job
+  (FalkorDB traverses, PostgreSQL joins the details) was fastest for big radii (714 against 944 ms, measured
+  without hiredis); for small radii PostgreSQL alone wins.
+- **Under load, FalkorDB has the steadier tail** (p95 1.7 s against 4.4 s at 100 clients on 3.47M nodes, measured
+  without hiredis), PostgreSQL the higher throughput (142 against 87 queries/s) and the lower median.
 
 ![p95 latency vs concurrent clients](bench/charts/concurrency-p95-light.png)
 
@@ -324,7 +587,7 @@ identical answers in every case.
 
 So the case for the graph here is the model and the questions (layers on the same nodes, one-call traversals,
 graph algorithms), with traversal speed that holds up; it is not a blanket speed win over a well-tuned SQL
-database at these sizes.
+database at these sizes. PostgreSQL also loads faster (23 s with COPY against 45 s with FalkorDB's bulk loader).
 
 ## Agent (`agent/`)
 
@@ -345,18 +608,20 @@ evidence}`. Every step streams to the "Agent investigation" panel (tool, why, re
     Responses API)                                          protection_check, access_check, shared_dependencies,
         │                                                   changes_on, critical_nodes, get_component, get_change,
         │                                                   get_neighbourhood, search_components, findings_about,
-        │                                                   unregistered_app_path, recall
+        │                                                   stale_links, findings_by_type, unregistered_app_path, recall
         ├──▶ action tools (agent/actions.py): add_change_note, request_cab_review, notify_owner,
         │    propose_cmdb_fix (approval-gated), open_ticket ──▶ written to `northwind` at once
         ├──▶ verdict ──▶ grounding checks (numbers, CI names, most-specific shared dependency) ──▶ or rule-based
         └──▶ memory graph `northwind_memory`: Investigation, Step, Decision, Fact, Feedback ──▶ `recall` next time
 ```
 
-- **MCP.** The read-only tools are an MCP server: streamable HTTP at `/mcp` (live:
+- **MCP.** The 18 read-only tools are an MCP server: streamable HTTP at `/mcp` (live:
   `https://change-guardian.vercel.app/mcp`) and stdio (`uv run python -m agent.mcp_tools`). The agent itself
   selects tools through an MCP client connected to the same server. Action tools are not on the MCP server.
-- **Memory.** Approving a finding writes a confirmed Fact, rejecting it a rejected Fact (`northwind_memory`,
-  per-user graphs `northwind_memory_<user>` with `?user=`). The agent recalls them; triage does not re-raise a
+- **Memory.** Approving a finding writes a confirmed Fact, rejecting it a rejected Fact, in one shared memory graph
+  (`northwind_memory`); the UI uses only this one. (The API also accepts a `user` field that keeps a caller's
+  investigation history in its own graph, `northwind_memory_<user>`; approvals always go to the shared graph, and
+  the UI does not use it.) The agent recalls them; triage does not re-raise a
   finding a person rejected unless its evidence changed. Try: approve the headline finding, press "Reset data, keep
   memory", and review CHG-HEADLINE again: the panel shows that a person confirmed 51 hidden links to `lrc-db-01`.
 - **Cost.** Each call is priced from its token counts ($0.10 / $0.50 per 1M input / output tokens for
@@ -434,8 +699,8 @@ These are LangGraph flows over the Cypher tools:
    or "possible security risk, escalate". The reasons are stored on the finding.
 5. **Chat** answers only through tools, cites paths, and says so when nothing was found.
 
-All tests use a deterministic scripted LLM, so no key is needed. Live providers: OpenRouter free models
-(OpenAI-compatible API, `agent/llm.py`) or Claude through the official `anthropic` SDK with refusal fallback.
+All tests use a deterministic scripted LLM, so no key is needed. Live providers (`agent/llm.py`): OpenAI
+`gpt-6-luna` (default), OpenRouter free models, or Claude through the official `anthropic` SDK.
 Each job has a request cap: triage 1 (the top-10 explanations are one batched call), change review 1,
 incident at most 6, chat at most 4 per message. The model is told its budget, and the last allowed call has
 tools disabled and gets the gathered evidence as text, so it must answer; if it cannot, a rule-based summary of
@@ -457,7 +722,7 @@ fixed. It is not an agent tool because no decision depends on it.
   every answer is traceable: each step shows the tool, why, the result, time and cost, and the verdict is checked
   against the tool results.
 - **Track 2: memory and shared state.** A separate memory graph across sessions (`northwind_memory`, one per CMDB
-  graph, per-user graphs with `?user=`) holds investigations, steps, decisions, facts and feedback. The agent learns
+  graph, shared by everyone using the demo) holds investigations, steps, decisions, facts and feedback. The agent learns
   from people: approvals become confirmed facts it recalls in later reviews, rejections become facts that stop triage
   from re-raising the same finding.
 - **Track 3: who owns what, decisions traced to sources.** Observed vs declared ownership (who really resolves
@@ -508,6 +773,11 @@ depend on a model.
 | GET | `/api/health` | Database connectivity and latency (503 when unreachable) |
 | POST | `/reset` | Public mode: undo every approval and restore the demo |
 | GET | `/cron/reset` | Same, for the daily Vercel cron (needs `Authorization: Bearer $CRON_SECRET`) |
+| GET | `/cron/tick` | Hourly keep-alive: one graph query, then the automatic reset if the demo has been dirty for an hour and idle for 10 minutes |
+| GET | `/api/state` | Mode, data version, AI status and agent spend for the UI |
+| POST | `/agent/investigate` | Run the Change Guardian on a change or a symptom; streams JSON lines (steps, verdict) |
+| GET | `/agent/memory?components=`, `/agent/investigations`, `/agent/actions` | What the agent remembers, its past runs, the actions it took |
+| GET, POST | `/mcp` | The read-only MCP server (streamable HTTP) |
 | GET | `/llm` | LLM provider, models and remaining free requests today |
 | POST | `/scan` | Run triage |
 | GET | `/findings`, `/findings/{id}` | List findings, or one finding with its before/after diff |
@@ -533,15 +803,40 @@ Real vendor product names appear only as device models. Addresses are RFC 1918 p
 documentation addresses for SaaS. Realism choices (device counts, HL7 types, DICOM, backup tiers, ServiceNow
 classes) are sourced in [RESEARCH_NOTES.md](docs/records/RESEARCH_NOTES.md).
 
-## AI-usage disclosure
+## AI disclosure
 
-The code, data generator, tests and documentation were written with an AI coding assistant working from the
-author's specifications ([docs/specs/](docs/specs/README.md)). Independent AI reviews checked
-the result against those specifications. The author designed the scenario, the drift catalogue and the
-specifications, and reviews the output.
+<!-- Draft written from the repository's records; the author edits the personal parts. -->
 
-Every decision is logged in [DECISIONS.md](docs/records/DECISIONS.md). The running agent uses OpenRouter free models or Claude through the
-Anthropic API when a key is configured.
+**Tools used to build it**
+
+- **Claude Code** (Anthropic's coding agent) wrote the code, the data generator, the tests, the benchmark harness, the
+  UI and most of the documentation, working from the author's specifications in [docs/specs/](docs/specs/README.md)
+  and [docs/design/](docs/design/), one milestone at a time. It also ran the clean-room verifications, the benchmark
+  runs, the agent evaluations and the deployments, and kept the records ([DECISIONS.md](docs/records/DECISIONS.md),
+  [PROGRESS.md](docs/records/PROGRESS.md), [RESEARCH_NOTES.md](docs/records/RESEARCH_NOTES.md)).
+- **Independent AI review passes** (separate agent sessions) checked the data against the specifications; their
+  findings and fixes are in DECISIONS #33 and #34.
+- **At runtime**, the product calls OpenAI `gpt-6-luna` for the Change Guardian, the finding explanations and chat
+  (earlier versions used OpenRouter free models). The public site's explanations are recorded answers; its agent runs
+  live within a daily cap. Detection, blast radius and risk never depend on a model.
+
+**What the author did**
+
+- **Chose the problem**: CMDB drift and change risk in a hospital system, and the headline: a "low-risk" patch whose
+  real reach is 51 Emergency departments, found from the interface engine's channel configuration.
+- **Designed the data**: the fictional Northwind Health world and its scale, the drift catalogue D1-D14 with its
+  traps (failover links that must not be flagged, naming mismatches that must resolve), the answer key, and the
+  rule that every input is a real tool's export format. Later data decisions (for example the per-hospital service
+  offerings, DECISIONS #95) were the author's calls.
+- **Reviewed every output**: each milestone's code, numbers, screenshots and write-ups were reviewed before moving on,
+  and redirected where they were wrong or unclear.
+- **Investigated the benchmark**: asked for PostgreSQL to be tuned and given a fair chance, for results to be
+  reported where PostgreSQL wins, and followed up on the unexpected end-to-end numbers, which led to the client
+  overhead and hiredis experiments ([bench/RESULTS.md](bench/RESULTS.md)).
+- **Set the design direction**: the redesign and final design specifications (who the site is for, the landing
+  story, the plain-language copy, the visual system).
+
+Every decision is logged in [DECISIONS.md](docs/records/DECISIONS.md), including the ones the AI made on its own.
 
 ## Known limits
 
@@ -554,7 +849,14 @@ Anthropic API when a key is configured.
 - Fixes need human approval, because the observed layer can be wrong (aliases, transient traffic). Approval
   re-runs the detector to confirm the fix.
 - Re-seeding resets the graph and CSVs, so approvals do not survive `docker compose up`.
-- There is no auth and no multi-user support.
+- There is no auth and no multi-user support: the public demo is one shared state for every visitor (hence the
+  automatic reset).
+- `algo.betweenness` closed the connection on FalkorDB Cloud's free instance once (it restarted, data intact), so the
+  cloud never runs it: `deploy/critical.py` computes the top 10 on a local copy of the demo subset and stores it as
+  `:Meta {key: 'critical'}`, which `critical_nodes` reads first. Locally it runs live.
+- The free FalkorDB Cloud instance has no persistence or backups. The hourly keep-alive stops it being stopped for
+  inactivity; if it is ever lost, the demo is restored by re-running `uv run python -m deploy.load_cloud`. GitHub runs
+  scheduled workflows on a best-effort basis (they can start late) and pauses them after 60 days without commits.
 
 ## Prior art
 
@@ -577,6 +879,7 @@ graph/                impact rules and Cypher queries
 agent/                LLM interface, tools, findings, approval, flows, prewarm
 api/                  FastAPI service
 deploy/               public deployment: cloud loader, cached AI answers (llm_cache/)
+.github/workflows/    hourly keep-alive for the live demo
 ui/                   the web UI (tokens.css, app.css, app.js, index.html; scale/ for the Scale tab)
 bench/                scale benchmark: code, RESULTS.md, charts/, results/ (raw JSON lines; archive/)
 tests/                pytest suite; helpers/ holds the reference oracle, sanity queries, VERIFY generator

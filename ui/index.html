@@ -104,7 +104,7 @@
         <li><svg class="seq-ico" viewBox="0 0 32 32" aria-hidden="true"><rect x="7" y="4" width="18" height="24" rx="2"/><path d="M11 11h10M11 16h10M11 21h6"/></svg>
           <h3>Reads the records</h3><p>The <button type="button" class="term" data-term="cmdb">CMDB</button>: every system and the dependencies people wrote down.</p></li>
         <li><svg class="seq-ico" viewBox="0 0 32 32" aria-hidden="true"><circle cx="14" cy="14" r="8"/><path d="M20 20l7 7"/></svg>
-          <h3>Checks the evidence</h3><p>11 monitoring and discovery tools show what systems actually do.</p></li>
+          <h3>Checks the evidence</h3><p>10 discovery, monitoring and log sources show what systems actually do.</p></li>
         <li><svg class="seq-ico" viewBox="0 0 32 32" aria-hidden="true"><circle cx="7" cy="8" r="3.5"/><circle cx="25" cy="8" r="3.5"/><circle cx="16" cy="25" r="3.5"/><path d="M10 8h12M9 11l5 11M23 11l-5 11"/></svg>
           <h3>Walks the graph</h3><p>Follows every dependency, many steps deep, in FalkorDB.</p></li>
         <li><svg class="seq-ico" viewBox="0 0 32 32" aria-hidden="true"><path d="M6 17l6 6 14-14"/></svg>
@@ -135,9 +135,9 @@
     <section class="l-sec why" aria-labelledby="l-why">
       <div class="l-text">
         <h2 id="l-why" class="l-title">Following dependencies is what graphs are built for.</h2>
-        <p class="l-body">At 3.5 million components, finding everything that depends on one storage array takes 38 ms in
-          FalkorDB and 357 ms in a tuned PostgreSQL. PostgreSQL is better at the final reporting step, so the fastest
-          design uses both.</p>
+        <p class="l-body">In a 3.5-million-node CMDB, finding the 105,713 components that depend on one storage array takes
+          38 ms inside FalkorDB and 357 ms inside a tuned PostgreSQL. PostgreSQL is faster at the final reporting step,
+          so for big changes the fastest design uses both.</p>
         <a class="link-a" href="#hood=benchmark">All measurements</a>
       </div>
       <figure class="l-visual"><div class="bars" id="bars-landing"></div></figure>
@@ -335,8 +335,8 @@
 
     <section class="h-sec" id="hood-sources" aria-labelledby="hs-h">
       <h2 id="hs-h" class="sec-title">Evidence sources</h2>
-      <p class="sec-lede">Eleven tools a real hospital already runs export what systems actually do. A connector per tool
-        turns its records into evidence, and everything lands in one graph next to the records.</p>
+      <p class="sec-lede">Eleven tools a real hospital already runs: the CMDB itself and ten that show what systems actually do.
+        A connector per tool turns its records into evidence, and everything lands in one graph next to the records.</p>
       <div class="pipeline" aria-hidden="true"><span>11 tools</span><span class="arrow-l"></span><span>connectors</span><span class="arrow-l"></span><span>one graph</span></div>
       <ul class="source-list" id="sources"></ul>
     </section>
