@@ -95,7 +95,7 @@ def memory_base():
 # it step by step from the bundled demo data; meanwhile API calls answer 503 {"restarting": true}.
 RESTARTING = "The demo is restarting, back in about a minute."
 UNREACHABLE = "The demo database is not answering. Please try again in a few minutes."
-OK_TTL_S = 30  # an instance re-checks the graph at most this often
+OK_TTL_S = 5  # an instance re-checks the graph at most this often (3 small queries)
 _ok_until = [0.0]
 
 
