@@ -62,3 +62,23 @@ CHECKPOINT LOG FILE
 [2026-10-16 03:06:40.145] [STEP] OpenRouter provider committed; 89 tests pass; live prewarm verified, cached rerun 0 requests
 [2026-10-16 03:26:09.380] [DONE] master = realism; clean-clone docker check passed (CHG-HEADLINE high, no key)
 [2026-10-16 04:45:41.201] [DONE] UI redesign merged; public deployment live on Vercel bom1 + FalkorDB Cloud; repo pushed (private)
+[2026-10-18 13:32:35.717] [SESSION_RESUME] Session resumed: Oct 16-18 work on the Change Guardian (agent v2, redesign, styling, final design)
+[2026-10-18 13:32:35.717] [SUMMARY] Done since the last entry, in order: AGENT_V2_SPEC (MCP tools, actions, memory graph, OpenAI gpt-6-luna with visible key fallback, cost cap); held-out evaluation 7/9; service-map fix; OpenAI for explanations and chat; tour replays the recorded run with 5 s heartbeats; REDESIGN_SPEC (five pages, landing story, Ask the agent, Under the hood); alias change-guardian.vercel.app (old URL kept); visual styling pass
+[2026-10-18 13:32:35.717] [USER] Implement docs/design/DESIGN_FINAL_SPEC.md on branch design-final: rewrite app.css first, then sections 2-7, checks in section 8; stop new items at 07:00 IST, production by 08:00 IST; send four screenshots
+[2026-10-18 13:32:35.717] [CHANGE] ui/app.css rewritten as one stylesheet (reset, base, frame primitives, components, pages, responsive); only !important is [hidden]
+[2026-10-18 13:32:35.717] [CHANGE] ui/tokens.css: new palette (#F2F5F8 page, #16202B ink, #2C5A8C blue, #B73228 red), frame-line, net colours, 60/36/18 px type, frame widths 1,280/1,440
+[2026-10-18 13:32:35.717] [CODE] ui/app.js: body[data-page] sets the frame width; netSVG() seeded margin network (mulberry32, seeds 42 and 7) with one dashed missing link; bars 24 px with bold values; the tour clears its inline position on phones
+[2026-10-18 13:32:35.717] [CHANGE] ui/index.html: equal moon and sun icons (20 px); centred problem section with 'one link missing'; trace caption '4 of 9 steps shown'; band classes removed
+[2026-10-18 13:32:35.717] [ERROR] Ghost link buttons lost their border (a.button specificity beat .ghost)
+[2026-10-18 13:32:35.717] [FIX] Shared button rule uses :where(a.button)
+[2026-10-18 13:32:35.717] [ERROR] Pages scrolled sideways 4 px (frame-edge nodes); chips on Ask widened the 390 px layout to 1,021 px
+[2026-10-18 13:32:35.717] [FIX] main overflow-x: clip once the frame touches the screen edges; chip-groups chips wrap
+[2026-10-18 13:32:35.717] [DECISION] DECISIONS #98 records the frame, network and header-alignment choices
+[2026-10-18 13:32:35.717] [OUTPUT] axe 0 serious on all pages and the tour, light and dark, 1440 and 390; tour 6/6 on desktop and phone; 126 tests pass
+[2026-10-18 13:32:35.717] [DONE] Production at 04:30 IST (commits ac25685 and 4f9eb4d); screenshots in docs/screenshots/final-design/
+[2026-10-18 13:32:35.717] [USER] Centre the text in the landing map boxes; fix slow data loading; the hero diagram should take the text column's height
+[2026-10-18 13:32:35.717] [NOTE] Timed production: every API call 0.1-0.3 s (about 1 s uncached), agent replay about 7 s by design; the slowness came from the browser fetching every page's data again on each visit
+[2026-10-18 13:32:35.717] [FIX] Versioned API answers now carry Cache-Control max-age=3600; the landing page prefetches changes, the CHG-HEADLINE review, findings, sources, benchmark and MCP tools
+[2026-10-18 13:32:35.717] [CHANGE] Map labels use text-anchor middle; .hero-fig uses contain: size with a 1fr row, so the diagram matches the text column's height (normal size on phones)
+[2026-10-18 13:32:35.717] [OUTPUT] 126 tests pass; axe 0 serious; tour passes
+[2026-10-18 13:32:35.717] [DONE] Deployed to production, commit 132876e on master and design-final; demo reset to 59 findings
