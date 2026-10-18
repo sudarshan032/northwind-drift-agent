@@ -126,7 +126,7 @@ For the headline change, the verdict is **high risk**, and it even catches a sec
 
 ![The verdict: high risk, who to warn and why, and the actions it took](images/08-verdict.png)
 
-Each investigation costs about **a fifth of a cent**.
+Each investigation costs **less than half a cent**.
 
 ## Why memory?
 
