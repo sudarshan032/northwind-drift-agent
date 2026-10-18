@@ -498,3 +498,13 @@ Clarified, not changed:
 - **Who drives it:** `/cron/tick` (30 s budget, cron-job.org every 10 min, GitHub hourly), the cold start and `/api/state` (25 s; the UI polls it every 10 s while restarting). Hence "back in about a minute" holds while a visitor is waiting. Other API calls answer 503 `{"restarting": true}`; an exception while the graph is gone is turned into the same 503. A FalkorDB that does not answer at all gives 503 "not answering" (no reload possible).
 - **Bundle:** `data_demo/normalised/*.gz` and `data_demo/identity/` (1.2 MB) are now deployed with the function.
 - **cron-job.org** added (owner's API key, not stored in the repository): it is more punctual than GitHub's best-effort schedule.
+
+## 101. Agent verdict: hidden links come from the tools (18 Oct, owner's request)
+- **Problem:** live headline reviews were rejected by the grounding check because the model invented link labels
+  ("interface-to-lrc-db-01") in `hidden_links`; the page then showed the rule-based review.
+- **Fix:** `hidden_links` is a direct tool result, so `agent/guardian.py` fills it from the `hidden_links` tool calls
+  ("src -> dst", in order) and drops it from the model's verdict schema. The prompt now says to use names exactly as
+  tool results give them and allows summaries ("51 hidden links to lrc-db-01") but no invented identifiers.
+- **Not loosened:** everything the model writes (root cause, reasons, warn, actions) is still checked as before; a
+  test confirms an invented name in the reasons is still rejected.
+- **Result:** 3 of 3 live headline reviews accepted (high risk, 51 links), control CHG0031513 low; about $0.011.
